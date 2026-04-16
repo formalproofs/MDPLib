@@ -5,12 +5,11 @@
 % If you want to split the blueprint content into several files then
 % the current file can be a simple sequence of \input. Otherwise It
 % can start with a \section or \chapter for instance.
-
 \newcommand{\id}{\operatorname{id}}
 
 
 \begin{remark}
-This document omits basic intuitive definitions, such as the comparison or arithmetic operations on random variables. Arithmetic operations on random variables are performed element-wise for each element of the sample set. Please see the Lean file for complete details.
+This document omits basic definitions, such as the comparison or arithmetic operations on random variables. Arithmetic operations on random variables are performed element-wise for each element of the sample set. Please see the Lean file for complete details.
 \end{remark}
 
 
@@ -572,6 +571,52 @@ The following proof is simpler but may require some more advanced properties.
 &=  \sum_{x\in \mathcal{X}} x \cdot  \PP\left[\tilde{x} = x \right]  = \E \left[ \tilde{x} \right].
 \end{align*}
 \end{proof}
+
+
+%% -- Non-Degeneracy 
+\subsection{Non-Degeneracy}
+\begin{theorem}[Non-degeneracy of $L_1$-norm] \label{thm:non-degeneracy}
+Let $(\Omega,\mathcal{F},\PP)$ be a discrete probability space with $\Omega=\{\omega_1,\omega_2,\ldots\}$ countable, and let $p_i=P(\{\omega_i\})\geq0$ with $\sum_i p_i =1$. Let $X$ be a random variable with $X_i=X(\omega_i)$. Then
+\[
+\E[|X|]=0 \Longleftrightarrow \PP(\{\omega\in\Omega:X(\omega)=0\})=1.
+\]
+\end{theorem}
+
+\begin{proof}
+\textit{Proof of ($\Leftarrow$):} Assume $\PP(X=0)=1$.
+If $\PP(X=0)=1$, then $\PP(X\neq0)=0$.
+In discrete terms $p_i=0$ for all $\omega_i$ such that $X_i\neq0$.
+Now compute $\E[|X|]$ such that
+\[
+\E[|X|]=\sum_i |X_i| \cdot p_i.
+\]
+
+	Case 1: $X_i=0\Rightarrow |X_i|p_i=0\cdot p_i=0$.\\
+	Case 2: $X_i\neq0\Rightarrow p_i=0\Rightarrow |X_i|p_i=|X_i|\cdot0=0$.
+Every term is zero, so $\E[|X|]=0$.
+
+\textit{Proof of ($\Rightarrow$):} Assume $\E[|X|]=0$.
+We have
+\[
+\E[|X|]=\sum_i |X_i| \cdot p_i=0,
+\]
+where $|X_i|p_i\geq0$ for all $i$. For a sum of nonnegative terms to be zero, each term must be zero
+\[
+|X_i|p_i=0 \quad \text{for all } i.
+\]
+Thus, for each $i$, either $p_i=0$ or $|X_i|=0$ (i.e., $X_i=0$).
+Let $N=\{\omega_i:X_i\neq0\}$.
+For $\omega_i\in N$, we have $X_i\neq0\Rightarrow |X_i|\neq0\Rightarrow$ from $|X_i|p_i=0$ we must have $p_i=0$.
+Therefore:
+\[
+\PP(X\neq0)=\sum_{\omega_i\in N} p_i =\sum_{\omega_i\in N} 0=0.
+\]
+Thus $\P(X=0)=1-\PP(X\neq0)=1$. Hence, we conclude that 
+\[
+\E[|X|]=0 \Longleftrightarrow \PP(X=0)=1.
+\]
+\end{proof}
+
 
 \section{Formal Decision Framework}
 
@@ -1289,6 +1334,31 @@ A \emph{Markov policy Bellman operator} $L_k^{\pi}\colon \mathcal{V} \to \mathca
   \]
   %%\lean{MDPs.v_dp_π}\leanok
 \end{definition}
+
+\section{Probability Maticies}
+
+
+\begin{definition}
+A probability matrix $\bold{P}$ is defined as an $n \times n$ matrix with the properties:
+\begin{align*}
+	&\bold{P}_{ij} \geq 0 \quad \forall i,j \in \{1,2,\dots,n\} \\
+	&\bold{P}\bold{1} = \bold{1} 
+\end{align*}
+\end{definition}
+\begin{theorem}
+Let $\bold{d} \in \Delta^n$. Then
+\[
+\bold{d}^{T}\bold{P} \in \Delta^n
+\]
+\end{theorem}
+\begin{proof}
+Let $i \in \{1,2,\dots,n\}$ and $\bold{p} = \bold{d}^{T}\bold{P} $. Then $p_i = \bold{d}^{T}\bold{P}_i$ where $\bold{P}_i$ is the $i^{th}$ column of $\bold{P}$. Since all the elements of both $\bold{P}_i$ and $\bold{d}$ are non-negative, their inner product must also be non-negative. Since
+\begin{align*}
+	\bold{d}^{T}\bold{P}\bold{1} &= \bold{d}^{T}\bold{1} \\
+	&= 1~,
+\end{align*}
+$\bold{p}$ satisfies that its elements are non-negative and sum to 1 making it a member of $\Delta^n$
+\end{proof}
 
 %%% Local Variables:
 %%% coding: utf-8

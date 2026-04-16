@@ -1,4 +1,4 @@
-import Probability.Probability.Prelude
+import MDPLib.Probability.Prelude
 
 import Mathlib.Data.Matrix.Mul  -- dot product definitions and results
 import Mathlib.Algebra.Notation.Pi.Defs -- operations on functions
@@ -155,13 +155,19 @@ infix:50 "≥ᵣ" => FinRV.geq
 /-- Boolean random variable represening Y > y inequality -/
 infix:50 ">ᵣ" => FinRV.gt
 
+example (a b : ℕ) (h : a ≤ b +1) : (a ≤ b) ∨ (a = b + 1) := by exact Nat.le_or_eq_of_le_succ h
+
+lemma exclusion {a b : ℕ} (h : a > b + 1) : (a > b) ∧ ¬(a = b + 1) := 
+  ⟨ Nat.lt_of_succ_lt h, Ne.symm (Nat.ne_of_lt h) ⟩
+
 /-- Equivalence when extending the random variable to another element. -/
 theorem le_of_le_eq (D : FinRV n ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by
   funext x --extensionality principle for functions
   unfold FinRV.leq FinRV.eq instHAdd Add.add Pi.instAdd
-  simp [instBoolAdd]
-  have := Nat.lt_trichotomy (D x) (m+1)
-  grind only [cases Or]
+  rw [Pi.add_apply, bool_sum_or]
+  by_cases h : D x ≤ m.succ
+  · simp [h, Nat.le_or_eq_of_le_succ]
+  · simp [h, exclusion (Nat.not_le.mp h) ] 
 
 /-- Defines a preimage of an RV. This is a set with a decidable membership. -/
 def preimage (f : FinRV n ρ) : ρ → Set (Fin n) :=

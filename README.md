@@ -1,13 +1,68 @@
-# Basic Probability Formalization in Lean
+# Formalizing Markov Decision Processes in Lean
 
-[![Blueprint](https://img.shields.io/badge/Blueprint-WIP-blue)](https://formalproofs.github.io/probability)
+[![Blueprint](https://img.shields.io/badge/Blueprint-WIP-blue)](https://formalproofs.github.io/MDPLib)
 
-A lean proof that stationary policies can be optimal and can be computed using dynamic programming
+Verified Lean algorithms for solving tabular MDPs and proving their properties. The focus of this project is on two main goals:
 
-See <https://formalproofs.github.io/probability>
+1. Basic algorithms that can solve robust and risk-averse MDPs of moderate size. 
+
+2. Proofs of correctness of algorithms and fundamental MDP properties which can be used independently to prove structural results, such as the optimality of certain policy class.
 
 
-## Lean
+## Status
+
+
+### Basic probability properties
+
+- [x] Definitions: probability space and definition
+- [x] Definitions: probability, expectation, conditional properties
+- [ ] Independent of random variables
+- [x] Tower property, law of the unconscious statistician
+- [x] Quantile definition and basic properties
+- [ ] Quantile under monotone transformation
+
+
+### Value at Risk
+
+- [x] Definition (non-constructive)
+- [x] Practical implementation O(n^2) and correctness
+- [ ] Fast practical implementation O(n log n) and correctness
+- [x] VaR is positively homogeneous and monotone
+- [ ] VaR is translation (cash) invariant 
+- [ ] VaR under monotone transformation
+
+### MDP: Basics
+
+- [x] Definition of MDP 
+- [x] Definition of policies (history, Markov, stationary)
+- [ ] Definition of value function (history-dependent)
+
+
+### Finite Horizon
+
+- [x] Histories and manipulation
+- [ ] Probability space over histories
+- [ ] Return and optimal return using histories
+- [ ] History-dependent value function and dynamic program
+- [ ] Markov optimal value function and optimal policy 
+- [ ] DP algorithms
+
+### Risk-averse finite horizon
+
+- [ ] History-dependent utility functions
+- [ ] Augmented value function dynamic program 
+- [ ] VaR computation from utility function
+- [ ] VaR DP decomposition as in Hau et al., 2023
+
+### Discounted infinite horizon
+
+
+### Average reward horizon
+
+
+
+
+## Lean Resources
 
 
 ### Most useful

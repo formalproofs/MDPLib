@@ -16,7 +16,7 @@ import Mathlib.Data.NNReal.Basic
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Finset.Image
 
-import Probability.Probability.Basic
+import MDPLib.Probability.Basic
 
 namespace MDPs
 
@@ -388,10 +388,9 @@ theorem hist_horiz_exact (t : ℕ) (h : Hist M) (hh : h ∈ M.HistoriesHorizon t
 
 def MDP.HistoriesHorizonT (M : MDP) (t : ℕ) : Finset (M.HistT t) := 
     let H := M.HistoriesHorizon t 
-    let f : {h : Hist M // h ∈ H} → M.HistT t := 
-          fun hh => ⟨hh.1, hist_horiz_exact t hh.1 hh.2⟩
-    have finj : Injective f := 
-          by unfold Injective f; intro h₁ h₂ steq; rewrite [Subtype.eq_iff] at steq; simpa using steq 
+    let f : {h : Hist M // h ∈ H} → M.HistT t := fun hh => ⟨hh.1, hist_horiz_exact t hh.1 hh.2⟩
+    have finj : Injective f := by unfold Injective f;  intro h₁ h₂ steq; grind only 
+        -- TODO: this used to work instead of grind: rw [Subtype.ext_iff] at steq; simpa using steq 
     H.attach.map ⟨f, finj⟩
 
 theorem hist_horiz_complete_t (t : ℕ) (h : M.HistT t) : h ∈ M.HistoriesHorizonT t := by 

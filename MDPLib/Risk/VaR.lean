@@ -134,7 +134,7 @@ theorem isquantilelower_le_isquantile : IsCofinalFor (QuantileLower P X α.val) 
       · exfalso; exact false_of_lt_ge h2r h
 
 theorem isquantile_le_isquantilelower : IsCofinalFor (Quantile P X α.val) (QuantileLower P X α.val) :=
-    HasSubset.Subset.iscofinalfor quantile_subset_quantilelower
+    HasSubset.Subset.isCofinalFor quantile_subset_quantilelower
 
 theorem varq_eq_var : IsVaR_Q P X α v ↔ IsVaR P X α v := 
     ⟨fun h => ⟨varq_is_quantilelower h, (upperBounds_mono_of_isCofinalFor isquantilelower_le_isquantile) h.2⟩,

@@ -34,7 +34,7 @@ theorem nneg_dotProd_pos_ex_pos (h1 : ∀ ω, p ω ≥ 0) (h2 : ∀ ω, x ω ≥
   | succ n ih =>
     by_cases hn : x ⟨0, Nat.zero_lt_succ n⟩ > 0 
     · exact ⟨0, hn⟩
-    · push_neg at hn 
+    · push Not at hn 
       have hvh0 : 0 = vecHead x := le_antisymm (h2 0) hn
       rewrite [dotProduct_head_tail, ←hvh0] at h 
       obtain ⟨ω, hω⟩ := ih (Fin.tail h1) (Fin.tail h2) (by simpa [vecHead, vecTail] using h) 
@@ -141,7 +141,7 @@ theorem rv_le_step_lt_max (h0 : t < (FinRV.max P X)) : ∃q > t, (X ≤ᵣ t) = 
            have hxω : X ω ∉ 𝓨 := by
               by_contra! inY; exact false_of_le_gt (Finset.min'_le 𝓨 (X ω) inY) h2
            rw [Finset.mem_filter] at hxω
-           push_neg at hxω
+           push Not at hxω
            exact hxω (Finset.mem_image_of_mem X (Finset.mem_univ ω))
 
 theorem rv_le_step_lt (P : Findist n) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=

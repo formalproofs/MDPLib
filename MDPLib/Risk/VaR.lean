@@ -39,18 +39,6 @@ def FinVaR (P : Findist n) (X : FinRV n ℚ) (α : RiskLevel) : ℚ :=
    𝓢.max' h
 
 
-/- just messing around here, feel free to change, delete, etc. -/
---note, we can make a noncomputable section instead of individually marking them
-
-noncomputable def cdf_lt_R (P : Findist n) (X : FinRV n ℝ) (t : ℝ) : ℝ := ℙ[X <ᵣ t // P]
-
-noncomputable def FinVaR_R (P : Findist n) (X : FinRV n ℝ) (α : RiskLevel) : ℝ :=
-  sSup { t : ℝ | cdf_lt_R P X t ≤ α.val }
-
-
-
-/- ------------ -/
-
 
 /- just messing around here, feel free to change, delete, etc. -/
 --note, we can make a noncomputable section instead of individually marking them
@@ -101,7 +89,6 @@ theorem var_prob_cond : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α
          obtain ⟨q,hq⟩ := prob_le_step_lt P X v
          have h3 : q ∈ QuantileLower P X α.val := by
             rw [hq.2,prob_lt_of_ge] at hc
-            suffices ℙ[X≥ᵣq//P] ≥ 1 - α.val from this
             suffices ℙ[X≥ᵣq//P] ≥ 1 - α.val from this
             linarith
          exact false_of_le_gt (h.2 h3) hq.1

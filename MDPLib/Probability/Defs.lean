@@ -13,7 +13,7 @@ theorem false_of_le_gt {x y : ℚ} : x ≤ y → x > y → False :=
 
 theorem false_of_lt_ge {x y : ℚ} : x < y → x ≥ y → False :=
     fun h1 h2 => false_of_le_gt h2 h1
- 
+
 theorem bool_ineq {a b : Bool} (h : a → b) : (a ≤ b) := h
 
 theorem bool_eq {a b : Bool} (h1 : a → b) (h2 : b → a) : a = b := Bool.le_antisymm h1 h2
@@ -26,7 +26,7 @@ variable {n : ℕ}
 /-- Finite probability distribution -/
 structure Findist (n : ℕ) : Type where
     /-- Probaiblity measure -/
-    p : Fin n → ℚ   
+    p : Fin n → ℚ
     prob : 1 ⬝ᵥ p = 1
     nneg : 0 ≤ p
 
@@ -225,8 +225,8 @@ theorem rv_prod_sum_additive  : ∑ i, Y * (Xs i) = Y * (∑ i, Xs i) :=
 
 variable {g : Fin k → ℚ}
 
-theorem rv_prod_const : ∀i, (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) := 
-    by intro i; ext ω; by_cases h : L ω = i <;> simp [h] 
+theorem rv_prod_const : ∀i, (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) :=
+    by intro i; ext ω; by_cases h : L ω = i <;> simp [h]
 
 variable {β : Type}
 
@@ -245,7 +245,7 @@ def FinRV.max [DecidableEq β] [LinearOrder β] (P : Findist n) (X : FinRV n β)
 variable {X : FinRV n ℚ}
 
 
-theorem rv_omega_le_max (P : Findist n) : ∀ω, X ω ≤ (FinRV.max P X) := by 
+theorem rv_omega_le_max (P : Findist n) : ∀ω, X ω ≤ (FinRV.max P X) := by
        intro ω
        have h : X ω ∈ (Finset.image X Finset.univ) := Finset.mem_image_of_mem X (Finset.mem_univ ω)
        simpa using Finset.le_max' (Finset.image X Finset.univ) (X ω) h
@@ -254,7 +254,7 @@ theorem rv_omega_le_max (P : Findist n) : ∀ω, X ω ≤ (FinRV.max P X) := by
 end RandomVariable
 
 ------------------------------ Probability ---------------------------
-section Probability 
+section Probability
 
 variable {n : ℕ} (P : Findist n) (B C : FinRV n Bool)
 
@@ -297,7 +297,7 @@ variable {n : ℕ} {k : ℕ}  {L : FinRV n (Fin k)}
 variable {pmf : Fin k → ℚ} {P : Findist n}
 
 theorem pmf_rv_k_ge_1 (h : PMF pmf P L)  : 0 < k :=
-  match k with  
+  match k with
   | Nat.zero => Fin.pos <| L ⟨0,P.nonempty⟩
   | Nat.succ k₂ => Nat.zero_lt_succ k₂
 
@@ -311,6 +311,8 @@ variable {n : ℕ}
 
 def cdf (P : Findist n) (X : FinRV n ℚ) (t : ℚ) : ℚ := ℙ[X ≤ᵣ t // P]
 
+def cdf_lt (P : Findist n) (X : FinRV n ℚ) (t : ℚ) : ℚ := ℙ[X <ᵣ t // P]
+
 variable {P : Findist n} {X Y : FinRV n ℚ} {t t₁ t₂ : ℚ}
 
 
@@ -322,7 +324,7 @@ end CDF
 Definitions and main properties of the expectation operator
 
 Main results
-  - Monotonicity of expectations 
+  - Monotonicity of expectations
   - Correspondence between expectations and probabilities (indicator functions)
   - Decomposition with a discrete random variables, used in the proofs of LOTUS and TLE
 -/
@@ -379,13 +381,13 @@ theorem exp_const : 𝔼[(fun _ ↦ c) // P] = c :=
 theorem exp_one : 𝔼[ 1 // P] = 1  := exp_const
 
 theorem exp_cond_eq_def  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B) // P] :=
-  by unfold expect_cnd 
+  by unfold expect_cnd
      by_cases h: ℙ[B//P] = 0
      · rw [h, Rat.mul_zero]
-       unfold expect 
+       unfold expect
        rw [dotProd_hadProd_comm, dotProd_hadProd_rotate, prod_zero_of_prob_zero h]
-       exact (dotProduct_zero X).symm 
-     · simp_all 
+       exact (dotProduct_zero X).symm
+     · simp_all
 
 
 lemma constant_mul_eq_smul : (fun ω ↦ c * X ω) = c • X := rfl
@@ -400,9 +402,9 @@ theorem exp_indi_eq_exp_indr : ∀i : Fin k, 𝔼[L =ᵢ i // P] = 𝔼[𝕀 ∘
 theorem exp_homogenous : 𝔼[c • X // P] = c * 𝔼[X // P] := by simp only [expect, dotProduct_smul, smul_eq_mul]
 
 /-- Additivity of expectation --/
-theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV n ℚ) : 𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] := 
+theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV n ℚ) : 𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] :=
   by unfold expect; exact dotProduct_sum P.p Finset.univ Xs
-     
+
 theorem exp_additive_two : 𝔼[X + Y // P] = 𝔼[X // P] + 𝔼[Y // P] := by simp [expect]
 
 /-- Expectation is monotone  -/
@@ -410,15 +412,15 @@ theorem exp_monotone (h: X ≤ Y)  : 𝔼[X // P] ≤ 𝔼[Y // P] := dotProduct
 
 ---- ** conditional expectation -----
 
-variable {k : ℕ} {g : Fin k → ℚ} {L : FinRV n (Fin k)} 
+variable {k : ℕ} {g : Fin k → ℚ} {L : FinRV n (Fin k)}
 
-theorem exp_decompose : 𝔼[X // P] = ∑ i, 𝔼[X * (L =ᵢ i) // P] := 
+theorem exp_decompose : 𝔼[X // P] = ∑ i, 𝔼[X * (L =ᵢ i) // P] :=
   by nth_rewrite 1 [rv_decompose X L]
      rw [exp_additive]
 
 /-- Expectation of a conditional constant. Only when probability is positive.  -/
-theorem exp_cond_const : ∀ i, ℙ[L =ᵣ i //   P] ≠ 0 → 𝔼[g ∘ L | L =ᵣ i // P] = g i := 
-    by intro i h 
+theorem exp_cond_const : ∀ i, ℙ[L =ᵣ i //   P] ≠ 0 → 𝔼[g ∘ L | L =ᵣ i // P] = g i :=
+    by intro i h
        unfold expect_cnd
        rw [indi_eq_indr, rv_prod_const i, exp_homogenous]
        rw [←indi_eq_indr, ←prob_eq_exp_ind]
@@ -435,8 +437,8 @@ theorem ind_monotone : (∀ ω, A ω → B ω) → (𝕀∘A) ≤ (𝕀∘B) := 
   intro h ω
   specialize h ω
   by_cases h1 : A ω
-  · simp_all [indicator] 
+  · simp_all [indicator]
   · by_cases h2 : B ω
     repeat simp_all [indicator]
 
-end Probability_properties 
+end Probability_properties

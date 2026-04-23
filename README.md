@@ -11,30 +11,39 @@ Verified Lean algorithms for solving tabular MDPs and proving their properties. 
 
 ## Status
 
+### General
+
+- [ ] Left and right continuity (exists?)
+- [ ] Generalized inverse; left and right continous functions (exists?)
 
 ### Basic probability properties
 
 - [x] Definitions: probability space and definition
 - [x] Definitions: probability, expectation, conditional properties
-- [ ] Independent of random variables
 - [x] Tower property, law of the unconscious statistician
 - [x] Quantile definition and basic properties
 - [ ] Quantile under monotone transformation
-
+- [ ] Conditional probability = change of measure
+- [ ] Independent random variables
+- [x] Construct probability from a compile-time input
+- [ ] Construct probability from runtime input
 
 ### Value at Risk
 
 - [x] Definition (non-constructive)
 - [x] Practical implementation O(n^2) and correctness
 - [ ] Fast practical implementation O(n log n) and correctness
+- [ ] Definition of VaR as minimization 
 - [x] VaR is positively homogeneous and monotone
 - [ ] VaR is translation (cash) invariant 
 - [ ] VaR under monotone transformation
+- [ ] Check risk measure values in a JSON file
 
 ### MDP: Basics
 
 - [x] Definition of MDP 
 - [x] Definition of policies (history, Markov, stationary)
+- [ ] Policy induces a distribution over histories
 - [ ] Definition of value function (history-dependent)
 
 

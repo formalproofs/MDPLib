@@ -39,14 +39,6 @@ def FinVaR (P : Findist n) (X : FinRV n ℚ) (α : RiskLevel) : ℚ :=
    𝓢.max' h
 
 
-
-/- just messing around here, feel free to change, delete, etc. -/
---note, we can make a noncomputable section instead of individually marking them
-
-
-
-/- ------------ -/
-
 variable {α : RiskLevel}
 
 

@@ -147,7 +147,7 @@ theorem varq_prob_cond : IsVaR_Q P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧
 
 section VaR_properties
 
-variable {P : Findist n} {X Y : FinRV n ℚ} {q q₁ v₁ v₂ c : ℚ} {α : RiskLevel}
+variable {P : Findist n} {X Y : FinRV n ℚ} {q q₁ v₁ v₂ c : ℚ} {α : RiskLevel} {f : ℚ → ℚ}
 
 theorem var_monotone : X ≤ Y → IsVaR P X α v₁ → IsVaR P Y α v₂ → v₁ ≤ v₂ :=
   fun hle hv1 hv2 => upperBounds_mono_of_isCofinalFor (quantile_le_monotone hle) hv2.2 hv1.1
@@ -160,9 +160,27 @@ theorem isvar_translation_invariant : IsVaR P X α v → IsVaR P (X+c•1) α (v
     exact MonotoneOn.map_isGreatest (Monotone.monotoneOn add_left_mono
                                     (QuantileLower P X α.val)) h
 
-theorem var_translation_invariant : VaR[X + c•1 // P, α] = VaR[X + c•1 // P, α] + c := sorry
+theorem var_translation_invariant : VaR[X + c•1 // P, α] = VaR[X // P, α] + c := by
+  have h1 : IsVaR P (X + c•1) α (VaR[X + c•1 // P, α]) := finvar_correct
+  have h2 : IsVaR P (X + c•1) α (VaR[X // P, α] + c) := isvar_translation_invariant finvar_correct
+  exact le_antisymm (h2.2 h1.1) (h1.2 h2.1)
 
-theorem var_positive_homog (hc : c > 0) : FinVaR P (fun ω => c * X ω) α = c * FinVaR P X α := sorry
+/-- If `f` is strictly monotone then `f(VaR[X])` is the VaR of `f∘X`. -/
+theorem isvar_f_strictmono (hm : StrictMono f) (hv : IsVaR P X α v) : IsVaR P (f ∘ X) α (f v) := by
+  rw [var_prob_cond]
+  rw [var_prob_cond] at hv
+  rw [← prob_f_lt_strictmono hm, ← prob_f_le_strictmono hm]
+  exact hv
+
+
+/-- Monotone transformation of VaR: for strictly monotone `f`, `VaR[f∘X] = f(VaR[X])`. -/
+theorem var_f_strictmono (hm : StrictMono f) : VaR[f ∘ X // P, α] = f (VaR[X // P, α]) := by
+  have h1 : IsVaR P (f ∘ X) α (VaR[f ∘ X // P, α]) := finvar_correct
+  have h2 : IsVaR P (f ∘ X) α (f (VaR[X // P, α])) := isvar_f_strictmono hm finvar_correct
+  exact le_antisymm (h2.2 h1.1) (h1.2 h2.1)
+
+theorem var_positive_homog (hc : c > 0) : FinVaR P (fun ω => c * X ω) α = c * FinVaR P X α :=
+  var_f_strictmono (fun _ _ hab => mul_lt_mul_of_pos_left hab hc)
 
 end VaR_properties
 

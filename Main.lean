@@ -1,5 +1,6 @@
 import MDPLib
 import MDPLib.Risk.VaR
+import Lean.Data.Json
 
 theorem fancy : True := True.intro
 
@@ -79,7 +80,67 @@ def parseAndPrintVaR : IO Unit := do
   | none   => IO.println "Error: invalid input or computation failed"
   | some v => IO.println s!"VaR = {v}"
 
+-- ── JSON test-case checker ───────────────────────────────────────────────────
+
+/-- Coerce a JSON value to a rational, accepting both string and numeric forms. -/
+private def jsonToRat? (j : Lean.Json) : Option ℚ :=
+  match j with
+  | .str s => parseRat? s
+  | .num n => parseRat? n.toString
+  | _ => none
+
+/-- Coerce a JSON array to an Array ℚ, using jsonToRat? on each element. -/
+private def jsonToRats? (j : Lean.Json) : Option (Array ℚ) :=
+  match j with
+  | .arr a => a.mapM jsonToRat?
+  | _ => none
+
+/-- Read a JSON array of test cases from stdin and verify each VaR value.
+
+    Expected JSON format (array of objects):
+    ```json
+    [
+      { "probs": ["1/3","1/3","1/3"], "vals": ["1","2","3"],
+        "alpha": "0.5", "expected": "2" }
+    ]
+    ```
+    Values may be strings ("a/b", decimal, integer) or JSON numbers.
+    Prints PASS / FAIL for each case and a summary at the end. -/
+def checkVaRTestCases : IO Unit := do
+  let stdin ← IO.getStdin
+  let input ← stdin.readToEnd
+  match Lean.Json.parse input with
+  | .error e => IO.println s!"JSON parse error: {e}"
+  | .ok json =>
+    match json with
+    | .arr cases =>
+      let mut passed := 0
+      let mut failed := 0
+      let mut i := 0
+      for c in cases do
+        let field (key : String) : Option Lean.Json := c.getObjVal? key |>.toOption
+        let result : Option (ℚ × ℚ) := do
+          let probs    ← jsonToRats? (← field "probs")
+          let vals     ← jsonToRats? (← field "vals")
+          let α        ← jsonToRat?  (← field "alpha")
+          let expected ← jsonToRat?  (← field "expected")
+          let var      ← computeVaR probs vals α
+          some (var, expected)
+        match result with
+        | none =>
+          IO.println s!"Case {i}: ERROR (parse or computation failed)"
+        | some (var, expected) =>
+          if var == expected then
+            IO.println s!"Case {i}: PASS  (VaR = {var})"
+            passed := passed + 1
+          else
+            IO.println s!"Case {i}: FAIL  (expected {expected}, got {var})"
+            failed := failed + 1
+        i := i + 1
+      IO.println s!"--- {passed} passed, {failed} failed out of {i} cases ---"
+    | _ => IO.println "Error: expected a JSON array of test cases"
+
 -- ── Demo ─────────────────────────────────────────────────────────────────────
 
 def main : IO Unit :=
-  parseAndPrintVaR
+  checkVaRTestCases

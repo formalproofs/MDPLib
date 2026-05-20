@@ -35,9 +35,9 @@ Verified Lean algorithms for solving tabular MDPs and proving their properties. 
 - [ ] Fast practical implementation O(n log n) and correctness
 - [ ] Definition of VaR as minimization 
 - [x] VaR is positively homogeneous and monotone
-- [ ] VaR is translation (cash) invariant 
+- [x] VaR is translation (cash) invariant 
 - [ ] VaR under monotone transformation
-- [ ] Check risk measure values in a JSON file
+- [x] Check risk measure values in a JSON file
 
 ### MDP: Basics
 

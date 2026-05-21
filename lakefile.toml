@@ -1,17 +1,13 @@
-name = "probability"
+name = "mdplib"
 version = "0.1.0"
-defaultTargets = ["probability"]
+defaultTargets = ["mdplib"]
 
 [[lean_lib]]
-name = "Probability"
+name = "MDPLib"
 
 [[lean_exe]]
-name = "probability"
+name = "mdplib"
 root = "Main"
-
-[[require]]
-name = "mathlib"
-scope = "leanprover-community"
 
 [[require]]
 name = "checkdecls"
@@ -21,3 +17,7 @@ git = "https://github.com/PatrickMassot/checkdecls.git"
 name = "«doc-gen4»"
 git = "https://github.com/leanprover/doc-gen4"
 rev = "main"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"

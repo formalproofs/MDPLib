@@ -15,14 +15,14 @@ abbrev Prob (p : ℚ) : Prop := 0 ≤ p ∧ p ≤ 1
 
 namespace Prob
 
-variable {p x y : ℚ} 
+variable {p x y : ℚ}
 
 @[simp]
 theorem of_complement ( hp : Prob p) : Prob (1-p) := by
         simp_all only [ Prob, sub_nonneg, tsub_le_iff_right, le_add_iff_nonneg_right, and_self]
 
 @[simp]
-theorem complement_inv_nneg (hp : Prob p) : 0 ≤ (1-p)⁻¹ := by 
+theorem complement_inv_nneg (hp : Prob p) : 0 ≤ (1-p)⁻¹ := by
         simp_all only [Prob, inv_nonneg, sub_nonneg]
 
 theorem lower_bound_fst (hp : Prob p) (h : x ≤ y) : x ≤ p * x + (1-p) * y := by
@@ -47,37 +47,58 @@ end Prob
 section FunctionalAnalysis
 
 
-end FunctionalAnalysis 
+end FunctionalAnalysis
 
 section dotProduct
 
 variable {x y z : Fin n → ℚ}
 
-theorem dotProd_hadProd_rotate : x ⬝ᵥ (y * z) = z ⬝ᵥ (x * y) := by 
-  unfold dotProduct 
-  apply Fintype.sum_congr 
-  intro i 
-  simp
-  ring 
-
-theorem dotProd_hadProd_comm : x ⬝ᵥ (y * z) = x ⬝ᵥ (z * y) := by 
+theorem dotProd_hadProd_rotate : x ⬝ᵥ (y * z) = z ⬝ᵥ (x * y) := by
   unfold dotProduct
-  apply Fintype.sum_congr 
-  intro i 
-  simp 
-  left 
-  ring 
+  apply Fintype.sum_congr
+  intro i
+  simp
+  ring
+
+theorem dotProd_hadProd_comm : x ⬝ᵥ (y * z) = x ⬝ᵥ (z * y) := by
+  unfold dotProduct
+  apply Fintype.sum_congr
+  intro i
+  simp
+  left
+  ring
 
 theorem dotProduct_eq_one_had : x ⬝ᵥ y = 1 ⬝ᵥ (x * y) := by simp [dotProduct]
 
 example (hx : 0 ≤ x) (hy : 0 ≤ y) : 0 ≤ x * y := Left.mul_nonneg hx hy
 
-theorem prod_eq_zero_of_nneg_dp_zero (hx : 0 ≤ x) (hy : 0 ≤ y) : x ⬝ᵥ y = 0 → x * y = 0 := by 
-  intro h 
-  rw [dotProduct_eq_one_had] at h 
+theorem prod_eq_zero_of_nneg_dp_zero (hx : 0 ≤ x) (hy : 0 ≤ y) : x ⬝ᵥ y = 0 → x * y = 0 := by
+  intro h
+  rw [dotProduct_eq_one_had] at h
   have := Left.mul_nonneg hx hy
   simp_all [dotProduct]
   exact (Fintype.sum_eq_zero_iff_of_nonneg this).mp h
 
-end dotProduct
+theorem abs_pos_hom {a b : ℚ} (h : 0 ≤ a) : |a * b| = a * |b| := by 
+  rw [abs_mul, abs_of_nonneg h]
 
+theorem abs_dotProd_le_dotProd_abs(p x : Fin n → ℚ) (hp : ∀ i, 0 ≤ p i) : |p ⬝ᵥ x| ≤ p ⬝ᵥ fun i => |x i| := by
+  calc
+    |∑ i : Fin n, p i * x i| ≤ ∑ i, |p i * x i| := Finset.abs_sum_le_sum_abs (fun i ↦ p i * x i) Finset.univ
+    _ = ∑ i, p i * |x i| := Finset.sum_congr rfl (fun i _ => abs_pos_hom (hp i))
+    _ = p ⬝ᵥ fun i => |x i| := rfl
+
+theorem jensen_abs_uniform (x : Fin n → ℚ) (hn : 0 < n) :
+    |(fun _ : Fin n => (1 : ℚ) / n) ⬝ᵥ x| ≤ (fun _ : Fin n => (1 : ℚ) / n) ⬝ᵥ fun i => |x i| := by
+  have hpos : 0 < (n : ℚ) := by exact_mod_cast hn
+  have hnonneg : 0 ≤ (1 : ℚ) / n := by
+    have := inv_pos.mpr hpos
+    simp
+  have hp : ∀ i : Fin n, 0 ≤ (1 : ℚ) / n := fun _ => hnonneg
+  simpa using
+    abs_dotProd_le_dotProd_abs
+      (p := fun _ : Fin n => (1 : ℚ) / n)
+      (x := x)
+      (hp := hp)
+
+end dotProduct

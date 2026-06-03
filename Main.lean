@@ -116,7 +116,7 @@ def checkVaRTestCases : IO Unit := do
     | .arr cases =>
       let mut passed := 0
       let mut failed := 0
-      let mut i := 0
+      let mut i := -1
       for c in cases do
         let field (key : String) : Option Lean.Json := c.getObjVal? key |>.toOption
         let result : Option (ℚ × ℚ) := do

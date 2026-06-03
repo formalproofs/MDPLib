@@ -381,12 +381,9 @@ theorem exp_one : 𝔼[ 1 // P] = 1  := exp_const
 theorem exp_cond_eq_def  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B) // P] :=
   by unfold expect_cnd 
      by_cases h: ℙ[B//P] = 0
-     · rw [h, Rat.mul_zero]
-       unfold expect 
-       rw [dotProd_hadProd_comm, dotProd_hadProd_rotate, prod_zero_of_prob_zero h]
+     · rw [h, Rat.mul_zero, expect,dotProd_hadProd_comm, dotProd_hadProd_rotate, prod_zero_of_prob_zero h]
        exact (dotProduct_zero X).symm 
      · simp_all 
-
 
 lemma constant_mul_eq_smul : (fun ω ↦ c * X ω) = c • X := rfl
 

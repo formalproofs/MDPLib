@@ -197,7 +197,6 @@ theorem state_of_hist_len0 (h : M.HistT 0) : ∃s, h.val = Hist.init s := sorry
 
 theorem state_of_hist_len_t (h : M.HistT t.succ) : ∃h',∃a,∃s, h.val = Hist.foll h' a s := sorry 
 
-
 theorem hist_idx_LeftInverse (M : MDP) : LeftInverse (M.idx_to_hist' t) (M.hist_to_idx' t)  := by
   intro h
   unfold MDP.idx_to_hist' MDP.hist_to_idx'
@@ -296,7 +295,7 @@ variable {M : MDP}
 
 -- mapping between tuples and histories are injective
 lemma linv_hist2tuple_tuple2hist : LeftInverse M.hist2tuple M.tuple2hist := fun _ ↦ rfl
-lemma inj_tuple2hist_l1  : Injective M.tuple2hist  := LeftInverse.injective linv_hist2tuple_tuple2hist
+lemma inj_tuple2hist_l1 : Injective M.tuple2hist  := LeftInverse.injective linv_hist2tuple_tuple2hist
 lemma inj_tuple2hist : Injective (Subtype.val ∘ M.tuple2hist)  := Injective.comp (Subtype.val_injective) inj_tuple2hist_l1
 
 def emb_tuple2hist_l1 : Hist M × (Fin M.A) × (Fin M.S) ↪ HistNE M := ⟨M.tuple2hist, inj_tuple2hist_l1⟩

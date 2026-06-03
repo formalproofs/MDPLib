@@ -501,6 +501,17 @@ theorem law_total_exp : 𝔼[𝔼[X |ᵣ L // P] // P] = 𝔼[X // P] :=
     _ =  ∑ i : Fin k, 𝔼[X * (L =ᵢ i) // P] := by apply Fintype.sum_congr; intro i; apply exp_congr; rw[indi_eq_indr] 
     _ = 𝔼[X // P]  := by rw [←exp_decompose]
 
+example : ∀x, x ∈ Finset.univ.image X ↔ x ∈ (List.ofFn X |> List.dedup) := 
+  by intro x 
+     constructor 
+     · intro h
+       refine List.mem_dedup.mpr ?_
+       rw [Fin.univ_image_def] at h
+       rw [List.mem_toFinset] at h
+       exact h 
+     · intro h
+       sorry
+
 /-- Shows that our definition of expectation is correct -/ 
 theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (ℙ[ X =ᵣ y // P] * y) := by 
     -- TODO: Can we use FinEnum and Quotient to reduce it to LOTUS: where i is the index of the unique element, g

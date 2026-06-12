@@ -502,17 +502,29 @@ theorem law_total_exp : 𝔼[𝔼[X |ᵣ L // P] // P] = 𝔼[X // P] :=
     _ = 𝔼[X // P]  := by rw [←exp_decompose]
 
 --- shows that using a set and list is the same
-lemma finset_image_eq_list_map_dedup : ∀x, x ∈ Finset.univ.image X ↔ x ∈ (List.ofFn X |> List.dedup) := 
-  by intro x; constructor <;> simp [Fin.univ_image_def,List.mem_toFinset] 
+lemma finset_image_eq_list_map_dedup : ∀x, x ∈ Finset.univ.image X ↔ x ∈ (List.ofFn X |> List.dedup) :=  by 
+    intro x; constructor <;> simp [Fin.univ_image_def,List.mem_toFinset] 
 
 
-#check Finset.sum
+lemma finset_list_eq_list_dedup (l : List ℚ) : l.toFinset = l.dedup.toFinset := 
+    List.toFinset.ext (fun _ => List.mem_dedup.symm)
 
 
-example (f : ℚ → ℚ) : (∑ y ∈ (Finset.univ.image X), f y) = ((List.ofFn X |> List.dedup).map f).sum :=  sorry
+example (f : ℚ → ℚ) (l : List ℚ) (h : l.Nodup) : ∑ y ∈ l.toFinset, f y = (l.map f).sum :=  
+    List.sum_toFinset (fun y => f y) h
 
-      
 
+example (f : ℚ → ℚ) : (∑ y ∈ (Finset.univ.image X), f y) = ((List.ofFn X |> List.dedup).map f).sum := by 
+    rw [Fin.univ_image_def]
+    rw [Finset.sum_list_map_count]
+    rw [finset_list_eq_list_dedup]
+    have h : ∀m ∈ (List.ofFn X).dedup.toFinset, List.count m (List.ofFn X).dedup  = 1 := 
+        fun m hm => List.count_eq_one_of_mem (List.nodup_dedup (List.ofFn X)) (List.mem_dedup.mp hm)
+    apply Finset.sum_congr
+    · simp
+    · intro x hx
+      simp [h x hx]
+    
 
 /-- Shows that our definition of expectation is correct -/ 
 theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (ℙ[ X =ᵣ y // P] * y) := by 
@@ -527,15 +539,15 @@ section Probability
 variable {k : ℕ}  {L : FinRV n (Fin k)}
 
 /-- The law of total probabilities -/
-theorem law_of_total_probs : ℙ[B // P] =  ∑ i, ℙ[B * (L =ᵣ i) // P]  := 
-  by rewrite [prob_eq_exp_ind, rv_decompose (𝕀∘B) L, exp_additive]
-     apply Fintype.sum_congr
-     intro i 
-     rewrite [prob_eq_exp_ind] 
-     apply exp_congr
-     ext ω
-     by_cases h1 : L ω = i 
-     repeat by_cases h2 : B ω; repeat simp [h1, h2, 𝕀, indicator ]
+theorem law_of_total_probs : ℙ[B // P] =  ∑ i, ℙ[B * (L =ᵣ i) // P]  := by 
+    rewrite [prob_eq_exp_ind, rv_decompose (𝕀∘B) L, exp_additive]
+    apply Fintype.sum_congr
+    intro i 
+    rewrite [prob_eq_exp_ind] 
+    apply exp_congr
+    ext ω
+    by_cases h1 : L ω = i 
+    repeat by_cases h2 : B ω; repeat simp [h1, h2, 𝕀, indicator ]
 
 end Probability 
 

@@ -514,29 +514,46 @@ example (f : ℚ → ℚ) (l : List ℚ) (h : l.Nodup) : ∑ y ∈ l.toFinset, f
     List.sum_toFinset (fun y => f y) h
 
 
-example (f : ℚ → ℚ) : (∑ y ∈ (Finset.univ.image X), f y) = ((List.ofFn X |> List.dedup).map f).sum := by 
-    rw [Fin.univ_image_def]
-    rw [Finset.sum_list_map_count]
-    rw [finset_list_eq_list_dedup]
-    have h : ∀m ∈ (List.ofFn X).dedup.toFinset, List.count m (List.ofFn X).dedup  = 1 := 
-        fun m hm => List.count_eq_one_of_mem (List.nodup_dedup (List.ofFn X)) (List.mem_dedup.mp hm)
-    apply Finset.sum_congr
-    · simp
-    · intro x hx
+lemma sum_finset_eq_list_dedup (f : ℚ → ℚ) : 
+    (∑ y ∈ (Finset.univ.image X), f y) = ((List.ofFn X |> List.dedup).map f).sum := by 
+      rw [Fin.univ_image_def, Finset.sum_list_map_count,finset_list_eq_list_dedup]
+      have h : ∀m ∈ (List.ofFn X).dedup.toFinset, List.count m (List.ofFn X).dedup = 1 := 
+          fun m hm => List.count_eq_one_of_mem (List.nodup_dedup (List.ofFn X)) 
+          (List.mem_dedup.mp hm)
+      apply Finset.sum_congr rfl
+      intro x hx
       simp [h x hx]
     
 
+example (L : List ℚ) : ∑ i : Fin L.length,  L[i] = L.sum := Fin.sum_univ_getElem L
+ 
+
 /-- Shows that our definition of expectation is correct -/ 
 theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (ℙ[ X =ᵣ y // P] * y) := by 
-    -- TODO: Can we use FinEnum and Quotient to reduce it to LOTUS: where i is the index of the unique element, g
-    -- maps i to the corresponding value of Y, and L maps each of Ω values to the index i
+    -- TODO: Can we reduce it to LOTUS: create a list (Z = List.ofFn X).dedup, 
+    -- where i : Fin Z.length is the index of the unique element, g : fun i => X i
+    -- maps i to the corresponding value of X, and L random variable maps 
+    -- each of Ω values to the index i such that let L ω = Z.findIdx (X ω) 
+    let Z := (List.ofFn X).dedup
+    let L ω := 
+      match Z.finIdxOf? (X ω) with
+      | none => sorry  
+      | some i => i
+    let g (i : Fin Z.length) := Z[i]  
+    rw [sum_finset_eq_list_dedup]
+    rw [←Fin.sum_univ_getElem]
+    refold_let Z     
+    have h0 : (List.map (fun y => ℙ[X=ᵣy//P] * y) Z).length = Z.length := by simp
+    have h (i : Fin Z.length) : ℙ[X =ᵣ Z[i] // P] = ℙ[L =ᵣ i // P] := sorry
+    simp
+    
     sorry 
 
 end Expectation 
 
 section Probability 
 
-variable {k : ℕ}  {L : FinRV n (Fin k)}
+variable {n : ℕ} {k : ℕ}  {L : FinRV n (Fin k)}
 
 /-- The law of total probabilities -/
 theorem law_of_total_probs : ℙ[B // P] =  ∑ i, ℙ[B * (L =ᵣ i) // P]  := by 

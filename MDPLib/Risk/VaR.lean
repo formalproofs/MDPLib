@@ -143,7 +143,7 @@ theorem varq_eq_var : IsVaR_Q P X α v ↔ IsVaR P X α v :=
 theorem varq_prob_cond : IsVaR_Q P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α.val < ℙ[ X ≤ᵣ v // P]) :=
   by rewrite[varq_eq_var]; exact var_prob_cond
 
--------------------- VaR Properties -----------------------------------------------------------------------------
+-------------------- VaR Properties ------------------------------------------------------
 
 section VaR_properties
 

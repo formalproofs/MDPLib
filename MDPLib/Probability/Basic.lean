@@ -515,7 +515,7 @@ example (f : ℚ → ℚ) (l : List ℚ) (h : l.Nodup) : ∑ y ∈ l.toFinset, f
 
 section RV_Unique_Values
 
-variable  {τ:Type} [DecidableEq τ]
+variable  {τ:Type} [DecidableEq τ] 
 
 def FinRV.imageList (X : FinRV n τ) : List τ := List.dedup (List.ofFn X)
 
@@ -529,13 +529,42 @@ theorem sum_finset_eq_list_dedup (f : ℚ → ℚ) :
       intro x hx
       simp [h x hx]
 
-theorem finrv_val_in_dedup {X : FinRV n τ} : ∀ω, X ω ∈ X.imageList := by
-    intro ω
-    rw [FinRV.imageList, List.mem_dedup]
-    exact List.mem_ofFn.mpr (exists_apply_eq_apply X ω)
-    
+section generic 
+
+variable {X : FinRV n τ}
+
+theorem finrv_image_superset (ω : Fin n) : X ω ∈ X.imageList := by
+    simp only [FinRV.imageList, List.mem_dedup, List.mem_ofFn.mpr (exists_apply_eq_apply X ω)]
+
+theorem finrv_image_superset_exists (ω) : ∃ i : Fin X.imageList.length, X ω = X.imageList[i] := 
+  List.exists_mem_iff_get.mp ⟨X ω, ⟨finrv_image_superset ω, rfl⟩⟩
+  
+theorem finrv_image_nodup : X.imageList.Nodup := List.nodup_dedup (List.ofFn X)
+
+-- Mathlib seems to be missing this function
+def List.finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : Fin L.length := 
+    ⟨L.idxOf a, List.idxOf_lt_length_of_mem h⟩
+
+@[simp]
+theorem List.getElem_finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : L[L.finIdxOf a h] = a := 
+    getElem_idxOf (idxOf_lt_length_of_mem h) 
+
 def FinRV.imageIdxOf (X : FinRV n τ) (ω : Fin n) : Fin (X.imageList.length) := 
-    ⟨X.imageList.idxOf (X ω), List.idxOf_lt_length_of_mem (finrv_val_in_dedup ω) ⟩
+    X.imageList.finIdxOf (X ω) (finrv_image_superset ω)
+
+@[simp]
+theorem finrv_image_inverse (ω : Fin n) : X.imageList[X.imageIdxOf ω] = X ω := 
+  List.getElem_finIdxOf X.imageList (X ω) (finrv_image_superset ω)
+
+theorem finrv_image_unique {ω i} (h: X ω = X.imageList[i]) : X.imageIdxOf ω = i := by 
+  have h1 : X.imageList.Nodup := finrv_image_nodup 
+  rewrite [← finrv_image_inverse ω (X := X)] at h 
+  exact (List.Nodup.get_inj_iff h1).mp h
+  
+theorem finrv_image_exact {ω i} : X ω = X.imageList[i] ↔ X.imageIdxOf ω = i := 
+  ⟨finrv_image_unique, fun h => by rw[←h]; exact Eq.symm (finrv_image_inverse ω)⟩
+
+end generic    
 
 /-- Shows that our definition of expectation is correct -/ 
 theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (ℙ[ X =ᵣ y // P] * y) := by 
@@ -543,16 +572,16 @@ theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (�
     -- where i : Fin Z.length is the index of the unique element, g : fun i => X i
     -- maps i to the corresponding value of X, and L random variable maps 
     -- each of Ω values to the index i such that let L ω = Z.findIdx (X ω) 
-    let Z := X.imageList 
     let L ω := X.imageIdxOf ω
-    let g (i : Fin Z.length) := Z[i]  
+    let g (i : Fin X.imageList.length) := X.imageList[i]  
     rw [sum_finset_eq_list_dedup]
     rw [←Fin.sum_univ_getElem]
-    refold_let Z     
-    have h0 : (List.map (fun y => ℙ[X=ᵣy//P] * y) Z).length = Z.length := by simp
-    have h (i : Fin Z.length) : ℙ[X =ᵣ Z[i] // P] = ℙ[L =ᵣ i // P] := sorry
+    have h0 : (List.map (fun y => ℙ[X=ᵣy//P] * y) X.imageList).length = X.imageList.length := by simp
+    have h (i : Fin X.imageList.length) : (X =ᵣ X.imageList[i]) = (L =ᵣ i) := 
+      by ext ω; simpa [L, FinRV.eq] using finrv_image_exact
     simp
-    sorry 
+    --simpa using LOTUS g
+    sorry
 
 end RV_Unique_Values 
 

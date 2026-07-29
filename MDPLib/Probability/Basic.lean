@@ -519,15 +519,18 @@ variable  {τ:Type} [DecidableEq τ]
 
 def FinRV.imageList (X : FinRV n τ) : List τ := List.dedup (List.ofFn X)
 
-theorem sum_finset_eq_list_dedup (f : ℚ → ℚ) : 
+theorem sum_finset_eq_sum_image (f : ℚ → ℚ) : 
     (∑ y ∈ (Finset.univ.image X), f y) = ((X.imageList).map f).sum := by 
       rw [FinRV.imageList, Fin.univ_image_def, Finset.sum_list_map_count,finset_list_eq_list_dedup]
-      have h : ∀m ∈ (List.ofFn X).dedup.toFinset, List.count m (List.ofFn X).dedup = 1 := 
+      have h : ∀m ∈ X.imageList.toFinset, List.count m (List.ofFn X).dedup = 1 := 
           fun m hm => List.count_eq_one_of_mem (List.nodup_dedup (List.ofFn X)) 
           (List.mem_dedup.mp hm)
       apply Finset.sum_congr rfl
       intro x hx
       simp [h x hx]
+
+
+
 
 section generic 
 
@@ -564,17 +567,26 @@ theorem finrv_image_unique {ω i} (h: X ω = X.imageList[i]) : X.imageIdxOf ω =
 theorem finrv_image_exact {ω i} : X ω = X.imageList[i] ↔ X.imageIdxOf ω = i := 
   ⟨finrv_image_unique, fun h => by rw[←h]; exact Eq.symm (finrv_image_inverse ω)⟩
 
+
+
+
 end generic    
+
+theorem sum_eq_sum_image (f : ℚ → ℚ) : ∑ y ∈ (Finset.univ.image X), f y = ∑ i : Fin X.imageList.length, f (X.imageList[i]) := by 
+      rw [Fin.univ_image_def, finset_list_eq_list_dedup]
+      rw [←FinRV.imageList] 
+      sorry
+      
 
 /-- Shows that our definition of expectation is correct -/ 
 theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (ℙ[ X =ᵣ y // P] * y) := by 
-    -- TODO: Can we reduce it to LOTUS: create a list Z := (List.ofFn X).dedup, 
-    -- where i : Fin Z.length is the index of the unique element, g : fun i => X i
+    -- TODO: We reduce the result to LOTUS: create a list X.imageList, 
+    -- where i : Fin X.imageList.length is the index of the unique element, g : fun i => X i
     -- maps i to the corresponding value of X, and L random variable maps 
-    -- each of Ω values to the index i such that let L ω = Z.findIdx (X ω) 
+    -- each ω ∈ Ω values to the index i such that let L ω = Z.findIdx (X ω) 
     let L ω := X.imageIdxOf ω
     let g (i : Fin X.imageList.length) := X.imageList[i]  
-    rw [sum_finset_eq_list_dedup]
+    rw [sum_finset_eq_sum_image]
     rw [←Fin.sum_univ_getElem]
     have h0 : (List.map (fun y => ℙ[X=ᵣy//P] * y) X.imageList).length = X.imageList.length := by simp
     have h (i : Fin X.imageList.length) : (X =ᵣ X.imageList[i]) = (L =ᵣ i) := 
@@ -582,6 +594,10 @@ theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (�
     simp
     --simpa using LOTUS g
     sorry
+
+
+-- theorem expect_def_correct2 : 𝔼[ X // P] = ∑ y ∈ X.imageList, ℙ[ X =ᵣ y // P] * y := by  sorry
+  
 
 end RV_Unique_Values 
 

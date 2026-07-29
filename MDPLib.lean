@@ -7,5 +7,6 @@ import MDPLib.Probability.Basic
 import MDPLib.Probability.Quantile
 
 import MDPLib.Risk.VaR
+import MDPLib.Risk.CVaR
 
 import MDPLib.MDP.Histories

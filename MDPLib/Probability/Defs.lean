@@ -275,8 +275,7 @@ notation "ℙ[" B "|" C "//" P "]" => probability_cnd P B C
 
 
 theorem prob_one_of_true : ℙ[1 // P] = 1 :=
-    by unfold probability
-       rewrite [one_of_true, dotProduct_comm]
+    by rewrite [probability, one_of_true, dotProduct_comm]
        exact P.prob
 
 example {a b : ℚ} (h : 0 ≤ a) (h2 : 0 ≤ b) : 0 ≤ a * b :=  Rat.mul_nonneg h h2

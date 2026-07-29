@@ -51,7 +51,8 @@ end FunctionalAnalysis
 
 section dotProduct
 
-variable {x y z : Fin n → ℚ}
+variable {Ω : Type*} [Fintype Ω]
+variable {x y z : Ω → ℚ}
 
 theorem dotProd_hadProd_rotate : x ⬝ᵥ (y * z) = z ⬝ᵥ (x * y) := by
   unfold dotProduct
@@ -82,9 +83,9 @@ theorem prod_eq_zero_of_nneg_dp_zero (hx : 0 ≤ x) (hy : 0 ≤ y) : x ⬝ᵥ y 
 theorem abs_pos_hom {a b : ℚ} (h : 0 ≤ a) : |a * b| = a * |b| := by 
   rw [abs_mul, abs_of_nonneg h]
 
-theorem abs_dotProd_le_dotProd_abs(p x : Fin n → ℚ) (hp : ∀ i, 0 ≤ p i) : |p ⬝ᵥ x| ≤ p ⬝ᵥ fun i => |x i| := by
+theorem abs_dotProd_le_dotProd_abs(p x : Ω → ℚ) (hp : ∀ i, 0 ≤ p i) : |p ⬝ᵥ x| ≤ p ⬝ᵥ fun i => |x i| := by
   calc
-    |∑ i : Fin n, p i * x i| ≤ ∑ i, |p i * x i| := Finset.abs_sum_le_sum_abs (fun i ↦ p i * x i) Finset.univ
+    |∑ i : Ω, p i * x i| ≤ ∑ i, |p i * x i| := Finset.abs_sum_le_sum_abs (fun i ↦ p i * x i) Finset.univ
     _ = ∑ i, p i * |x i| := Finset.sum_congr rfl (fun i _ => abs_pos_hom (hp i))
     _ = p ⬝ᵥ fun i => |x i| := rfl
 

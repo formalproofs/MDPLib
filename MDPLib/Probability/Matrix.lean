@@ -1,6 +1,6 @@
 import MDPLib.Probability.Prelude
+import MDPLib.Probability.Defs
 
-import Probability.Probability.Defs
 import Mathlib.Data.Matrix.Mul
 import Mathlib.LinearAlgebra.Matrix.DotProduct
 
@@ -8,13 +8,15 @@ namespace Matrix
 
 section ProbabilityMatrix
 
-structure ProbabilityMatrix (n : ℕ) : Type where
-    --(n x n) Matrix where each row is a probability distribution
-    P : (Matrix (Fin n) (Fin n) ℚ)
-    row_sum : P *ᵥ 1 = 1
-    nneg : ∀ i j : Fin n, P i j ≥ 0
+variable {Ω : Type} [FinEnum Ω]
 
-variable (n : ℕ) (Prob : ProbabilityMatrix n) (μ : Findist n) (r : Fin n → ℚ) (γ : ℚ)
+structure ProbabilityMatrix (Ω : Type) [FinEnum Ω] : Type where
+    -- Square matrix over `Ω` where each row is a probability distribution
+    P : (Matrix Ω Ω ℚ)
+    row_sum : P *ᵥ 1 = 1
+    nneg : ∀ i j : Ω, P i j ≥ 0
+
+variable (Prob : ProbabilityMatrix Ω) (μ : Findist Ω) (r : Ω → ℚ) (γ : ℚ)
 
 
 theorem dist_prob_product_nneg : μ.p ᵥ* (Prob.P) ≥ 0 := by
@@ -34,16 +36,18 @@ end ProbabilityMatrix
 
 section RewardProcess
 
+variable {Ω : Type} [FinEnum Ω]
+
 --Discounted Markov Reward Process Definition
-structure DMRP (n : ℕ) : Type where
-    r : Fin n → ℚ --rewards
-    Prob : ProbabilityMatrix n --transitions
+structure DMRP (Ω : Type) [FinEnum Ω] : Type where
+    r : Ω → ℚ --rewards
+    Prob : ProbabilityMatrix Ω --transitions
     γ : ℚ --discount
     discount_in_range : 0 ≤ γ ∧ γ < 1
 
-variable (n : ℕ) (Proc : DMRP n) (u : (Fin n) → ℚ) (v : (Fin n) → ℚ)
+variable (Proc : DMRP Ω) (u : Ω → ℚ) (v : Ω → ℚ)
 
-def bellman_backup (v : Fin n → ℚ) : Fin n → ℚ := Proc.r + Proc.γ • Proc.Prob.P *ᵥ v
+def bellman_backup (v : Ω → ℚ) : Ω → ℚ := Proc.r + Proc.γ • Proc.Prob.P *ᵥ v
 
 notation "𝔹["v "//" Proc "]" => bellman_backup Proc v
 

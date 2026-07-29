@@ -12,7 +12,7 @@ section Definition
 
 --def UnitI := {α : ℚ // 0 ≤ α ∧ α ≤ 1}
 
-variable {n : ℕ} (P : Findist n) (X Y : FinRV n ℚ) (α : ℚ) (q v : ℚ)
+variable {Ω : Type} [FinEnum Ω] (P : Findist Ω) (X Y : FinRV Ω ℚ) (α : ℚ) (q v : ℚ)
 
 /-- Proof the `q` is an `α`-quantile of `X` --/
 def IsQuantile  : Prop := ℙ[X ≤ᵣ q // P ] ≥ α ∧ ℙ[X ≥ᵣ q // P] ≥ 1 - α
@@ -34,7 +34,7 @@ def IsQuantMin : Prop := IsLeast (Quantile P X α) q
 
 end Definition
 
-variable {n : ℕ} {P : Findist n} {X Y : FinRV n ℚ} {α : ℚ} {q v : ℚ}
+variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {α : ℚ} {q v : ℚ}
 
 theorem qset_lb : q ∈ Quantile P X α → ℙ[X ≤ᵣ q // P ] ≥ α := by simp_all [Quantile, IsQuantile]
 

@@ -4,6 +4,7 @@
 import MDPLib.Probability.Prelude
 import MDPLib.Probability.Defs
 import MDPLib.Probability.Basic
+import MDPLib.Probability.Matrix
 import MDPLib.Probability.Quantile
 
 import MDPLib.Risk.VaR

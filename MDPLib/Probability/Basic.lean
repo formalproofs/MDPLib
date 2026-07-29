@@ -18,33 +18,28 @@ import Mathlib.Data.Fin.Tuple.Sort -- for Equiv.Perm and permutation operations
 -/
 
 
-section General 
+section General
 open Matrix
 
-variable {n : ℕ} {p x : Fin n.succ → ℚ} 
+variable {Ω : Type} [Fintype Ω] {p x : Ω → ℚ}
 
-theorem dotProduct_head_tail : p ⬝ᵥ x = (vecHead p) * (vecHead x) + (vecTail p) ⬝ᵥ (vecTail x) := by 
-   rw [← cons_dotProduct, cons_head_tail]
-
-variable {p x : Fin n → ℚ}
-
-theorem nneg_dotProd_pos_ex_pos (h1 : ∀ ω, p ω ≥ 0) (h2 : ∀ ω, x ω ≥ 0) (h : p ⬝ᵥ x > 0) : ∃ ω, x ω > 0 := by 
-  induction n with 
-  | zero => simp_all 
-  | succ n ih =>
-    by_cases hn : x ⟨0, Nat.zero_lt_succ n⟩ > 0 
-    · exact ⟨0, hn⟩
-    · push Not at hn 
-      have hvh0 : 0 = vecHead x := le_antisymm (h2 0) hn
-      rewrite [dotProduct_head_tail, ←hvh0] at h 
-      obtain ⟨ω, hω⟩ := ih (Fin.tail h1) (Fin.tail h2) (by simpa [vecHead, vecTail] using h) 
-      use ω.succ 
+/-- If a dot product of nonnegative vectors is positive, some coordinate of the
+    second vector is positive. Proved over an arbitrary finite index. -/
+theorem nneg_dotProd_pos_ex_pos (h1 : ∀ ω, p ω ≥ 0) (h2 : ∀ ω, x ω ≥ 0) (h : p ⬝ᵥ x > 0) : ∃ ω, x ω > 0 := by
+  by_contra hcon
+  push Not at hcon
+  have hle : p ⬝ᵥ x ≤ 0 := by
+    unfold dotProduct
+    apply Finset.sum_nonpos
+    intro ω _
+    nlinarith [h1 ω, hcon ω]
+  linarith
 
 end General
 
 namespace Findist
 
-variable {n : ℕ} {P : Findist n} {B : FinRV n Bool}
+variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {B : FinRV Ω Bool}
 
 theorem ge_zero : 0 ≤ ℙ[B // P] := 
     by rw [prob_eq_exp_ind]
@@ -57,7 +52,7 @@ theorem le_one : ℙ[B // P] ≤ 1 :=
        calc 𝔼[𝕀 ∘ B//P] ≤ 𝔼[1 // P] := exp_monotone ind_le_one 
             _ = 1 := exp_const 
 
-theorem in_prob (P : Findist n) : Prob ℙ[B // P] := ⟨ge_zero, le_one⟩
+theorem in_prob (P : Findist Ω) : Prob ℙ[B // P] := ⟨ge_zero, le_one⟩
 
 end Findist
 
@@ -66,7 +61,7 @@ end Findist
 
 section RandomVariables
 
-variable {n : ℕ} {P : Findist n} {A B : FinRV n Bool} {X Y : FinRV n ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 
 theorem rvle_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y ≤ᵣ t₁) ≤ 𝕀 ∘ (X ≤ᵣ t₂) := by 
     intro ω   
@@ -95,7 +90,7 @@ theorem rv_le_max_one : (X ≤ᵣ (FinRV.max P X)) = 1 :=
 theorem rv_max_in_image : (FinRV.max P X) ∈ Finset.univ.image X :=
      Finset.max'_mem (Finset.image X Finset.univ) (rv_image_nonempty P X)
 
-theorem rv_omega_ge_min (P : Findist n) : ∀ω, X ω ≥ (FinRV.min P X) :=
+theorem rv_omega_ge_min (P : Findist Ω) : ∀ω, X ω ≥ (FinRV.min P X) :=
     by intro ω
        have h : X ω ∈ (Finset.image X Finset.univ) := Finset.mem_image_of_mem X (Finset.mem_univ ω)
        simpa using Finset.min'_le (Finset.image X Finset.univ) (X ω) h
@@ -113,7 +108,7 @@ theorem rv_monotone_sharp {t₁ t₂ : ℚ} : t₁ < t₂ → ∀ ω, (X ≥ᵣ 
 -- results for discrete probability distributions
 section Atomic 
 
-variable (P : Findist n) (X : FinRV n ℚ) (t : ℚ)
+variable (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ)
 
 
 theorem prob_atomic_omega {b : ℚ} (h : ℙ[X =ᵣ b // P] > 0) : ∃ω, X ω = b := by 
@@ -139,12 +134,12 @@ theorem rv_le_step_lt_max (h0 : t < (FinRV.max P X)) : ∃q > t, (X ≤ᵣ t) = 
          · exact fun h2 => lt_of_le_of_lt h2 hq_Y
          · intro h2
            have hxω : X ω ∉ 𝓨 := by
-              by_contra! inY; exact false_of_le_gt (Finset.min'_le 𝓨 (X ω) inY) h2
+              by_contra! inY; exact not_lt_of_ge (Finset.min'_le 𝓨 (X ω) inY) h2
            rw [Finset.mem_filter] at hxω
            push Not at hxω
            exact hxω (Finset.mem_image_of_mem X (Finset.mem_univ ω))
 
-theorem rv_le_step_lt (P : Findist n) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
+theorem rv_le_step_lt (P : Findist Ω) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
        by cases' lt_or_ge t (FinRV.max P X) with hlt hge
           · obtain ⟨q, h⟩ := rv_le_step_lt_max P X t hlt
             exact ⟨q, ⟨h.1, h.2.1⟩⟩
@@ -264,7 +259,7 @@ end RandomVariables
 
 section Probability 
 
-variable {n : ℕ} {P : Findist n} {A B C : FinRV n Bool} {X Y : FinRV n ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {A B C : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 
 
 theorem prob_compl_sums_to_one : ℙ[B // P] + ℙ[¬ᵣB // P] = 1 := 
@@ -282,7 +277,7 @@ theorem rv_le_compl_gt : (X ≤ᵣ t) + (X >ᵣ t) = 1 := by
 
 theorem prob_le_compl_gt : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t // P] = 1 := by
   rw [prob_eq_exp_ind, prob_eq_exp_ind, ← exp_additive_two]
-  have h : (𝕀 ∘ (X ≤ᵣ t)) + (𝕀 ∘ (X >ᵣ t)) = (1 : FinRV n ℚ) := by
+  have h : (𝕀 ∘ (X ≤ᵣ t)) + (𝕀 ∘ (X >ᵣ t)) = (1 : FinRV Ω ℚ) := by
     ext ω
     unfold FinRV.leq FinRV.gt
     simp [𝕀, indicator]
@@ -295,16 +290,16 @@ theorem prob_le_compl_gt : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t // P] = 1 := by
   exact exp_one
 
 theorem prob_gt_of_le : ℙ[X >ᵣ t // P] = 1 -  ℙ[X ≤ᵣ t // P] := by
-  rw [←prob_le_compl_gt]
+  rw [←prob_le_compl_gt (P := P) (X := X) (t := t)]
   ring
 
 theorem prob_le_of_gt :  ℙ[X ≤ᵣ t // P] = 1 - ℙ[X >ᵣ t // P] := by
-  rw [←prob_le_compl_gt]
+  rw [←prob_le_compl_gt (P := P) (X := X) (t := t)]
   ring
 
 theorem prob_lt_compl_ge : ℙ[X <ᵣ t // P] + ℙ[X ≥ᵣ t // P] = 1 := by
   rw [prob_eq_exp_ind, prob_eq_exp_ind, ← exp_additive_two]
-  have h : (𝕀 ∘ (X <ᵣ t)) + (𝕀 ∘ (X ≥ᵣ t)) = (1 : FinRV n ℚ) := by
+  have h : (𝕀 ∘ (X <ᵣ t)) + (𝕀 ∘ (X ≥ᵣ t)) = (1 : FinRV Ω ℚ) := by
     ext ω
     unfold FinRV.lt FinRV.geq
     simp [𝕀, indicator]
@@ -317,10 +312,10 @@ theorem prob_lt_compl_ge : ℙ[X <ᵣ t // P] + ℙ[X ≥ᵣ t // P] = 1 := by
   exact exp_one
 
 theorem prob_ge_of_lt : ℙ[X ≥ᵣ t // P] = 1 -  ℙ[X <ᵣ t // P] := by
-  rw [← prob_lt_compl_ge]; ring
+  rw [← prob_lt_compl_ge (P := P) (X := X) (t := t)]; ring
 
 theorem prob_lt_of_ge :  ℙ[X <ᵣ t // P] = 1 - ℙ[X ≥ᵣ t // P] := by
-  rw [← prob_lt_compl_ge]; ring
+  rw [← prob_lt_compl_ge (P := P) (X := X) (t := t)]; ring
 
 theorem prob_bool_monotone : A ≤ B → ℙ[A // P] ≤ ℙ[B // P] := fun h => exp_monotone (ind_monotone h)
 
@@ -367,11 +362,11 @@ theorem prob_le_max_of_le_1 {t : ℚ} (h : ℙ[X ≤ᵣ t // P] < 1) : t < FinRV
        by_contra! hcontra
        have h1 := prob_le_monotone (P := P) (le_refl X) hcontra
        rw [prob_le_eq_one] at h1
-       exact false_of_lt_ge h h1
+       exact not_le_of_gt h h1
 
 section Rounding ---results for discrete probability distributions
 
-variable (P : Findist n) (X : FinRV n ℚ) (t : ℚ)
+variable (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ)
 
 theorem prob_le_step_lt_max (h: t < (FinRV.max P X)) : 
     ∃q > t, ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] ∧ q ∈ (Finset.univ.image X) :=
@@ -459,7 +454,7 @@ end Probability
 
 section CDF
 
-variable {n : ℕ} {P : Findist n} {X Y : FinRV n ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 
 /-- shows CDF is non-decreasing -/
 theorem cdf_nondecreasing : t₁ ≤ t₂ → cdf P X t₁ ≤ cdf P X t₂ := by
@@ -477,8 +472,8 @@ end CDF
 
 section Expectation 
 
-variable {n : ℕ} {P : Findist n}
-variable {k : ℕ} {X : FinRV n ℚ} {B : FinRV n Bool} {L : FinRV n (Fin k)}
+variable {Ω : Type} [FinEnum Ω] {P : Findist Ω}
+variable {k : ℕ} {X : FinRV Ω ℚ} {B : FinRV Ω Bool} {L : FinRV Ω (Fin k)}
 variable (g : Fin k → ℚ)
 
 /-- LOTUS: The law of the unconscious statistician (or similar) -/
@@ -502,8 +497,10 @@ theorem law_total_exp : 𝔼[𝔼[X |ᵣ L // P] // P] = 𝔼[X // P] :=
     _ = 𝔼[X // P]  := by rw [←exp_decompose]
 
 --- shows that using a set and list is the same
-lemma finset_image_eq_list_map_dedup : ∀x, x ∈ Finset.univ.image X ↔ x ∈ (List.ofFn X |> List.dedup) :=  by 
-    intro x; constructor <;> simp [Fin.univ_image_def,List.mem_toFinset] 
+lemma finset_image_eq_list_map_dedup : ∀x, x ∈ Finset.univ.image X ↔ x ∈ (((FinEnum.toList Ω).map X) |> List.dedup) :=  by
+    intro x
+    simp only [Finset.mem_image, Finset.mem_univ, true_and, List.mem_dedup, List.mem_map,
+               FinEnum.mem_toList, true_and]
 
 
 lemma finset_list_eq_list_dedup (l : List ℚ) : l.toFinset = l.dedup.toFinset := 
@@ -517,32 +514,37 @@ section RV_Unique_Values
 
 variable  {τ:Type} [DecidableEq τ] 
 
-def FinRV.imageList (X : FinRV n τ) : List τ := List.dedup (List.ofFn X)
+/-- The distinct values of a random variable, as a deduplicated list built from the
+    enumeration of the sample space. -/
+def FinRV.imageList (X : FinRV Ω τ) : List τ := List.dedup ((FinEnum.toList Ω).map X)
 
-theorem sum_finset_eq_sum_image (f : ℚ → ℚ) : 
-    (∑ y ∈ (Finset.univ.image X), f y) = ((X.imageList).map f).sum := by 
-      rw [FinRV.imageList, Fin.univ_image_def, Finset.sum_list_map_count,finset_list_eq_list_dedup]
-      have h : ∀m ∈ X.imageList.toFinset, List.count m (List.ofFn X).dedup = 1 := 
-          fun m hm => List.count_eq_one_of_mem (List.nodup_dedup (List.ofFn X)) 
-          (List.mem_dedup.mp hm)
-      apply Finset.sum_congr rfl
-      intro x hx
-      simp [h x hx]
+/-- The image finset of `X` equals the `toFinset` of its `imageList`. -/
+theorem univ_image_eq_imageList_toFinset (X : FinRV Ω τ) :
+    Finset.univ.image X = X.imageList.toFinset := by
+    ext y
+    simp only [FinRV.imageList, Finset.mem_image, Finset.mem_univ, true_and, List.mem_toFinset,
+               List.mem_dedup, List.mem_map, FinEnum.mem_toList, true_and]
+
+theorem sum_finset_eq_sum_image (f : ℚ → ℚ) :
+    (∑ y ∈ (Finset.univ.image X), f y) = ((X.imageList).map f).sum := by
+      rw [univ_image_eq_imageList_toFinset]
+      exact List.sum_toFinset f (List.nodup_dedup _)
 
 
 
 
 section generic 
 
-variable {X : FinRV n τ}
+variable {X : FinRV Ω τ}
 
-theorem finrv_image_superset (ω : Fin n) : X ω ∈ X.imageList := by
-    simp only [FinRV.imageList, List.mem_dedup, List.mem_ofFn.mpr (exists_apply_eq_apply X ω)]
+theorem finrv_image_superset (ω : Ω) : X ω ∈ X.imageList := by
+    simp only [FinRV.imageList, List.mem_dedup, List.mem_map]
+    exact ⟨ω, FinEnum.mem_toList ω, rfl⟩
 
 theorem finrv_image_superset_exists (ω) : ∃ i : Fin X.imageList.length, X ω = X.imageList[i] := 
   List.exists_mem_iff_get.mp ⟨X ω, ⟨finrv_image_superset ω, rfl⟩⟩
   
-theorem finrv_image_nodup : X.imageList.Nodup := List.nodup_dedup (List.ofFn X)
+theorem finrv_image_nodup : X.imageList.Nodup := List.nodup_dedup _
 
 -- Mathlib seems to be missing this function
 def List.finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : Fin L.length := 
@@ -552,11 +554,11 @@ def List.finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : Fin L.length :=
 theorem List.getElem_finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : L[L.finIdxOf a h] = a := 
     getElem_idxOf (idxOf_lt_length_of_mem h) 
 
-def FinRV.imageIdxOf (X : FinRV n τ) (ω : Fin n) : Fin (X.imageList.length) := 
+def FinRV.imageIdxOf (X : FinRV Ω τ) (ω : Ω) : Fin (X.imageList.length) := 
     X.imageList.finIdxOf (X ω) (finrv_image_superset ω)
 
 @[simp]
-theorem finrv_image_inverse (ω : Fin n) : X.imageList[X.imageIdxOf ω] = X ω := 
+theorem finrv_image_inverse (ω : Ω) : X.imageList[X.imageIdxOf ω] = X ω := 
   List.getElem_finIdxOf X.imageList (X ω) (finrv_image_superset ω)
 
 theorem finrv_image_unique {ω i} (h: X ω = X.imageList[i]) : X.imageIdxOf ω = i := by 
@@ -598,7 +600,7 @@ end Expectation
 
 section Probability 
 
-variable {n : ℕ} {k : ℕ}  {L : FinRV n (Fin k)}
+variable {Ω : Type} [FinEnum Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
 
 /-- The law of total probabilities -/
 theorem law_of_total_probs : ℙ[B // P] =  ∑ i, ℙ[B * (L =ᵣ i) // P]  := by 
@@ -617,22 +619,22 @@ end Probability
 
 section Probability_Permutation
 
-variable {n : ℕ} {P : Findist n} {A B : FinRV n Bool} {X Y : FinRV n ℚ} {t : ℚ}
+variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t : ℚ}
 
-example (σ : Equiv.Perm (Fin n)) (f g : Fin n → ℚ) : f ⬝ᵥ g = (f ∘ σ) ⬝ᵥ (g ∘ σ) := 
+example (σ : Equiv.Perm (Ω)) (f g : Ω → ℚ) : f ⬝ᵥ g = (f ∘ σ) ⬝ᵥ (g ∘ σ) := 
   by exact Eq.symm (comp_equiv_dotProduct_comp_equiv f g σ)
 
-example (σ : Equiv.Perm (Fin n)) : (1 : Fin n → ℚ) = (1 : Fin n → ℚ) ∘ σ := rfl
+example (σ : Equiv.Perm (Ω)) : (1 : Ω → ℚ) = (1 : Ω → ℚ) ∘ σ := rfl
 
-def Findist.perm (P : Findist n) (σ : Equiv.Perm (Fin n)) : Findist n where 
+def Findist.perm (P : Findist Ω) (σ : Equiv.Perm (Ω)) : Findist Ω where 
   p :=  P.p ∘ σ
   prob := by 
-    have h1 : 1 = (1 : Fin n → ℚ) ∘ σ := rfl 
+    have h1 : 1 = (1 : Ω → ℚ) ∘ σ := rfl 
     rw [h1, comp_equiv_dotProduct_comp_equiv 1 P.p σ]
     exact P.prob
   nneg := fun ω => P.nneg (σ ω)
 
-variable (σ : Equiv.Perm (Fin n))
+variable (σ : Equiv.Perm (Ω))
 
 theorem exp_eq_perm : 𝔼[X ∘ σ // P.perm σ] = 𝔼[X // P] := by
   unfold expect Findist.perm 

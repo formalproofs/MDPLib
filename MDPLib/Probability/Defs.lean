@@ -1,5 +1,6 @@
 import MDPLib.Probability.Prelude
 
+import Mathlib.Data.FinEnum -- finitely-enumerable sample spaces
 import Mathlib.Data.Matrix.Mul  -- dot product definitions and results
 import Mathlib.Algebra.Notation.Pi.Defs -- operations on functions
 import Mathlib.Algebra.Module.PointwisePi -- for smul_pi
@@ -8,12 +9,6 @@ import Mathlib.LinearAlgebra.Matrix.DotProduct -- for monotonicity
 
 ----------- Generic results -----------------
 
-theorem false_of_le_gt {x y : ℚ} : x ≤ y → x > y → False :=
-    by intro h1 h2; grw [h1] at h2; exact (lt_self_iff_false y).mp h2
-
-theorem false_of_lt_ge {x y : ℚ} : x < y → x ≥ y → False :=
-    fun h1 h2 => false_of_le_gt h2 h1
- 
 theorem bool_ineq {a b : Bool} (h : a → b) : (a ≤ b) := h
 
 theorem bool_eq {a b : Bool} (h1 : a → b) (h2 : b → a) : a = b := Bool.le_antisymm h1 h2
@@ -21,12 +16,12 @@ theorem bool_eq {a b : Bool} (h1 : a → b) (h2 : b → a) : a = b := Bool.le_an
 --------------------------- Findist ---------------------------------------------------------------
 
 
-variable {n : ℕ}
+variable {Ω : Type} [FinEnum Ω]
 
-/-- Finite probability distribution -/
-structure Findist (n : ℕ) : Type where
+/-- Finite probability distribution over a finitely-enumerable sample space `Ω`. -/
+structure Findist (Ω : Type) [FinEnum Ω] : Type where
     /-- Probaiblity measure -/
-    p : Fin n → ℚ   
+    p : Ω → ℚ
     prob : 1 ⬝ᵥ p = 1
     nneg : 0 ≤ p
 
@@ -34,26 +29,27 @@ structure Findist (n : ℕ) : Type where
 namespace Findist
 
 /-- Finite probability distribution  -/
-abbrev Delta : ℕ → Type := Findist
+abbrev Delta (Ω : Type) [FinEnum Ω] : Type := Findist Ω
 
 /-- Finite probability distribution  -/
-abbrev Δ : ℕ → Type := Delta
+abbrev Δ (Ω : Type) [FinEnum Ω] : Type := Delta Ω
 
-/-- Single probability distribution -/
-def singleton : Findist 1 :=
-    {p    := ![1],
-     prob := by simp [Matrix.vecHead],
-     nneg := by simp [Pi.zero_def, Pi.le_def] }
+/-- Dirac (point mass) distribution concentrated at `ω₀`. -/
+def dirac (ω₀ : Ω) : Findist Ω where
+    p    := fun ω => if ω = ω₀ then 1 else 0
+    prob := by simp [dotProduct]
+    nneg := by intro ω; by_cases h : ω = ω₀ <;> simp [h]
 
+/-- The sample space of a probability distribution is nonempty. -/
+theorem nonempty (P : Findist Ω) : Nonempty Ω := by
+  by_contra h
+  rw [not_nonempty_iff] at h
+  have := P.prob
+  simp_all only [Matrix.dotProduct_of_isEmpty, zero_ne_one]
 
-variable {n : ℕ}
-
-theorem nonempty (P : Findist n) : n > 0 :=
-  by cases n
-     · have := P.prob; simp_all only [Matrix.dotProduct_of_isEmpty, zero_ne_one]
-     · simp only [gt_iff_lt, lt_add_iff_pos_left, add_pos_iff, zero_lt_one, or_true]
-
-theorem nonempty' (P : Findist 0) : False := by have h := P.nonempty; simp only [gt_iff_lt, lt_self_iff_false] at h
+/-- A distribution over an empty sample space is impossible. -/
+theorem nonempty' [IsEmpty Ω] (P : Findist Ω) : False :=
+  (not_nonempty_iff.mpr ‹_›) P.nonempty
 
 end Findist
 
@@ -81,13 +77,15 @@ Main results
 
 section RandomVariable
 
-/-- A finite random variable  -/
-abbrev FinRV (n : ℕ) (ρ : Type) := Fin n → ρ
+/-- A finite random variable: a bare function from the sample space `Ω` to `ρ`.
+    The `FinEnum` instance lives on `Ω` and is shared with the distribution, so
+    a random variable never carries its own enumeration. -/
+abbrev FinRV (Ω : Type) (ρ : Type) := Ω → ρ
 
 /- construct a random variable -/
--- def rvOf {n : ℕ} {ρ : Type} (f : Fin n → ρ) := f
+-- def rvOf {Ω : Type} {ρ : Type} (f : Ω → ρ) := f
 
-variable {n : ℕ} {ρ : Type}
+variable {Ω : Type} [FinEnum Ω] {ρ : Type}
 
 namespace FinRV
 
@@ -106,28 +104,28 @@ variable {A B : Bool}
 
 
 /-- Negates a random variable -/
-@[simp] def not (B : FinRV n Bool) : FinRV n Bool :=
+@[simp] def not (B : FinRV Ω Bool) : FinRV Ω Bool :=
   fun ω ↦ (B ω).not
 
 /-- Negates a random variable -/
 prefix:40 "¬ᵣ" => FinRV.not
 
 /-- Boolean random variable representing an quality condition -/
-@[simp] def eq [DecidableEq ρ] (Y : FinRV n ρ) (y : ρ) : FinRV n Bool :=
+@[simp] def eq [DecidableEq ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   (fun ω ↦ decide (Y ω = y) )
 
 /-- Boolean random variable representing an quality condition -/
 infix:50 "=ᵣ" => FinRV.eq
 
 /-- 0/1 random variable representing an quality condition -/
-@[simp] def eqi [DecidableEq ρ] (Y : FinRV n ρ) (y : ρ) : FinRV n ℚ :=
+@[simp] def eqi [DecidableEq ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω ℚ :=
   (fun ω ↦ if Y ω = y then 1 else 0)
 
 /-- 0/1 random variable representing an quality condition -/
 infix:50 "=ᵢ" => FinRV.eqi
 
 /-- Boolean random variable represening Y ≤ y inequality -/
-@[simp] def leq [LE ρ] [DecidableLE ρ] (Y : FinRV n ρ) (y : ρ) : FinRV n Bool :=
+@[simp] def leq [LE ρ] [DecidableLE ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   (fun ω ↦ Y ω ≤ y)
 
 /-- Boolean random variable represening Y ≤ y inequality -/
@@ -135,21 +133,21 @@ infix:50 "≤ᵣ" => FinRV.leq
 
 
 /-- Boolean random variable represening Y ≤ y inequality -/
-@[simp] def lt [LT ρ] [DecidableLT ρ] (Y : FinRV n ρ) (y : ρ) : FinRV n Bool :=
+@[simp] def lt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   (fun ω ↦ Y ω < y)
 
 /-- Boolean random variable represening Y ≤ y inequality -/
 infix:50 "<ᵣ" => FinRV.lt
 
 /-- Boolean random variable represening Y ≤ y inequality -/
-@[simp] def geq [LE ρ] [DecidableLE ρ] (Y : FinRV n ρ) (y : ρ) : FinRV n Bool :=
+@[simp] def geq [LE ρ] [DecidableLE ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   (fun ω ↦ Y ω ≥ y)
 
 /-- Boolean random variable represening Y ≤ y inequality -/
 infix:50 "≥ᵣ" => FinRV.geq
 
 /-- Boolean random variable represening Y > y inequality -/
-@[simp] def gt [LT ρ] [DecidableLT ρ] (Y : FinRV n ρ) (y : ρ) : FinRV n Bool :=
+@[simp] def gt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   fun ω ↦ Y ω > y
 
 /-- Boolean random variable represening Y > y inequality -/
@@ -161,7 +159,7 @@ lemma exclusion {a b : ℕ} (h : a > b + 1) : (a > b) ∧ ¬(a = b + 1) :=
   ⟨ Nat.lt_of_succ_lt h, Ne.symm (Nat.ne_of_lt h) ⟩
 
 /-- Equivalence when extending the random variable to another element. -/
-theorem le_of_le_eq (D : FinRV n ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by
+theorem le_of_le_eq (D : FinRV Ω ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by
   funext x --extensionality principle for functions
   unfold FinRV.leq FinRV.eq instHAdd Add.add Pi.instAdd
   rw [Pi.add_apply, bool_sum_or]
@@ -170,8 +168,8 @@ theorem le_of_le_eq (D : FinRV n ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ
   · simp [h, exclusion (Nat.not_le.mp h) ] 
 
 /-- Defines a preimage of an RV. This is a set with a decidable membership. -/
-def preimage (f : FinRV n ρ) : ρ → Set (Fin n) :=
-  fun t => { m : Fin n | f m  = t}
+def preimage (f : FinRV Ω ρ) : ρ → Set Ω :=
+  fun t => { m : Ω | f m  = t}
 
 end FinRV
 
@@ -182,12 +180,12 @@ def indicator  [OfNat ℚ 0] [OfNat ℚ 1] (cond : Bool) : ℚ := cond.rec 0 1
 abbrev 𝕀 [OfNat ℚ 0] [OfNat ℚ 1] : Bool → ℚ := indicator
 
 
-variable {k : ℕ} {L : FinRV n (Fin k)}
+variable {k : ℕ} {L : FinRV Ω (Fin k)}
 
 theorem indi_eq_indr : ∀i : Fin k, (𝕀 ∘ (L =ᵣ i)) = (L =ᵢ i) := by
   intro i; unfold FinRV.eq FinRV.eqi 𝕀 indicator; ext ω; by_cases h: L ω = i; repeat simp [h]
 
-variable {B : FinRV n Bool}
+variable {B : FinRV Ω Bool}
 /-- Indicator is 0 or 1 -/
 theorem ind_zero_one : ∀ ω, (𝕀∘B) ω = 1 ∨ (𝕀∘B) ω = 0 := by
     intro ω
@@ -196,27 +194,27 @@ theorem ind_zero_one : ∀ ω, (𝕀∘B) ω = 1 ∨ (𝕀∘B) ω = 0 := by
     · right; simp only [Function.comp_apply, h, indicator]
 
 /-- Indicator is 0 or 1 -/
-theorem ind_nneg : (0 : FinRV n ℚ) ≤ 𝕀∘B := by
+theorem ind_nneg : (0 : FinRV Ω ℚ) ≤ 𝕀∘B := by
     intro ω; unfold 𝕀 indicator; by_cases h : B ω; repeat simp [h]
 
-theorem ind_le_one : 𝕀∘B ≤ (1 : FinRV n ℚ) :=
+theorem ind_le_one : 𝕀∘B ≤ (1 : FinRV Ω ℚ) :=
     by unfold 𝕀 indicator; intro ω; by_cases h : B ω; repeat simp [h]
 
-variable {c : ℚ} {X : FinRV n ℚ}
+variable {c : ℚ} {X : FinRV Ω ℚ}
 
-theorem rv_const_fun_to_one : (fun _ ↦ c : FinRV n ℚ)  = c • 1 := by ext; simp;
+theorem rv_const_fun_to_one : (fun _ ↦ c : FinRV Ω ℚ)  = c • 1 := by ext; simp;
 
-theorem rv_decompose (X : FinRV n ℚ) (L : FinRV n (Fin k)) : X = ∑ i, X * (L =ᵢ i) := by ext ω; simp
+theorem rv_decompose (X : FinRV Ω ℚ) (L : FinRV Ω (Fin k)) : X = ∑ i, X * (L =ᵢ i) := by ext ω; simp
 
-theorem one_of_true : 𝕀 ∘ (1 : Fin n → Bool) = (1 : Fin n → ℚ) := by ext; simp [𝕀, indicator]
+theorem one_of_true : 𝕀 ∘ (1 : Ω → Bool) = (1 : Ω → ℚ) := by ext; simp [𝕀, indicator]
 
-theorem one_of_bool_or_not : B + (¬ᵣ B) = (1 : FinRV n Bool) := by ext ω; unfold FinRV.not; simp
+theorem one_of_bool_or_not : B + (¬ᵣ B) = (1 : FinRV Ω Bool) := by ext ω; unfold FinRV.not; simp
 
-theorem one_of_ind_bool_or_not : (𝕀∘B) + (𝕀∘(¬ᵣ B)) = (1 : FinRV n ℚ) :=
+theorem one_of_ind_bool_or_not : (𝕀∘B) + (𝕀∘(¬ᵣ B)) = (1 : FinRV Ω ℚ) :=
     by ext ω; unfold FinRV.not 𝕀 indicator not
        by_cases h : B ω <;> simp [h]
 
-variable {X Y: FinRV n ℚ} {Xs : Fin k → FinRV n ℚ}
+variable {X Y: FinRV Ω ℚ} {Xs : Fin k → FinRV Ω ℚ}
 
 theorem rv_le_abs : X ≤ abs ∘ X := by intro i; simp [le_abs_self (X i)]
 
@@ -230,22 +228,21 @@ theorem rv_prod_const : ∀i, (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) :=
 
 variable {β : Type}
 
-theorem rv_image_nonempty  [DecidableEq β] [LinearOrder β] (P : Findist n) (X : FinRV n β)  :
+theorem rv_image_nonempty  [DecidableEq β] [LinearOrder β] (P : Findist Ω) (X : FinRV Ω β)  :
     (Finset.univ.image X).Nonempty :=
-  match n with
-  | Nat.zero => P.nonempty' |> False.elim
-  | Nat.succ _ => Finset.image_nonempty.mpr Finset.univ_nonempty
+  have : Nonempty Ω := P.nonempty
+  Finset.image_nonempty.mpr Finset.univ_nonempty
 
-def FinRV.min [DecidableEq β] [LinearOrder β] (P : Findist n) (X : FinRV n β) : β :=
+def FinRV.min [DecidableEq β] [LinearOrder β] (P : Findist Ω) (X : FinRV Ω β) : β :=
   (Finset.univ.image X).min' (rv_image_nonempty P X)
 
-def FinRV.max [DecidableEq β] [LinearOrder β] (P : Findist n) (X : FinRV n β) : β :=
+def FinRV.max [DecidableEq β] [LinearOrder β] (P : Findist Ω) (X : FinRV Ω β) : β :=
   (Finset.univ.image X).max' (rv_image_nonempty P X)
 
-variable {X : FinRV n ℚ}
+variable {X : FinRV Ω ℚ}
 
 
-theorem rv_omega_le_max (P : Findist n) : ∀ω, X ω ≤ (FinRV.max P X) := by 
+theorem rv_omega_le_max (P : Findist Ω) : ∀ω, X ω ≤ (FinRV.max P X) := by 
        intro ω
        have h : X ω ∈ (Finset.image X Finset.univ) := Finset.mem_image_of_mem X (Finset.mem_univ ω)
        simpa using Finset.le_max' (Finset.image X Finset.univ) (X ω) h
@@ -256,7 +253,7 @@ end RandomVariable
 ------------------------------ Probability ---------------------------
 section Probability 
 
-variable {n : ℕ} (P : Findist n) (B C : FinRV n Bool)
+variable {Ω : Type} [FinEnum Ω] (P : Findist Ω) (B C : FinRV Ω Bool)
 
 /-- Probability of B -/
 def probability : ℚ :=  P.p ⬝ᵥ (𝕀 ∘ B)
@@ -280,7 +277,7 @@ theorem prob_one_of_true : ℙ[1 // P] = 1 :=
 
 example {a b : ℚ} (h : 0 ≤ a) (h2 : 0 ≤ b) : 0 ≤ a * b :=  Rat.mul_nonneg h h2
 
-variable {P : Findist n} {B : FinRV n Bool}
+variable {P : Findist Ω} {B : FinRV Ω Bool}
 
 theorem prod_zero_of_prob_zero : ℙ[B // P] = 0 → (P.p * (𝕀∘B) = 0) := by
     intro h; exact prod_eq_zero_of_nneg_dp_zero P.nneg ind_nneg h
@@ -288,16 +285,16 @@ theorem prod_zero_of_prob_zero : ℙ[B // P] = 0 → (P.p * (𝕀∘B) = 0) := b
 ------------------------------ PMF ---------------------------
 
 /-- Proof that p is a the PMF of X on probability space P -/
-def PMF {K : ℕ} (pmf : Fin K → ℚ) (P : Findist n) (L : FinRV n (Fin K)) :=
+def PMF {K : ℕ} (pmf : Fin K → ℚ) (P : Findist Ω) (L : FinRV Ω (Fin K)) :=
     ∀ k : Fin K, pmf k = ℙ[ L =ᵣ k // P]
 
 
-variable {n : ℕ} {k : ℕ}  {L : FinRV n (Fin k)}
-variable {pmf : Fin k → ℚ} {P : Findist n}
+variable {Ω : Type} [FinEnum Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
+variable {pmf : Fin k → ℚ} {P : Findist Ω}
 
 theorem pmf_rv_k_ge_1 (h : PMF pmf P L)  : 0 < k :=
   match k with  
-  | Nat.zero => Fin.pos <| L ⟨0,P.nonempty⟩
+  | Nat.zero => Fin.pos <| L P.nonempty.some
   | Nat.succ k₂ => Nat.zero_lt_succ k₂
 
 end Probability
@@ -306,11 +303,11 @@ end Probability
 
 section CDF
 
-variable {n : ℕ}
+variable {Ω : Type} [FinEnum Ω]
 
-def cdf (P : Findist n) (X : FinRV n ℚ) (t : ℚ) : ℚ := ℙ[X ≤ᵣ t // P]
+def cdf (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ) : ℚ := ℙ[X ≤ᵣ t // P]
 
-variable {P : Findist n} {X Y : FinRV n ℚ} {t t₁ t₂ : ℚ}
+variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 
 
 end CDF
@@ -326,7 +323,7 @@ Main results
   - Decomposition with a discrete random variables, used in the proofs of LOTUS and TLE
 -/
 
-variable {n : ℕ} (P : Findist n) (X Y Z: FinRV n ℚ) (B : FinRV n Bool)
+variable {Ω : Type} [FinEnum Ω] (P : Findist Ω) (X Y Z: FinRV Ω ℚ) (B : FinRV Ω Bool)
 
 /-- Standard expectation operator -/
 def expect : ℚ := P.p ⬝ᵥ X
@@ -344,10 +341,10 @@ def expect_cnd : ℚ := 𝔼[ X * (𝕀 ∘ B) // P] / ℙ[ B // P]
 /-- Conditional expectation operator -/
 notation "𝔼[" X "|" B "//" P "]" => expect_cnd P X B
 
-variable {k : ℕ} (L : FinRV n (Fin k))
+variable {k : ℕ} (L : FinRV Ω (Fin k))
 
 /-- Expectation conditioned on a random variable. It creates a random variable -/
-def expect_cnd_rv : Fin n → ℚ := fun i ↦ 𝔼[ X | L =ᵣ (L i) // P ]
+def expect_cnd_rv : Ω → ℚ := fun i ↦ 𝔼[ X | L =ᵣ (L i) // P ]
 
 /-- Expectation conditioned on a random variable. It creates a random variable -/
 notation "𝔼[" X "|ᵣ" L "//" P "]" => expect_cnd_rv P X L
@@ -355,7 +352,7 @@ notation "𝔼[" X "|ᵣ" L "//" P "]" => expect_cnd_rv P X L
 --- some basic properties
 
 section Expectation_properties
-variable {P : Findist n} {X Y Z: FinRV n ℚ} {B : FinRV n Bool}
+variable {P : Findist Ω} {X Y Z: FinRV Ω ℚ} {B : FinRV Ω Bool}
 
 theorem exp_congr : (X = Y) → 𝔼[X // P] = 𝔼[Y // P] :=
   by intro h
@@ -366,7 +363,7 @@ theorem exp_congr : (X = Y) → 𝔼[X // P] = 𝔼[Y // P] :=
 
 theorem exp_mul_comm : 𝔼[X * Y // P] = 𝔼[Y * X // P] := exp_congr (CommMonoid.mul_comm X Y)
 
-variable {c : ℚ} {p : Fin n → ℚ}
+variable {c : ℚ} {p : Ω → ℚ}
 
 theorem exp_const : 𝔼[(fun _ ↦ c) // P] = c :=
   by unfold expect
@@ -396,7 +393,7 @@ theorem exp_indi_eq_exp_indr : ∀i : Fin k, 𝔼[L =ᵢ i // P] = 𝔼[𝕀 ∘
 theorem exp_homogenous : 𝔼[c • X // P] = c * 𝔼[X // P] := by simp only [expect, dotProduct_smul, smul_eq_mul]
 
 /-- Additivity of expectation --/
-theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV n ℚ) : 𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] := 
+theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV Ω ℚ) : 𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] := 
   by unfold expect; exact dotProduct_sum P.p Finset.univ Xs
      
 theorem exp_additive_two : 𝔼[X + Y // P] = 𝔼[X // P] + 𝔼[Y // P] := by simp [expect]
@@ -406,7 +403,7 @@ theorem exp_monotone (h: X ≤ Y)  : 𝔼[X // P] ≤ 𝔼[Y // P] := dotProduct
 
 ---- ** conditional expectation -----
 
-variable {k : ℕ} {g : Fin k → ℚ} {L : FinRV n (Fin k)} 
+variable {k : ℕ} {g : Fin k → ℚ} {L : FinRV Ω (Fin k)} 
 
 theorem exp_decompose : 𝔼[X // P] = ∑ i, 𝔼[X * (L =ᵢ i) // P] := 
   by nth_rewrite 1 [rv_decompose X L]
@@ -425,7 +422,7 @@ end Expectation_properties
 -- Derived properties from the properties of expectation
 section Probability_properties
 
-variable {n : ℕ} {P : Findist n} {A B : FinRV n Bool}
+variable {n : ℕ} {P : Findist Ω} {A B : FinRV Ω Bool}
 
 theorem ind_monotone : (∀ ω, A ω → B ω) → (𝕀∘A) ≤ (𝕀∘B) := by
   intro h ω

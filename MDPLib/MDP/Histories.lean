@@ -33,7 +33,7 @@ structure MDP : Type where
   A : ℕ
   A_ne : 0 < A
   /-- transition probability s, a, s' -/
-  P : Fin S → Fin A → Δ S
+  P : Fin S → Fin A → Δ (Fin S)
   /-- reward function s, a, s' -/
   r : Fin S → Fin A → Fin S → ℝ
 

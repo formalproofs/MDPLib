@@ -7,8 +7,8 @@ namespace Risk
 
 open Findist FinRV Statistic
 
-variable {n : ℕ}
-variable {P : Findist n} {X Y : FinRV n ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω]
+variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 
 def IsRiskLevel (α : ℚ) : Prop := 0 ≤ α ∧ α < 1
 
@@ -17,11 +17,11 @@ def RiskLevel := { α : ℚ // IsRiskLevel α}
 --instance instCoeRiskUnit : Coe RiskLevel UnitI where
 --  coe := fun ⟨v,c⟩ => ⟨v, ⟨c.1, le_of_lt c.2⟩ ⟩
 
-def FinVaRSet (P : Findist n) (X : FinRV n ℚ) (α : RiskLevel) : Finset ℚ :=
+def FinVaRSet (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : Finset ℚ :=
   let 𝓧 := Finset.univ.image X
   𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
 
-theorem FinVarSet_nonempty (P : Findist n) (X : FinRV n ℚ) (α : RiskLevel) : (FinVaRSet (n := n) P X α).Nonempty := by
+theorem FinVarSet_nonempty (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : (FinVaRSet (Ω := Ω) P X α).Nonempty := by
     apply Finset.filter_nonempty_iff.mpr
     let xmin := (Finset.univ.image X).min' (rv_image_nonempty P X)
     use xmin
@@ -33,7 +33,7 @@ theorem FinVarSet_nonempty (P : Findist n) (X : FinRV n ℚ) (α : RiskLevel) : 
 
 /-- Value-at-Risk of X at level α: VaR_α(X) = min { t ∈ X(Ω) | P[X ≤ t] ≥ α }.
     If we assume 0 ≤ α < 1, then the "else 0" branch is never used. -/
-def FinVaR (P : Findist n) (X : FinRV n ℚ) (α : RiskLevel) : ℚ :=
+def FinVaR (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : ℚ :=
    let 𝓧 := Finset.univ.image X
    let 𝓢 := 𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
    have h : 𝓢.Nonempty := FinVarSet_nonempty P X α
@@ -56,11 +56,11 @@ theorem finvar_prob_cond : ℙ[X <ᵣ (FinVaR P X α) // P] ≤ α.val ∧ α.va
         rw [hqp] at hg 
         have h2: q ∈ 𝓢 := Finset.mem_filter.mpr ⟨hqin, hg⟩
         exact Finset.le_max' 𝓢 q h2 
-      exact false_of_lt_ge hqgt hqt 
+      exact not_le_of_gt hqgt hqt 
 
 notation "VaR[" X "//" P ", " α "]" => FinVaR P X α
 
-variable {n : ℕ} (P : Findist n) (X Y : FinRV n ℚ) (α : RiskLevel) (q v : ℚ)
+variable {Ω : Type} [FinEnum Ω] (P : Findist Ω) (X Y : FinRV Ω ℚ) (α : RiskLevel) (q v : ℚ)
 
 /-- Value `v` is the Value at Risk at `α` of `X` and probability `P`  -/
 def IsVaR_Q : Prop := IsGreatest (Quantile P X α.val) v
@@ -68,7 +68,7 @@ def IsVaR_Q : Prop := IsGreatest (Quantile P X α.val) v
 /-- A simpler, equivalent definition of Value at Risk  -/
 def IsVaR : Prop := IsGreatest (QuantileLower P X α.val) v
 
-variable {n : ℕ} {P : Findist n} {X Y : FinRV n ℚ} {α : RiskLevel} {q v q₁ q₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {α : RiskLevel} {q v q₁ q₂ : ℚ}
 
 theorem var_prob_cond : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α.val < ℙ[X ≤ᵣ v // P]) :=
   by constructor
@@ -83,7 +83,7 @@ theorem var_prob_cond : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α
             rw [hq.2,prob_lt_of_ge] at hc
             suffices ℙ[X≥ᵣq//P] ≥ 1 - α.val from this 
             linarith
-         exact false_of_le_gt (h.2 h3) hq.1
+         exact not_lt_of_ge (h.2 h3) hq.1
      · intro h
        constructor
        · exact qsetlower_of_cond_lt h.1
@@ -93,7 +93,7 @@ theorem var_prob_cond : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α
          have hu : ℙ[X ≤ᵣ v // P] ≤ α.val :=
             calc ℙ[X ≤ᵣ v // P] ≤  ℙ[X <ᵣ q // P] := prob_lt_le_monotone hq.2
                  _ ≤ α.val := qsetlower_def_lt.mp hq.1
-         exact false_of_lt_ge h.2 hu
+         exact not_le_of_gt h.2 hu
 
 -- This is the main correctness proof
 theorem finvar_correct : IsVaR P X α (FinVaR P X α) := var_prob_cond.mpr finvar_prob_cond
@@ -130,8 +130,8 @@ theorem isquantilelower_le_isquantile : IsCofinalFor (QuantileLower P X α.val) 
         constructor
         · exact hq₂
         · by_contra! ine
-          exact ge_trans (prob_le_monotone (le_refl X) (le_of_lt ine)) (qset_lb hq₂) |> false_of_lt_ge h2l
-      · exfalso; exact false_of_lt_ge h2r h
+          exact ge_trans (prob_le_monotone (le_refl X) (le_of_lt ine)) (qset_lb hq₂) |> not_le_of_gt h2l
+      · exfalso; exact not_le_of_gt h2r h
 
 theorem isquantile_le_isquantilelower : IsCofinalFor (Quantile P X α.val) (QuantileLower P X α.val) :=
     HasSubset.Subset.isCofinalFor quantile_subset_quantilelower
@@ -147,7 +147,7 @@ theorem varq_prob_cond : IsVaR_Q P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧
 
 section VaR_properties
 
-variable {P : Findist n} {X Y : FinRV n ℚ} {q q₁ v₁ v₂ c : ℚ} {α : RiskLevel} {f : ℚ → ℚ}
+variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {q q₁ v₁ v₂ c : ℚ} {α : RiskLevel} {f : ℚ → ℚ}
 
 theorem var_monotone : X ≤ Y → IsVaR P X α v₁ → IsVaR P Y α v₂ → v₁ ≤ v₂ :=
   fun hle hv1 hv2 => upperBounds_mono_of_isCofinalFor (quantile_le_monotone hle) hv2.2 hv1.1

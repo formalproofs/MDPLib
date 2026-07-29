@@ -573,9 +573,7 @@ theorem finrv_image_exact {ω i} : X ω = X.imageList[i] ↔ X.imageIdxOf ω = i
 end generic    
 
 theorem sum_eq_sum_image (f : ℚ → ℚ) : ∑ y ∈ (Finset.univ.image X), f y = ∑ i : Fin X.imageList.length, f (X.imageList[i]) := by 
-      rw [Fin.univ_image_def, finset_list_eq_list_dedup]
-      rw [←FinRV.imageList] 
-      sorry
+      rw [sum_finset_eq_sum_image, ← List.ofFn_getElem_eq_map, List.sum_ofFn]; rfl
       
 
 /-- Shows that our definition of expectation is correct -/ 

@@ -572,26 +572,21 @@ theorem finrv_image_exact {ω i} : X ω = X.imageList[i] ↔ X.imageIdxOf ω = i
 
 end generic    
 
-theorem sum_eq_sum_image (f : ℚ → ℚ) : ∑ y ∈ (Finset.univ.image X), f y = ∑ i : Fin X.imageList.length, f (X.imageList[i]) := by 
+theorem sum_eq_sum_image (f : ℚ → ℚ) : 
+    ∑ y ∈ (Finset.univ.image X), f y = ∑ i : Fin X.imageList.length, f (X.imageList[i]) := by 
       rw [sum_finset_eq_sum_image, ← List.ofFn_getElem_eq_map, List.sum_ofFn]; rfl
       
 
 /-- Shows that our definition of expectation is correct -/ 
-theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (ℙ[ X =ᵣ y // P] * y) := by 
-    -- TODO: We reduce the result to LOTUS: create a list X.imageList, 
-    -- where i : Fin X.imageList.length is the index of the unique element, g : fun i => X i
-    -- maps i to the corresponding value of X, and L random variable maps 
-    -- each ω ∈ Ω values to the index i such that let L ω = Z.findIdx (X ω) 
+theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (ℙ[ X =ᵣ y // P] * y) := by
+    -- Reduce to LOTUS: L ω is the index of X ω in X.imageList and g maps an
+    -- index back to its value, so that g ∘ L = X.
     let L ω := X.imageIdxOf ω
-    let g (i : Fin X.imageList.length) := X.imageList[i]  
-    rw [sum_finset_eq_sum_image]
-    rw [←Fin.sum_univ_getElem]
-    have h0 : (List.map (fun y => ℙ[X=ᵣy//P] * y) X.imageList).length = X.imageList.length := by simp
-    have h (i : Fin X.imageList.length) : (X =ᵣ X.imageList[i]) = (L =ᵣ i) := 
-      by ext ω; simpa [L, FinRV.eq] using finrv_image_exact
-    simp
-    --simpa using LOTUS g
-    sorry
+    have hgL : (fun i => X.imageList[i]) ∘ L = X := funext finrv_image_inverse
+    conv_lhs => rw [← hgL, LOTUS (P := P) (L := L)]
+    rw [sum_eq_sum_image]
+    refine Fintype.sum_congr _ _ fun i => ?_
+    rw [show (X =ᵣ X.imageList[i]) = (L =ᵣ i) by ext ω; simpa [L, FinRV.eq] using finrv_image_exact]
 
 
 -- theorem expect_def_correct2 : 𝔼[ X // P] = ∑ y ∈ X.imageList, ℙ[ X =ᵣ y // P] * y := by  sorry

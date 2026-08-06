@@ -51,7 +51,4 @@ def bellman_backup (v : Ω → ℚ) : Ω → ℚ := Proc.r + Proc.γ • Proc.Pr
 
 notation "𝔹["v "//" Proc "]" => bellman_backup Proc v
 
--- Looking for norm in mathlib
-theorem bellman_backup_contraction : 1 = 1 := by sorry
-
 end RewardProcess

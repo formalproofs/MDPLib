@@ -18,9 +18,12 @@ theorem bool_eq {a b : Bool} (h1 : a → b) (h2 : b → a) : a = b := Bool.le_an
 
 variable {Ω : Type} [FinEnum Ω]
 
+
+-- TODO: do we even need to assume that Ω is finitely enumerable when defining the probability space?
+
 /-- Finite probability distribution over a finitely-enumerable sample space `Ω`. -/
 structure Findist (Ω : Type) [FinEnum Ω] : Type where
-    /-- Probaiblity measure -/
+    /-- Probability measure -/
     p : Ω → ℚ
     prob : 1 ⬝ᵥ p = 1
     nneg : 0 ≤ p
@@ -78,14 +81,12 @@ Main results
 section RandomVariable
 
 /-- A finite random variable: a bare function from the sample space `Ω` to `ρ`.
-    The `FinEnum` instance lives on `Ω` and is shared with the distribution, so
+    The `FinEnum` instance lives on `Ω` and is shared with the distribution function, so
     a random variable never carries its own enumeration. -/
 abbrev FinRV (Ω : Type) (ρ : Type) := Ω → ρ
 
-/- construct a random variable -/
--- def rvOf {Ω : Type} {ρ : Type} (f : Ω → ρ) := f
 
-variable {Ω : Type} [FinEnum Ω] {ρ : Type}
+variable {Ω : Type}  {ρ : Type}
 
 namespace FinRV
 
@@ -153,14 +154,12 @@ infix:50 "≥ᵣ" => FinRV.geq
 /-- Boolean random variable represening Y > y inequality -/
 infix:50 ">ᵣ" => FinRV.gt
 
-example (a b : ℕ) (h : a ≤ b +1) : (a ≤ b) ∨ (a = b + 1) := by exact Nat.le_or_eq_of_le_succ h
 
-lemma exclusion {a b : ℕ} (h : a > b + 1) : (a > b) ∧ ¬(a = b + 1) := 
-  ⟨ Nat.lt_of_succ_lt h, Ne.symm (Nat.ne_of_lt h) ⟩
-
-/-- Equivalence when extending the random variable to another element. -/
+/-- Equivalence when adding an element to integer comparison. -/
 theorem le_of_le_eq (D : FinRV Ω ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by
-  funext x --extensionality principle for functions
+  have exclusion {a b : ℕ} (h : a > b + 1) : (a > b) ∧ ¬(a = b + 1) := 
+  ⟨ Nat.lt_of_succ_lt h, Ne.symm (Nat.ne_of_lt h) ⟩
+  funext x 
   unfold FinRV.leq FinRV.eq instHAdd Add.add Pi.instAdd
   rw [Pi.add_apply, bool_sum_or]
   by_cases h : D x ≤ m.succ
@@ -228,6 +227,10 @@ theorem rv_prod_const : ∀i, (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) :=
 
 variable {β : Type}
 
+
+-- assume enumerability of Ω from here because we need a probability space
+variable [FinEnum Ω]
+
 theorem rv_image_nonempty  [DecidableEq β] [LinearOrder β] (P : Findist Ω) (X : FinRV Ω β)  :
     (Finset.univ.image X).Nonempty :=
   have : Nonempty Ω := P.nonempty
@@ -260,9 +263,6 @@ def probability : ℚ :=  P.p ⬝ᵥ (𝕀 ∘ B)
 
 /-- Probability of B -/
 notation "ℙ[" B "//" P "]" => probability P B
-
--- helps to refold is when needed
-lemma probability_def : P.p ⬝ᵥ (𝕀 ∘ B) = ℙ[B // P] := rfl
 
 /-- Conditional probability of B on C -/
 def probability_cnd : ℚ := ℙ[B * C // P] / ℙ[ C // P ]
@@ -381,10 +381,9 @@ theorem exp_cond_eq_def  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B
        exact (dotProduct_zero X).symm 
      · simp_all 
 
-lemma constant_mul_eq_smul : (fun ω ↦ c * X ω) = c • X := rfl
-
-theorem exp_prod_const_fun : 𝔼[(λ _ ↦ c) * X // P] = c * 𝔼[X // P] :=
-  by simp only [expect, Pi.mul_def, constant_mul_eq_smul, dotProduct_smul, smul_eq_mul]
+theorem exp_prod_const_fun : 𝔼[(λ _ ↦ c) * X // P] = c * 𝔼[X // P] := by 
+  have constant_mul_eq_smul : (fun ω ↦ c * X ω) = c • X := rfl 
+  simp only [expect, Pi.mul_def, constant_mul_eq_smul, dotProduct_smul, smul_eq_mul]
 
 theorem exp_indi_eq_exp_indr : ∀i : Fin k, 𝔼[L =ᵢ i // P] = 𝔼[𝕀 ∘ (L =ᵣ i) // P] := by
   intro i; rw [indi_eq_indr]

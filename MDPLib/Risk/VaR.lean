@@ -99,13 +99,13 @@ theorem var_prob_cond : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α
 theorem finvar_correct : IsVaR P X α (FinVaR P X α) := var_prob_cond.mpr finvar_prob_cond
 
 theorem varq_is_quantile : IsVaR_Q P X α v → IsQuantile P X α.val v :=
-    fun h => by simp_all only [Set.mem_setOf_eq,IsVaR_Q,Quantile,IsGreatest]
+    fun h => by simp_all only [Set.mem_ofPred_eq,IsVaR_Q,Quantile,IsGreatest]
 
 theorem varq_is_quantilelower : IsVaR_Q P X α v → IsQuantileLower P X α.val v :=
-    fun h => by simp_all only [Set.mem_setOf_eq,IsVaR_Q,Quantile,IsGreatest,IsQuantileLower,IsQuantile]
+    fun h => by simp_all only [Set.mem_ofPred_eq,IsVaR_Q,Quantile,IsGreatest,IsQuantileLower,IsQuantile]
 
 theorem var_is_quantilelower : IsVaR P X α v → IsQuantileLower P X α.val v :=
-    fun h => by simp_all only [Set.mem_setOf_eq,IsVaR,QuantileLower,IsGreatest,Set.mem_setOf_eq]
+    fun h => by simp_all only [Set.mem_ofPred_eq,IsVaR,QuantileLower,IsGreatest]
 
 theorem var_is_quantile : IsVaR P X α v → IsQuantile P X α.val v := by
     intro h
@@ -134,7 +134,7 @@ theorem isquantilelower_le_isquantile : IsCofinalFor (QuantileLower P X α.val) 
       · exfalso; exact not_le_of_gt h2r h
 
 theorem isquantile_le_isquantilelower : IsCofinalFor (Quantile P X α.val) (QuantileLower P X α.val) :=
-    HasSubset.Subset.isCofinalFor quantile_subset_quantilelower
+    LE.le.isCofinalFor quantile_subset_quantilelower
 
 theorem varq_eq_var : IsVaR_Q P X α v ↔ IsVaR P X α v := 
     ⟨fun h => ⟨varq_is_quantilelower h, (upperBounds_mono_of_isCofinalFor isquantilelower_le_isquantile) h.2⟩,

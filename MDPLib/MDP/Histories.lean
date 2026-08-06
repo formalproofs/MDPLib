@@ -373,16 +373,17 @@ theorem hist_horiz_exact (t : ℕ) (h : Hist M) (hh : h ∈ M.HistoriesHorizon t
     unfold MDP.HistoriesHorizon state2hist_emb MDP.state2hist at hh 
     rewrite [Finset.mem_map] at hh
     obtain ⟨s, sin, sf⟩ := hh
-    subst sf 
-    simp only [Hist.length]
+    subst sf
+    rfl
   case succ t' ih => 
     unfold MDP.HistoriesHorizon emb_tuple2hist MDP.tuple2hist at hh 
     rw [Finset.mem_map] at hh
-    obtain ⟨has, hasi, em⟩ := hh 
-    subst em 
-    unfold Hist.length
+    obtain ⟨has, hasi, em⟩ := hh
+    subst em
+    obtain ⟨h', a, s⟩ := has
     rewrite [Finset.mem_product] at hasi
-    rewrite [ih has.1 hasi.1]
+    show 1 + h'.length = t' + 1
+    rw [ih h' hasi.1]
     exact Nat.add_comm 1 t'
 
 def MDP.HistoriesHorizonT (M : MDP) (t : ℕ) : Finset (M.HistT t) := 
@@ -397,7 +398,7 @@ theorem hist_horiz_complete_t (t : ℕ) (h : M.HistT t) : h ∈ M.HistoriesHoriz
     extract_lets H f finj 
     apply Finset.mem_map.mpr 
     use ⟨h.1, hist_horiz_complete t h⟩
-    simp [f]
+    exact ⟨Finset.mem_attach _ _, rfl⟩
     
 instance (M : MDP) (t : ℕ) : Fintype (M.HistT t) where 
     elems := M.HistoriesHorizonT t  

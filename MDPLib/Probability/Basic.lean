@@ -84,7 +84,7 @@ theorem rvlt_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y <ᵣ t₁
 
 theorem rv_le_max_one : (X ≤ᵣ (FinRV.max P X)) = 1 :=
     by ext ω
-       unfold FinRV.leq FinRV.max
+       unfold FinRV.leq
        simpa using rv_omega_le_max P ω
 
 theorem rv_max_in_image : (FinRV.max P X) ∈ Finset.univ.image X :=
@@ -93,11 +93,11 @@ theorem rv_max_in_image : (FinRV.max P X) ∈ Finset.univ.image X :=
 theorem rv_omega_ge_min (P : Findist Ω) : ∀ω, X ω ≥ (FinRV.min P X) :=
     by intro ω
        have h : X ω ∈ (Finset.image X Finset.univ) := Finset.mem_image_of_mem X (Finset.mem_univ ω)
-       simpa using Finset.min'_le (Finset.image X Finset.univ) (X ω) h
+       exact Finset.min'_le (Finset.image X Finset.univ) (X ω) h
 
 theorem rv_ge_min_one : (X ≥ᵣ (FinRV.min P X)) = 1 :=
     by ext ω
-       unfold FinRV.geq FinRV.min
+       unfold FinRV.geq
        simpa using rv_omega_ge_min P ω
 
 theorem rv_monotone_sharp {t₁ t₂ : ℚ} : t₁ < t₂ → ∀ ω, (X ≥ᵣ t₂) ω → (X >ᵣ t₁) ω   :=

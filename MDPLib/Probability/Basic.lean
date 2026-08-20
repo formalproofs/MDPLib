@@ -23,17 +23,15 @@ open Matrix
 
 variable {Ω : Type} [Fintype Ω] {p x : Ω → ℚ}
 
-/-- If a dot product of nonnegative vectors is positive, some coordinate of the
-    second vector is positive. Proved over an arbitrary finite index. -/
-theorem nneg_dotProd_pos_ex_pos (h1 : ∀ ω, p ω ≥ 0) (h2 : ∀ ω, x ω ≥ 0) (h : p ⬝ᵥ x > 0) : ∃ ω, x ω > 0 := by
-  by_contra hcon
-  push Not at hcon
-  have hle : p ⬝ᵥ x ≤ 0 := by
-    unfold dotProduct
-    apply Finset.sum_nonpos
-    intro ω _
-    nlinarith [h1 ω, hcon ω]
-  linarith
+
+/-- If a dot product with a nonnegative vector is positive, some coordinate of the
+    vector is positive. -/
+theorem nneg_dotProd_pos_ex_pos (h1 : p ≥ 0) (h : p ⬝ᵥ x > 0) : ∃ ω, x ω > 0 := by
+    by_contra! hcon
+    have h2 := dotProduct_le_dotProduct_of_nonneg_left hcon h1   
+    rw [dotProduct_zero'] at h2
+    order 
+                          
 
 end General
 
@@ -61,7 +59,7 @@ end Findist
 
 section RandomVariables
 
-variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type}  {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 
 theorem rvle_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y ≤ᵣ t₁) ≤ 𝕀 ∘ (X ≤ᵣ t₂) := by 
     intro ω   
@@ -81,6 +79,8 @@ theorem rvlt_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y <ᵣ t₁
       simp [FinRV.lt, 𝕀, indicator, h3, h4] 
     · by_cases h5 : X ω < t₂
       repeat simp [h3, h5, 𝕀, indicator] 
+
+variable [FinEnum Ω] {P : Findist Ω} {A B : FinRV Ω Bool}
 
 theorem rv_le_max_one : (X ≤ᵣ (FinRV.max P X)) = 1 :=
     by ext ω
@@ -112,7 +112,7 @@ variable (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ)
 
 
 theorem prob_atomic_omega {b : ℚ} (h : ℙ[X =ᵣ b // P] > 0) : ∃ω, X ω = b := by 
-    obtain ⟨ω, hω⟩ : ∃ω, (𝕀 ∘ (X=ᵣb)) ω > 0 := nneg_dotProd_pos_ex_pos (P.nneg) (ind_nneg) h 
+    obtain ⟨ω, hω⟩ : ∃ω, (𝕀 ∘ (X=ᵣb)) ω > 0 := nneg_dotProd_pos_ex_pos (P.nneg) h 
     use ω
     by_contra!
     simp_all [𝕀, indicator]

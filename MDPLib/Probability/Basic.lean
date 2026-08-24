@@ -64,8 +64,7 @@ variable {Ω : Type}  {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 theorem rvle_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y ≤ᵣ t₁) ≤ 𝕀 ∘ (X ≤ᵣ t₂) := by 
     intro ω   
     by_cases h3 : Y ω ≤ t₁
-    · have h4 : X ω ≤ t₂ := le_trans (le_trans (h1 ω) h3) h2
-      simp [FinRV.leq, 𝕀, indicator, h3, h4] 
+    · simp [FinRV.leq, 𝕀, indicator, h3, (le_trans (le_trans (h1 ω) h3) h2)] 
     · by_cases h5 : X ω ≤ t₂
       repeat simp [h3, h5, 𝕀, indicator] 
 
@@ -80,36 +79,28 @@ theorem rvlt_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y <ᵣ t₁
     · by_cases h5 : X ω < t₂
       repeat simp [h3, h5, 𝕀, indicator] 
 
+theorem rv_monotone_sharp {t₁ t₂ : ℚ} (h : t₁ < t₂) (ω) (hω : (X ≥ᵣ t₂) ω ) : (X >ᵣ t₁) ω :=
+    by simp [FinRV.gt, FinRV.geq] at hω ⊢
+       order
+
 variable [FinEnum Ω] {P : Findist Ω} {A B : FinRV Ω Bool}
 
 theorem rv_le_max_one : (X ≤ᵣ (FinRV.max P X)) = 1 :=
-    by ext ω
-       unfold FinRV.leq
-       simpa using rv_omega_le_max P ω
+    by ext ω; simpa using rv_omega_le_max P ω
 
 theorem rv_max_in_image : (FinRV.max P X) ∈ Finset.univ.image X :=
      Finset.max'_mem (Finset.image X Finset.univ) (rv_image_nonempty P X)
 
-theorem rv_omega_ge_min (P : Findist Ω) : ∀ω, X ω ≥ (FinRV.min P X) :=
-    by intro ω
-       have h : X ω ∈ (Finset.image X Finset.univ) := Finset.mem_image_of_mem X (Finset.mem_univ ω)
-       exact Finset.min'_le (Finset.image X Finset.univ) (X ω) h
+theorem rv_omega_ge_min (P : Findist Ω) (ω) : X ω ≥ (FinRV.min P X) :=
+   Finset.min'_le (Finset.image X Finset.univ) (X ω) (Finset.mem_image_of_mem X (Finset.mem_univ ω))
 
 theorem rv_ge_min_one : (X ≥ᵣ (FinRV.min P X)) = 1 :=
-    by ext ω
-       unfold FinRV.geq
-       simpa using rv_omega_ge_min P ω
-
-theorem rv_monotone_sharp {t₁ t₂ : ℚ} : t₁ < t₂ → ∀ ω, (X ≥ᵣ t₂) ω → (X >ᵣ t₁) ω   :=
-    by intro h ω pre
-       simp [FinRV.gt, FinRV.geq] at pre ⊢
-       linarith
+    by ext ω; simpa using rv_omega_ge_min P ω
 
 -- results for discrete probability distributions
 section Atomic 
 
 variable (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ)
-
 
 theorem prob_atomic_omega {b : ℚ} (h : ℙ[X =ᵣ b // P] > 0) : ∃ω, X ω = b := by 
     obtain ⟨ω, hω⟩ : ∃ω, (𝕀 ∘ (X=ᵣb)) ω > 0 := nneg_dotProd_pos_ex_pos (P.nneg) h 
@@ -117,27 +108,29 @@ theorem prob_atomic_omega {b : ℚ} (h : ℙ[X =ᵣ b // P] > 0) : ∃ω, X ω =
     by_contra!
     simp_all [𝕀, indicator]
 
+#check Finset.max'
+
 theorem rv_le_step_lt_max (h0 : t < (FinRV.max P X)) : ∃q > t, (X ≤ᵣ t) = (X <ᵣ q) ∧ q ∈ (Finset.univ.image X) := by
      let 𝓧 := Finset.univ.image X
      let 𝓨 := 𝓧.filter (fun x ↦ x > t)
      have hnonempty : 𝓨.Nonempty := Finset.filter_nonempty_iff.mpr ⟨FinRV.max P X, ⟨rv_max_in_image, h0⟩⟩
      let q := 𝓨.min' hnonempty
-     have hq_Y : q > t := (Finset.mem_filter.mp (Finset.min'_mem 𝓨 hnonempty)).right 
+     have q_ge_t : q > t := (Finset.mem_filter.mp (Finset.min'_mem 𝓨 hnonempty)).right 
      use q
      constructor
-     · exact hq_Y
-     · constructor; swap
-       · exact Finset.mem_of_mem_filter q (Finset.min'_mem 𝓨 hnonempty)
+     · exact q_ge_t
+     · constructor
        · ext ω
          rw [FinRV.leq,FinRV.lt,decide_eq_decide]
          constructor
-         · exact fun h2 => lt_of_le_of_lt h2 hq_Y
+         · exact fun h2 => lt_of_le_of_lt h2 q_ge_t
          · intro h2
            have hxω : X ω ∉ 𝓨 := by
               by_contra! inY; exact not_lt_of_ge (Finset.min'_le 𝓨 (X ω) inY) h2
            rw [Finset.mem_filter] at hxω
            push Not at hxω
            exact hxω (Finset.mem_image_of_mem X (Finset.mem_univ ω))
+       · exact Finset.mem_of_mem_filter q (Finset.min'_mem 𝓨 hnonempty)
 
 theorem rv_le_step_lt (P : Findist Ω) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
        by cases' lt_or_ge t (FinRV.max P X) with hlt hge
@@ -150,9 +143,14 @@ theorem rv_le_step_lt (P : Findist Ω) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
             have ab : (X ≤ᵣ t) = (X <ᵣ q) := by ext ω; simp_all [FinRV.leq, FinRV.lt]
             exact ⟨q, ⟨lt_add_one t, ab⟩⟩
 
+  
+
 
 theorem rv_ge_step_lt_min (h0 : t > (FinRV.min P X)) : ∃q < t, (X ≥ᵣ t) = (X >ᵣ q) ∧ q ∈ (Finset.univ.image X) := by
-    sorry 
+    sorry
+
+#help tactic
+    
 
 end Atomic
 

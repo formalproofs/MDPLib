@@ -81,12 +81,10 @@ Main results
 section RandomVariable
 
 /-- A finite random variable: a bare function from the sample space `Ω` to `ρ`.
-    The `FinEnum` instance lives on `Ω` and is shared with the distribution function, so
-    a random variable never carries its own enumeration. -/
-abbrev FinRV (Ω : Type) (ρ : Type) := Ω → ρ
+    The `FinEnum` instance lives on `Ω` and is shared with the distribution function. -/
+abbrev FinRV (Ω : Type) [Nonempty Ω] (ρ : Type) := Ω → ρ
 
-
-variable {Ω : Type}  {ρ : Type}
+variable {Ω : Type} [Nonempty Ω] {ρ : Type}
 
 namespace FinRV
 
@@ -231,21 +229,20 @@ variable {β : Type}
 -- assume enumerability of Ω from here because we need a probability space
 variable [FinEnum Ω]
 
-theorem rv_image_nonempty  [DecidableEq β] [LinearOrder β] (P : Findist Ω) (X : FinRV Ω β)  :
+theorem rv_image_nonempty  [DecidableEq β] [LinearOrder β]  (X : FinRV Ω β)  :
     (Finset.univ.image X).Nonempty :=
-  have : Nonempty Ω := P.nonempty
   Finset.image_nonempty.mpr Finset.univ_nonempty
 
-def FinRV.min [DecidableEq β] [LinearOrder β] (P : Findist Ω) (X : FinRV Ω β) : β :=
-  (Finset.univ.image X).min' (rv_image_nonempty P X)
+def FinRV.min [DecidableEq β] [LinearOrder β] (X : FinRV Ω β) : β :=
+  (Finset.univ.image X).min' (rv_image_nonempty X)
 
-def FinRV.max [DecidableEq β] [LinearOrder β] (P : Findist Ω) (X : FinRV Ω β) : β :=
-  (Finset.univ.image X).max' (rv_image_nonempty P X)
+def FinRV.max [DecidableEq β] [LinearOrder β] (X : FinRV Ω β) : β :=
+  (Finset.univ.image X).max' (rv_image_nonempty X)
 
 variable {X : FinRV Ω ℚ}
 
 
-theorem rv_omega_le_max (P : Findist Ω) : ∀ω, X ω ≤ (FinRV.max P X) := by 
+theorem rv_omega_le_max (P : Findist Ω) : ∀ω, X ω ≤ (FinRV.max X) := by 
        intro ω
        have h : X ω ∈ (Finset.image X Finset.univ) := Finset.mem_image_of_mem X (Finset.mem_univ ω)
        exact Finset.le_max' (Finset.image X Finset.univ) (X ω) h
@@ -256,7 +253,7 @@ end RandomVariable
 ------------------------------ Probability ---------------------------
 section Probability 
 
-variable {Ω : Type} [FinEnum Ω] (P : Findist Ω) (B C : FinRV Ω Bool)
+variable {Ω : Type} [Nonempty Ω] [FinEnum Ω] (P : Findist Ω) (B C : FinRV Ω Bool)
 
 /-- Probability of B -/
 def probability : ℚ :=  P.p ⬝ᵥ (𝕀 ∘ B)
@@ -289,7 +286,7 @@ def PMF {K : ℕ} (pmf : Fin K → ℚ) (P : Findist Ω) (L : FinRV Ω (Fin K)) 
     ∀ k : Fin K, pmf k = ℙ[ L =ᵣ k // P]
 
 
-variable {Ω : Type} [FinEnum Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
 variable {pmf : Fin k → ℚ} {P : Findist Ω}
 
 theorem pmf_rv_k_ge_1 (h : PMF pmf P L)  : 0 < k :=
@@ -303,7 +300,7 @@ end Probability
 
 section CDF
 
-variable {Ω : Type} [FinEnum Ω]
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω]
 
 def cdf (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ) : ℚ := ℙ[X ≤ᵣ t // P]
 
@@ -323,7 +320,7 @@ Main results
   - Decomposition with a discrete random variables, used in the proofs of LOTUS and TLE
 -/
 
-variable {Ω : Type} [FinEnum Ω] (P : Findist Ω) (X Y Z: FinRV Ω ℚ) (B : FinRV Ω Bool)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist Ω) (X Y Z: FinRV Ω ℚ) (B : FinRV Ω Bool)
 
 /-- Standard expectation operator -/
 def expect : ℚ := P.p ⬝ᵥ X

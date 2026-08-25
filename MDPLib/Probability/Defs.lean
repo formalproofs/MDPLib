@@ -220,33 +220,30 @@ theorem rv_prod_sum_additive  : ∑ i, Y * (Xs i) = Y * (∑ i, Xs i) :=
 
 variable {g : Fin k → ℚ}
 
-theorem rv_prod_const : ∀i, (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) := 
-    by intro i; ext ω; by_cases h : L ω = i <;> simp [h] 
+theorem rv_prod_const (i) : (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) := 
+    by ext ω; by_cases h : L ω = i <;> simp [h] 
 
 variable {β : Type}
 
 
 -- assume enumerability of Ω from here because we need a probability space
-variable [FinEnum Ω]
+variable [FinEnum Ω] [DecidableEq β]
 
-theorem rv_image_nonempty  [DecidableEq β] [LinearOrder β]  (X : FinRV Ω β)  :
+theorem rv_image_nonempty   (X : FinRV Ω β)  :
     (Finset.univ.image X).Nonempty :=
   Finset.image_nonempty.mpr Finset.univ_nonempty
 
-def FinRV.min [DecidableEq β] [LinearOrder β] (X : FinRV Ω β) : β :=
+def FinRV.min [LinearOrder β] (X : FinRV Ω β) : β :=
   (Finset.univ.image X).min' (rv_image_nonempty X)
 
-def FinRV.max [DecidableEq β] [LinearOrder β] (X : FinRV Ω β) : β :=
+def FinRV.max [LinearOrder β] (X : FinRV Ω β) : β :=
   (Finset.univ.image X).max' (rv_image_nonempty X)
 
 variable {X : FinRV Ω ℚ}
 
-
-theorem rv_omega_le_max (P : Findist Ω) : ∀ω, X ω ≤ (FinRV.max X) := by 
-       intro ω
+theorem rv_omega_le_max  (ω) : X ω ≤ (FinRV.max X) := by 
        have h : X ω ∈ (Finset.image X Finset.univ) := Finset.mem_image_of_mem X (Finset.mem_univ ω)
        exact Finset.le_max' (Finset.image X Finset.univ) (X ω) h
-
 
 end RandomVariable
 
@@ -276,8 +273,8 @@ example {a b : ℚ} (h : 0 ≤ a) (h2 : 0 ≤ b) : 0 ≤ a * b :=  Rat.mul_nonne
 
 variable {P : Findist Ω} {B : FinRV Ω Bool}
 
-theorem prod_zero_of_prob_zero : ℙ[B // P] = 0 → (P.p * (𝕀∘B) = 0) := by
-    intro h; exact prod_eq_zero_of_nneg_dp_zero P.nneg ind_nneg h
+theorem prod_zero_of_prob_zero (h : ℙ[B // P] = 0) : (P.p * (𝕀∘B) = 0) := by
+    exact prod_eq_zero_of_nneg_dp_zero P.nneg ind_nneg h
 
 ------------------------------ PMF ---------------------------
 
@@ -351,8 +348,7 @@ notation "𝔼[" X "|ᵣ" L "//" P "]" => expect_cnd_rv P X L
 section Expectation_properties
 variable {P : Findist Ω} {X Y Z: FinRV Ω ℚ} {B : FinRV Ω Bool}
 
-theorem exp_congr : (X = Y) → 𝔼[X // P] = 𝔼[Y // P] :=
-  by intro h
+theorem exp_congr (h : X = Y) : 𝔼[X // P] = 𝔼[Y // P] := by 
      unfold expect dotProduct
      apply Fintype.sum_congr
      simp_all
@@ -362,14 +358,10 @@ theorem exp_mul_comm : 𝔼[X * Y // P] = 𝔼[Y * X // P] := exp_congr (CommMon
 
 variable {c : ℚ} {p : Ω → ℚ}
 
-theorem exp_const : 𝔼[(fun _ ↦ c) // P] = c :=
-  by unfold expect
-     rw [rv_const_fun_to_one]
-     simp only [dotProduct_smul, smul_eq_mul]
-     rw [dotProduct_comm, P.prob]
-     simp
+theorem exp_const : 𝔼[(fun _ ↦ c) // P] = c := by 
+  rw [rv_const_fun_to_one,expect, dotProduct_smul,smul_eq_mul,dotProduct_comm,P.prob,Rat.mul_one]
 
-theorem exp_one : 𝔼[ 1 // P] = 1  := exp_const
+theorem exp_one : 𝔼[ 1 // P] = 1 := exp_const
 
 theorem exp_cond_eq_def  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B) // P] :=
   by unfold expect_cnd 
@@ -377,20 +369,18 @@ theorem exp_cond_eq_def  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B
      · rw [h, Rat.mul_zero, expect,dotProd_hadProd_comm, dotProd_hadProd_rotate, prod_zero_of_prob_zero h]
        exact (dotProduct_zero X).symm 
      · simp_all 
+       
+theorem exp_prod_const_fun : 𝔼[(fun _ ↦ c) * X // P] = c * 𝔼[X // P] := by 
+  rw [funmul_eq_smul, expect, expect, dotProd_smul_homogeneous]
 
-theorem exp_prod_const_fun : 𝔼[(λ _ ↦ c) * X // P] = c * 𝔼[X // P] := by 
-  have constant_mul_eq_smul : (fun ω ↦ c * X ω) = c • X := rfl 
-  simp only [expect, Pi.mul_def, constant_mul_eq_smul, dotProduct_smul, smul_eq_mul]
-
-theorem exp_indi_eq_exp_indr : ∀i : Fin k, 𝔼[L =ᵢ i // P] = 𝔼[𝕀 ∘ (L =ᵣ i) // P] := by
-  intro i; rw [indi_eq_indr]
+theorem exp_indi_eq_exp_indr (i) : 𝔼[L =ᵢ i // P] = 𝔼[𝕀 ∘ (L =ᵣ i) // P] := by rw [indi_eq_indr]
 
 /-- Expectation is homogeneous under product -/
 theorem exp_homogenous : 𝔼[c • X // P] = c * 𝔼[X // P] := by simp only [expect, dotProduct_smul, smul_eq_mul]
 
 /-- Additivity of expectation --/
-theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV Ω ℚ) : 𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] := 
-  by unfold expect; exact dotProduct_sum P.p Finset.univ Xs
+theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV Ω ℚ) : 
+    𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] := dotProduct_sum P.p Finset.univ Xs
      
 theorem exp_additive_two : 𝔼[X + Y // P] = 𝔼[X // P] + 𝔼[Y // P] := by simp [expect]
 
@@ -401,17 +391,15 @@ theorem exp_monotone (h: X ≤ Y)  : 𝔼[X // P] ≤ 𝔼[Y // P] := dotProduct
 
 variable {k : ℕ} {g : Fin k → ℚ} {L : FinRV Ω (Fin k)} 
 
-theorem exp_decompose : 𝔼[X // P] = ∑ i, 𝔼[X * (L =ᵢ i) // P] := 
-  by nth_rewrite 1 [rv_decompose X L]
-     rw [exp_additive]
+theorem exp_decompose : 𝔼[X // P] = ∑ i, 𝔼[X * (L =ᵢ i) // P] := by 
+    nth_rewrite 1 [rv_decompose X L]
+    rw [exp_additive]
 
 /-- Expectation of a conditional constant. Only when probability is positive.  -/
-theorem exp_cond_const : ∀ i, ℙ[L =ᵣ i //   P] ≠ 0 → 𝔼[g ∘ L | L =ᵣ i // P] = g i := 
-    by intro i h 
-       unfold expect_cnd
-       rw [indi_eq_indr, rv_prod_const i, exp_homogenous]
-       rw [←indi_eq_indr, ←prob_eq_exp_ind]
-       simp only [h, ne_eq, isUnit_iff_ne_zero, not_false_eq_true, IsUnit.mul_div_cancel_right]
+theorem exp_cond_const (i) (h : ℙ[L =ᵣ i //   P] ≠ 0) : 𝔼[g ∘ L | L =ᵣ i // P] = g i := by 
+    unfold expect_cnd
+    rw [indi_eq_indr, rv_prod_const i, exp_homogenous, ←indi_eq_indr, ←prob_eq_exp_ind]
+    simp [h, ne_eq, not_false_eq_true]
 
 end Expectation_properties
 
@@ -420,8 +408,8 @@ section Probability_properties
 
 variable {n : ℕ} {P : Findist Ω} {A B : FinRV Ω Bool}
 
-theorem ind_monotone : (∀ ω, A ω → B ω) → (𝕀∘A) ≤ (𝕀∘B) := by
-  intro h ω
+theorem ind_monotone (h : ∀ ω, A ω → B ω) : (𝕀∘A) ≤ (𝕀∘B) := by
+  intro ω
   specialize h ω
   by_cases h1 : A ω
   · simp_all [indicator] 

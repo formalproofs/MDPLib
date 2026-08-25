@@ -52,26 +52,36 @@ end FunctionalAnalysis
 section dotProduct
 
 variable {Ω : Type*} [Fintype Ω]
-variable {x y z : Ω → ℚ}
+variable {x y z : Ω → ℚ} {c : ℚ}
+
+
 
 theorem dotProd_hadProd_rotate : x ⬝ᵥ (y * z) = z ⬝ᵥ (x * y) := by
-  unfold dotProduct
   apply Fintype.sum_congr
   intro i
-  simp
+  rewrite [Pi.mul_apply y z i, Pi.mul_apply]
   ring
 
+example : z * x = x * z := by apply?
+
 theorem dotProd_hadProd_comm : x ⬝ᵥ (y * z) = x ⬝ᵥ (z * y) := by
-  unfold dotProduct
   apply Fintype.sum_congr
   intro i
-  simp
-  left
+  rewrite [mul_comm' z y]
+  ring
+
+example : (c • x) i = c * x i := by rw [Pi.smul_apply, smul_eq_mul] 
+
+theorem funmul_eq_smul : (fun _ ↦ c) * X = c • X := rfl 
+
+theorem dotProd_smul_homogeneous : x ⬝ᵥ (c • y) = c * x ⬝ᵥ y := by 
+  rewrite [dotProduct, dotProduct, Finset.mul_sum] 
+  apply Fintype.sum_congr
+  intro i 
+  rw [Pi.smul_apply, smul_eq_mul] 
   ring
 
 theorem dotProduct_eq_one_had : x ⬝ᵥ y = 1 ⬝ᵥ (x * y) := by simp [dotProduct]
-
-example (hx : 0 ≤ x) (hy : 0 ≤ y) : 0 ≤ x * y := Left.mul_nonneg hx hy
 
 theorem prod_eq_zero_of_nneg_dp_zero (hx : 0 ≤ x) (hy : 0 ≤ y) : x ⬝ᵥ y = 0 → x * y = 0 := by
   intro h

@@ -1,6 +1,10 @@
 # Formalizing Markov Decision Processes in Lean
 
-[![Blueprint](https://img.shields.io/badge/Blueprint-WIP-blue)](https://formalproofs.github.io/MDPLib)
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://formalproofs.github.io/MDPLib/)
+
+**Documentation:** the [API documentation](https://formalproofs.github.io/MDPLib/docs/)
+and the [companion paper](https://formalproofs.github.io/MDPLib/main.pdf) are built by CI and
+published to [GitHub Pages](https://formalproofs.github.io/MDPLib/) on every push to `main`.
 
 Verified Lean algorithms for solving tabular MDPs and proving their properties. The focus of this project is on two main goals:
 

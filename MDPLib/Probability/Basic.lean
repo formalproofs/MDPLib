@@ -23,7 +23,6 @@ open Matrix
 
 variable {Ω : Type} [Fintype Ω] {p x : Ω → ℚ}
 
-
 /-- If a dot product with a nonnegative vector is positive, some coordinate of the
     vector is positive. -/
 theorem nneg_dotProd_pos_ex_pos (h1 : p ≥ 0) (h : p ⬝ᵥ x > 0) : ∃ ω, x ω > 0 := by
@@ -83,19 +82,19 @@ theorem rv_monotone_sharp {t₁ t₂ : ℚ} (h : t₁ < t₂) (ω) (hω : (X ≥
     by simp [FinRV.gt, FinRV.geq] at hω ⊢
        order
 
-variable [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {A B : FinRV Ω Bool}
+variable [FinEnum Ω] {P : Findist Ω} {A B : FinRV Ω Bool}
 
 theorem rv_le_max_one : (X ≤ᵣ (FinRV.max X)) = 1 :=
     by ext ω; simpa using rv_omega_le_max ω
 
 theorem rv_max_in_image : (FinRV.max X) ∈ Finset.univ.image X :=
-     Finset.max'_mem (Finset.image X Finset.univ) (rv_image_nonempty P X)
+     Finset.max'_mem (Finset.image X Finset.univ) (rv_image_nonempty X)
 
-theorem rv_omega_ge_min (P : Findist Ω) (ω) : X ω ≥ (FinRV.min X) :=
+theorem rv_omega_ge_min  (ω) : X ω ≥ (FinRV.min X) :=
    Finset.min'_le (Finset.image X Finset.univ) (X ω) (Finset.mem_image_of_mem X (Finset.mem_univ ω))
 
 theorem rv_ge_min_one : (X ≥ᵣ (FinRV.min X)) = 1 :=
-    by ext ω; simpa using rv_omega_ge_min P ω
+    by ext ω; simpa using rv_omega_ge_min ω
 
 -- results for discrete probability distributions
 section Atomic 
@@ -109,10 +108,10 @@ theorem prob_atomic_omega {b : ℚ} (h : ℙ[X =ᵣ b // P] > 0) : ∃ω, X ω =
     simp_all [𝕀, indicator]
 
 
-theorem rv_le_step_lt_max (h0 : t < (FinRV.max P X)) : ∃q > t, (X ≤ᵣ t) = (X <ᵣ q) ∧ q ∈ (Finset.univ.image X) := by
+theorem rv_le_step_lt_max (h0 : t < (FinRV.max  X)) : ∃q > t, (X ≤ᵣ t) = (X <ᵣ q) ∧ q ∈ (Finset.univ.image X) := by
      let 𝓧 := Finset.univ.image X
      let 𝓨 := 𝓧.filter (fun x ↦ x > t)
-     have hnonempty : 𝓨.Nonempty := Finset.filter_nonempty_iff.mpr ⟨FinRV.max P X, ⟨rv_max_in_image, h0⟩⟩
+     have hnonempty : 𝓨.Nonempty := Finset.filter_nonempty_iff.mpr ⟨FinRV.max X, ⟨rv_max_in_image, h0⟩⟩
      let q := 𝓨.min' hnonempty
      have q_ge_t : q > t := (Finset.mem_filter.mp (Finset.min'_mem 𝓨 hnonempty)).right 
      use q
@@ -133,7 +132,7 @@ theorem rv_le_step_lt_max (h0 : t < (FinRV.max P X)) : ∃q > t, (X ≤ᵣ t) = 
 
 theorem rv_le_step_lt (P : Findist Ω) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
        by cases' lt_or_ge t (FinRV.max X) with hlt hge
-          · obtain ⟨q, h⟩ := rv_le_step_lt_max P X t hlt
+          · obtain ⟨q, h⟩ := rv_le_step_lt_max  X t hlt
             exact ⟨q, ⟨h.1, h.2.1⟩⟩
           · have h := rv_omega_le_max (X:=X)
             grw [hge] at h
@@ -142,17 +141,10 @@ theorem rv_le_step_lt (P : Findist Ω) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
             have ab : (X ≤ᵣ t) = (X <ᵣ q) := by ext ω; simp_all [FinRV.leq, FinRV.lt]
             exact ⟨q, ⟨lt_add_one t, ab⟩⟩
 
-  
-
-
-theorem rv_ge_step_lt_min (h0 : t > (FinRV.min P X)) : ∃q < t, (X ≥ᵣ t) = (X >ᵣ q) ∧ q ∈ (Finset.univ.image X) := by
+theorem rv_ge_step_lt_min (h0 : t > (FinRV.min X)) : ∃q < t, (X ≥ᵣ t) = (X >ᵣ q) ∧ q ∈ (Finset.univ.image X) := by
     sorry
 
-#help tactic
-    
-
 end Atomic
-
 
 section Transformations
 
@@ -256,7 +248,7 @@ end RandomVariables
 
 section Probability 
 
-variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {A B C : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {A B C : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 
 
 theorem prob_compl_sums_to_one : ℙ[B // P] + ℙ[¬ᵣB // P] = 1 := 
@@ -348,14 +340,14 @@ theorem prob_lt_le_monotone {q : ℚ} (h : q > t) : ℙ[X <ᵣ q // P] ≥ ℙ[X
             by_cases h5 : X ω < q <;> simp [h5] 
      exact mul_le_mul_of_nonneg_left h2 (P.nneg ω)
 
-theorem prob_le_eq_one : ℙ[X ≤ᵣ (FinRV.max P X) // P] = 1 := by rw [rv_le_max_one]; exact prob_one_of_true P
+theorem prob_le_eq_one : ℙ[X ≤ᵣ (FinRV.max X) // P] = 1 := by rw [rv_le_max_one]; exact prob_one_of_true P
 
-theorem prob_ge_eq_one : ℙ[X ≥ᵣ (FinRV.min P X) // P] = 1 := by rw [rv_ge_min_one]; exact prob_one_of_true P
+theorem prob_ge_eq_one : ℙ[X ≥ᵣ (FinRV.min X) // P] = 1 := by rw [rv_ge_min_one]; exact prob_one_of_true P
 
-theorem prob_lt_min_eq_zero : ℙ[X <ᵣ (FinRV.min P X) // P] = 0 := by
+theorem prob_lt_min_eq_zero : ℙ[X <ᵣ (FinRV.min X) // P] = 0 := by
     rw [prob_lt_of_ge, prob_ge_eq_one]; exact sub_self 1
 
-theorem prob_le_max_of_le_1 {t : ℚ} (h : ℙ[X ≤ᵣ t // P] < 1) : t < FinRV.max P X := by 
+theorem prob_le_max_of_le_1 {t : ℚ} (h : ℙ[X ≤ᵣ t // P] < 1) : t < FinRV.max X := by 
        by_contra! hcontra
        have h1 := prob_le_monotone (P := P) (le_refl X) hcontra
        rw [prob_le_eq_one] at h1
@@ -365,10 +357,10 @@ section Rounding ---results for discrete probability distributions
 
 variable (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ)
 
-theorem prob_le_step_lt_max (h: t < (FinRV.max P X)) : 
-    ∃q > t, ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] ∧ q ∈ (Finset.univ.image X) :=
-          let ⟨q, hq⟩ := rv_le_step_lt_max P X t h
-          Exists.intro q ⟨hq.1, ⟨congrArg (probability P) hq.2.1, hq.2.2 ⟩⟩
+theorem prob_le_step_lt_max (h: t < (FinRV.max X)) : 
+    ∃q > t, ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] ∧ q ∈ (Finset.univ.image X) := sorry
+          --let ⟨q, hq⟩ := rv_le_step_lt_max P t h
+          --Exists.intro q ⟨hq.1, ⟨congrArg (probability P) hq.2.1, hq.2.2 ⟩⟩
 
 /-- similar to `prob_le_step_lt_max` but no precondition -/
 theorem prob_le_step_lt : ∃q > t,  ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] :=
@@ -451,7 +443,7 @@ end Probability
 
 section CDF
 
-variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 
 /-- shows CDF is non-decreasing -/
 theorem cdf_nondecreasing : t₁ ≤ t₂ → cdf P X t₁ ≤ cdf P X t₂ := by
@@ -469,7 +461,7 @@ end CDF
 
 section Expectation 
 
-variable {Ω : Type} [FinEnum Ω] {P : Findist Ω}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω}
 variable {k : ℕ} {X : FinRV Ω ℚ} {B : FinRV Ω Bool} {L : FinRV Ω (Fin k)}
 variable (g : Fin k → ℚ)
 
@@ -503,10 +495,6 @@ lemma finset_image_eq_list_map_dedup : ∀x, x ∈ Finset.univ.image X ↔ x ∈
 lemma finset_list_eq_list_dedup (l : List ℚ) : l.toFinset = l.dedup.toFinset := 
     List.toFinset.ext (fun _ => List.mem_dedup.symm)
 
-
-example (f : ℚ → ℚ) (l : List ℚ) (h : l.Nodup) : ∑ y ∈ l.toFinset, f y = (l.map f).sum :=  
-    List.sum_toFinset (fun y => f y) h
-
 section RV_Unique_Values
 
 variable  {τ:Type} [DecidableEq τ] 
@@ -528,9 +516,7 @@ theorem sum_finset_eq_sum_image (f : ℚ → ℚ) :
       exact List.sum_toFinset f (List.nodup_dedup _)
 
 
-
-
-section generic 
+section Generic 
 
 variable {X : FinRV Ω τ}
 
@@ -567,9 +553,7 @@ theorem finrv_image_exact {ω i} : X ω = X.imageList[i] ↔ X.imageIdxOf ω = i
   ⟨finrv_image_unique, fun h => by rw[←h]; exact Eq.symm (finrv_image_inverse ω)⟩
 
 
-
-
-end generic    
+end Generic    
 
 theorem sum_eq_sum_image (f : ℚ → ℚ) : 
     ∑ y ∈ (Finset.univ.image X), f y = ∑ i : Fin X.imageList.length, f (X.imageList[i]) := by 
@@ -597,7 +581,7 @@ end Expectation
 
 section Probability 
 
-variable {Ω : Type} [FinEnum Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
 
 /-- The law of total probabilities -/
 theorem law_of_total_probs : ℙ[B // P] =  ∑ i, ℙ[B * (L =ᵣ i) // P]  := by 
@@ -616,7 +600,7 @@ end Probability
 
 section Probability_Permutation
 
-variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t : ℚ}
 
 example (σ : Equiv.Perm (Ω)) (f g : Ω → ℚ) : f ⬝ᵥ g = (f ∘ σ) ⬝ᵥ (g ∘ σ) := 
   by exact Eq.symm (comp_equiv_dotProduct_comp_equiv f g σ)

@@ -16,7 +16,6 @@ theorem bool_eq {a b : Bool} (h1 : a → b) (h2 : b → a) : a = b := Bool.le_an
 --------------------------- Findist ---------------------------------------------------------------
 
 
-variable {Ω : Type} [FinEnum Ω]
 
 
 -- TODO: do we even need to assume that Ω is finitely enumerable when defining the probability space?
@@ -31,6 +30,7 @@ structure Findist (Ω : Type) [FinEnum Ω] : Type where
 
 namespace Findist
 
+
 /-- Finite probability distribution  -/
 abbrev Delta (Ω : Type) [FinEnum Ω] : Type := Findist Ω
 
@@ -38,10 +38,14 @@ abbrev Delta (Ω : Type) [FinEnum Ω] : Type := Findist Ω
 abbrev Δ (Ω : Type) [FinEnum Ω] : Type := Delta Ω
 
 /-- Dirac (point mass) distribution concentrated at `ω₀`. -/
-def dirac (ω₀ : Ω) : Findist Ω where
+def dirac {Ω : Type} [FinEnum Ω] (ω₀ : Ω) : Findist Ω where
     p    := fun ω => if ω = ω₀ then 1 else 0
     prob := by simp [dotProduct]
     nneg := by intro ω; by_cases h : ω = ω₀ <;> simp [h]
+
+section General
+
+variable {Ω : Type} [FinEnum Ω]
 
 /-- The sample space of a probability distribution is nonempty. -/
 theorem nonempty (P : Findist Ω) : Nonempty Ω := by
@@ -53,6 +57,8 @@ theorem nonempty (P : Findist Ω) : Nonempty Ω := by
 /-- A distribution over an empty sample space is impossible. -/
 theorem nonempty' [IsEmpty Ω] (P : Findist Ω) : False :=
   (not_nonempty_iff.mpr ‹_›) P.nonempty
+
+end General
 
 end Findist
 
@@ -183,9 +189,8 @@ theorem indi_eq_indr : ∀i : Fin k, (𝕀 ∘ (L =ᵣ i)) = (L =ᵢ i) := by
   intro i; unfold FinRV.eq FinRV.eqi 𝕀 indicator; ext ω; by_cases h: L ω = i; repeat simp [h]
 
 variable {B : FinRV Ω Bool}
-/-- Indicator is 0 or 1 -/
-theorem ind_zero_one : ∀ ω, (𝕀∘B) ω = 1 ∨ (𝕀∘B) ω = 0 := by
-    intro ω
+
+theorem ind_zero_one : (𝕀∘B) ω = 1 ∨ (𝕀∘B) ω = 0 := by
     by_cases h : B ω
     · left; simp only [Function.comp_apply, h, indicator]
     · right; simp only [Function.comp_apply, h, indicator]
@@ -199,10 +204,12 @@ theorem ind_le_one : 𝕀∘B ≤ (1 : FinRV Ω ℚ) :=
 
 variable {c : ℚ} {X : FinRV Ω ℚ}
 
+omit [Nonempty Ω] in
 theorem rv_const_fun_to_one : (fun _ ↦ c : FinRV Ω ℚ)  = c • 1 := by ext; simp;
 
 theorem rv_decompose (X : FinRV Ω ℚ) (L : FinRV Ω (Fin k)) : X = ∑ i, X * (L =ᵢ i) := by ext ω; simp
 
+omit [Nonempty Ω] in
 theorem one_of_true : 𝕀 ∘ (1 : Ω → Bool) = (1 : Ω → ℚ) := by ext; simp [𝕀, indicator]
 
 theorem one_of_bool_or_not : B + (¬ᵣ B) = (1 : FinRV Ω Bool) := by ext ω; unfold FinRV.not; simp
@@ -229,8 +236,7 @@ variable {β : Type}
 -- assume enumerability of Ω from here because we need a probability space
 variable [FinEnum Ω] [DecidableEq β]
 
-theorem rv_image_nonempty   (X : FinRV Ω β)  :
-    (Finset.univ.image X).Nonempty :=
+theorem rv_image_nonempty (X : FinRV Ω β) : (Finset.univ.image X).Nonempty :=
   Finset.image_nonempty.mpr Finset.univ_nonempty
 
 def FinRV.min [LinearOrder β] (X : FinRV Ω β) : β :=
@@ -282,7 +288,6 @@ theorem prod_zero_of_prob_zero (h : ℙ[B // P] = 0) : (P.p * (𝕀∘B) = 0) :=
 def PMF {K : ℕ} (pmf : Fin K → ℚ) (P : Findist Ω) (L : FinRV Ω (Fin K)) :=
     ∀ k : Fin K, pmf k = ℙ[ L =ᵣ k // P]
 
-
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
 variable {pmf : Fin k → ℚ} {P : Findist Ω}
 
@@ -317,6 +322,8 @@ Main results
   - Decomposition with a discrete random variables, used in the proofs of LOTUS and TLE
 -/
 
+section Expectation_properties
+
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist Ω) (X Y Z: FinRV Ω ℚ) (B : FinRV Ω Bool)
 
 /-- Standard expectation operator -/
@@ -345,8 +352,7 @@ notation "𝔼[" X "|ᵣ" L "//" P "]" => expect_cnd_rv P X L
 
 --- some basic properties
 
-section Expectation_properties
-variable {P : Findist Ω} {X Y Z: FinRV Ω ℚ} {B : FinRV Ω Bool}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y Z: FinRV Ω ℚ} {B : FinRV Ω Bool}
 
 theorem exp_congr (h : X = Y) : 𝔼[X // P] = 𝔼[Y // P] := by 
      unfold expect dotProduct
@@ -362,21 +368,16 @@ theorem exp_const : 𝔼[(fun _ ↦ c) // P] = c := by
   rw [rv_const_fun_to_one,expect, dotProduct_smul,smul_eq_mul,dotProduct_comm,P.prob,Rat.mul_one]
 
 theorem exp_one : 𝔼[ 1 // P] = 1 := exp_const
-
-theorem exp_cond_eq_def  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B) // P] :=
-  by unfold expect_cnd 
-     by_cases h: ℙ[B//P] = 0
-     · rw [h, Rat.mul_zero, expect,dotProd_hadProd_comm, dotProd_hadProd_rotate, prod_zero_of_prob_zero h]
-       exact (dotProduct_zero X).symm 
-     · simp_all 
        
-theorem exp_prod_const_fun : 𝔼[(fun _ ↦ c) * X // P] = c * 𝔼[X // P] := by 
-  rw [funmul_eq_smul, expect, expect, dotProd_smul_homogeneous]
+/-- Expectation is homogeneous under product -/
+theorem exp_homogenous : 𝔼[c • X // P] = c * 𝔼[X // P] := by rw [expect, expect, dotProd_smul_homogeneous]
+
+-- TODO: rename to exp_homogenous'
+theorem exp_prod_const_fun : 𝔼[(fun _ ↦ c) * X // P] = c * 𝔼[X // P] := by rw [funmul_eq_smul,exp_homogenous]
+
+variable {k : ℕ} {g : Fin k → ℚ}  {L : FinRV Ω (Fin k)}
 
 theorem exp_indi_eq_exp_indr (i) : 𝔼[L =ᵢ i // P] = 𝔼[𝕀 ∘ (L =ᵣ i) // P] := by rw [indi_eq_indr]
-
-/-- Expectation is homogeneous under product -/
-theorem exp_homogenous : 𝔼[c • X // P] = c * 𝔼[X // P] := by simp only [expect, dotProduct_smul, smul_eq_mul]
 
 /-- Additivity of expectation --/
 theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV Ω ℚ) : 
@@ -389,7 +390,6 @@ theorem exp_monotone (h: X ≤ Y)  : 𝔼[X // P] ≤ 𝔼[Y // P] := dotProduct
 
 ---- ** conditional expectation -----
 
-variable {k : ℕ} {g : Fin k → ℚ} {L : FinRV Ω (Fin k)} 
 
 theorem exp_decompose : 𝔼[X // P] = ∑ i, 𝔼[X * (L =ᵢ i) // P] := by 
     nth_rewrite 1 [rv_decompose X L]
@@ -401,12 +401,17 @@ theorem exp_cond_const (i) (h : ℙ[L =ᵣ i //   P] ≠ 0) : 𝔼[g ∘ L | L =
     rw [indi_eq_indr, rv_prod_const i, exp_homogenous, ←indi_eq_indr, ←prob_eq_exp_ind]
     simp [h, ne_eq, not_false_eq_true]
 
+theorem exp_cond_eq_def  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B) // P] :=
+  by unfold expect_cnd 
+     by_cases h: ℙ[B//P] = 0
+     · rw [h, Rat.mul_zero, expect,dotProd_hadProd_comm, dotProd_hadProd_rotate, prod_zero_of_prob_zero h]
+       exact (dotProduct_zero X).symm 
+     · simp_all 
+
 end Expectation_properties
 
 -- Derived properties from the properties of expectation
 section Probability_properties
-
-variable {n : ℕ} {P : Findist Ω} {A B : FinRV Ω Bool}
 
 theorem ind_monotone (h : ∀ ω, A ω → B ω) : (𝕀∘A) ≤ (𝕀∘B) := by
   intro ω

@@ -7,7 +7,7 @@ namespace Risk
 
 open Findist FinRV Statistic
 
-variable {Ω : Type} [FinEnum Ω]
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω]
 variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
 
 def IsRiskLevel (α : ℚ) : Prop := 0 ≤ α ∧ α < 1
@@ -23,10 +23,10 @@ def FinVaRSet (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : Finset ℚ 
 
 theorem FinVarSet_nonempty (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : (FinVaRSet (Ω := Ω) P X α).Nonempty := by
     apply Finset.filter_nonempty_iff.mpr
-    let xmin := (Finset.univ.image X).min' (rv_image_nonempty P X)
+    let xmin := (Finset.univ.image X).min' (rv_image_nonempty X)
     use xmin
     constructor
-    · exact Finset.min'_mem (Finset.univ.image X) (rv_image_nonempty P X)
+    · exact Finset.min'_mem (Finset.univ.image X) (rv_image_nonempty X)
     · have h : ℙ[X <ᵣ xmin // P] = 0 := prob_lt_min_eq_zero
       rewrite [h]
       exact α.2.1 
@@ -48,7 +48,7 @@ theorem finvar_prob_cond : ℙ[X <ᵣ (FinVaR P X α) // P] ≤ α.val ∧ α.va
       exact (Finset.mem_filter.mp  (Finset.max'_mem 𝓢 ne𝓢)).right
     · generalize h : (FinVaR P X α) = t
       by_contra! hg
-      have hlt : t < (FinRV.max P X) := prob_le_max_of_le_1 (lt_of_le_of_lt hg (Set.Ico.coe_lt_one α)) 
+      have hlt : t < (FinRV.max X) := prob_le_max_of_le_1 (lt_of_le_of_lt hg (Set.Ico.coe_lt_one α)) 
       obtain ⟨q, ⟨hqgt, hqp, hqin⟩⟩ := prob_le_step_lt_max P X t hlt
       have hqt : t ≥ q  := by 
         unfold FinVaR at h; extract_lets 𝓧 𝓢 ne𝓢 at h;
@@ -60,7 +60,7 @@ theorem finvar_prob_cond : ℙ[X <ᵣ (FinVaR P X α) // P] ≤ α.val ∧ α.va
 
 notation "VaR[" X "//" P ", " α "]" => FinVaR P X α
 
-variable {Ω : Type} [FinEnum Ω] (P : Findist Ω) (X Y : FinRV Ω ℚ) (α : RiskLevel) (q v : ℚ)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist Ω) (X Y : FinRV Ω ℚ) (α : RiskLevel) (q v : ℚ)
 
 /-- Value `v` is the Value at Risk at `α` of `X` and probability `P`  -/
 def IsVaR_Q : Prop := IsGreatest (Quantile P X α.val) v
@@ -68,7 +68,7 @@ def IsVaR_Q : Prop := IsGreatest (Quantile P X α.val) v
 /-- A simpler, equivalent definition of Value at Risk  -/
 def IsVaR : Prop := IsGreatest (QuantileLower P X α.val) v
 
-variable {Ω : Type} [FinEnum Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {α : RiskLevel} {q v q₁ q₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {α : RiskLevel} {q v q₁ q₂ : ℚ}
 
 theorem var_prob_cond : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α.val < ℙ[X ≤ᵣ v // P]) :=
   by constructor

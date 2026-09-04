@@ -1,0 +1,1605 @@
+\documentclass[letterpaper]{article}
+
+\usepackage{geometry}
+\usepackage{expl3} % TODO: ??
+
+\usepackage{amssymb, amsthm, mathtools}
+\usepackage[unicode,colorlinks=true,linkcolor=blue,urlcolor=magenta, citecolor=blue]{hyperref}
+\usepackage{bm}
+\usepackage{fullpage}
+
+\usepackage{thmtools}
+\usepackage[capitalize]{cleveref}
+
+% the following package only works with LuaTeX or XeLaTeX
+%\usepackage[warnings-off={mathtools-colon,mathtools-overbracket}]{unicode-math}
+\usepackage{graphicx} % Required for inserting images
+ 
+\usepackage{color}
+\usepackage{natbib}
+\bibliographystyle{abbrvnat}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[subsection]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{example}[theorem]{Example}
+
+\newcommand{\Nats}{\mathbb{N}}
+\newcommand{\Real}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\PP}{\mathbb{P}}
+
+\newcommand{\opt}{^{\star}}
+\newcommand{\tr}{^{\mathsf{T}}}
+
+\newcommand{\PiHR}{\Pi_{\mathrm{HR}}}
+\newcommand{\PiMD}{\Pi_{\mathrm{MD}}}
+
+\DeclareMathOperator{\bool}{Bool}
+\DeclareMathOperator{\true}{true}
+\DeclareMathOperator{\false}{false}
+\DeclareMathOperator{\finvar}{VaR}
+\DeclareMathOperator{\isvar}{IsVaR}
+
+
+
+\newcommand{\I}{\mathbb{I}}
+
+\newcommand{\rew}{\tilde{r}^{\mathrm{h}}}
+\newcommand{\why}[1]{\text{[#1]}}
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\definecolor{ccolor}{rgb}{0.80,0.33,0.0}
+\newcommand{\cc}[1]{\textcolor{ccolor}{[#1]}}
+
+
+\newcommand{\id}{\operatorname{id}}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3mm}
+
+\usepackage[framemethod=tikz]{mdframed}
+
+
+\newcommand{\lean}[1]{\textcolor{blue}{(\emph{LEAN}: \texttt{#1})}}
+\newcommand{\discussion}[1]{}
+\newcommand{\leanok}{}
+\newcommand{\mathlibok}{}
+\newcommand{\notready}{}
+
+% \DeclareMathOperator{\true}{true}
+% \DeclareMathOperator{\false}{false}
+% \DeclareMathOperator{\id}{id}
+
+% Make sure that arguments of \uses and \proves are real labels, by using invisible refs:
+% latex prints a warning if the label is not defined, but nothing is shown in the pdf file.
+% It uses LaTeX3 programming, this is why we use the expl3 package.
+\ExplSyntaxOn
+\NewDocumentCommand{\uses}{m}
+ {\clist_map_inline:nn{#1}{\vphantom{\ref{##1}}}%
+  \ignorespaces}
+\NewDocumentCommand{\proves}{m}
+ {\clist_map_inline:nn{#1}{\vphantom{\ref{##1}}}%
+  \ignorespaces}
+\ExplSyntaxOff
+
+% Theorems and such
+\mdfdefinestyle{theoremstyle}{%
+    roundcorner=5pt, % round corners, makes it friendlier
+    leftmargin=1pt, rightmargin=1pt, % this helps with box warnings
+    hidealllines=false, % even friendlier
+    align = center, %
+}
+
+\surroundwithmdframed[style=theoremstyle,backgroundcolor=gray!15]{definition}
+\surroundwithmdframed[style=theoremstyle,backgroundcolor=gray!15]{theorem}
+\surroundwithmdframed[style=theoremstyle,backgroundcolor=gray!15]{lemma}
+\surroundwithmdframed[style=theoremstyle,backgroundcolor=gray!15]{proposition}
+
+
+\title{MDPLib}
+\author{MDP Collective}
+% \date{March 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{remark}
+This document omits basic definitions, such as the comparison or arithmetic operations on random variables. Arithmetic operations on random variables are performed element-wise for each element of the sample set. Please see the Lean file for complete details.
+\end{remark}
+
+
+\section{Probability}
+
+Our treatment of the probability mostly follows
+\begin{quote}
+  Deisenroth, M.P., Faisal, A.A. and Ong, C.S. (2021) Mathematics for machine learning.
+\end{quote}
+
+Although this document states that the values are in $\Real$, the lean file is  defined entirely in terms of rational numbers $\mathbb{Q}$ for computability. 
+
+\subsection{Prelude}
+
+This section sets up some basic tools for working with probabilities. See \texttt{Probability/Prelude.lean}.
+
+\begin{definition} \label{def:probablity-value}
+A $p\in \Real$ is a \emph{probability value} when $p \ge 0 \wedge p \le 1$.
+\lean{Prob}
+\end{definition}
+
+\begin{definition}
+A finite set of natural numbers is defined as $\Nats_n := \left\{ 0, \dots , n-1   \right\}$.
+\lean{Fin} 
+\end{definition}
+
+\begin{definition} \label{def:list}
+A finite function (or a list) $\mathbb{L}_n^{\tau} := \Nats_n \to \tau$ of type $\tau$ and length $n$ is a function defined for $\Nats_{n} := \left\{ 0, \dots , n-1 \right\}$ of type $\tau$.
+\lean{$\text{Fin}\, n \to \tau$} 
+\end{definition}
+
+The finite functions in \cref{def:list} are also used to represent vectors and obey standard vector operations, such as addition or Hadamard product.
+
+The following definition generalizes the inverse of a function to non-injective function which do not have an inverse. 
+\begin{definition}[Preimage]
+The \emph{preimage} $f^{-1}\colon \mathcal{Y} \to 2^{\mathcal{X}}$ of a function $f\colon \mathcal{X} \to \mathcal{Y}$ is defined as
+\begin{equation} \label{eq:preimage-set}
+f^{-1}(y) := \left\{ x \in \mathcal{X} \mid  f(x) = y \right\} .
+\end{equation}
+\lean{FinRV.preimage} \leanok
+\end{definition}
+
+\begin{definition} \label{def:indicator}
+An \emph{indicator} function $\I \colon \bool \to \left\{ 0, 1 \right\} \subseteq \mathbb{Q}$ is defined for $b\in \bool$ as
+\[
+\I(b) :=
+\begin{cases}
+1 &\text{if } b = \operatorname{true}, \\
+0 &\text{if } b = \operatorname{false}.
+\end{cases}
+\]
+\lean{indicator} \leanok
+\end{definition}
+
+\subsection{Defs}
+
+This section contains definitions of probability spaces, probability operators, and the expectation operator. See \texttt{Probability/Defs.lean}.
+\begin{definition}
+A \emph{finite probability distribution} $\Delta(n)$ for $n\in \Nats$ is defined as
+\[
+\Delta_n := \left\{ p \in \mathbb{L}_n \mid  \sum_{i \in \Nats_n} p_i = 1, p_i \ge 0, \forall i \in \Nats_n \right\}.
+\]
+Any $P \in  \Delta_n$ can be also seen as a linear set function such that
+\[
+ P(\mathcal{A}) := \sum_{i\in \mathcal{A}} P_i, \qquad \mathcal{A} \subseteq \Nats_n.  
+\]
+% We call a probability distribution \emph{degenerate} if $p_i = 1$ for some $i$; otherwise the probability distribution is \emph{supported}.
+\lean{Findist} 
+\end{definition}
+
+The formal model we use to represent random events and processes is the following.
+\begin{definition}[Complete Probability Space] \label{def:probability-space}
+  A \emph{complete probability space} of dimension $n \in \Nats$ consists of:
+  \begin{enumerate}
+    \item An \emph{implicit} sample space $\Omega := \Nats_n$, which is the set of all possible outcomes. 
+    \item An \emph{implicit} event space $\mathcal{F} := 2^{\Omega}$, which we do not define explicitly in Lean. 
+    \item A probability distribution $P \in \Delta_n$.
+  \end{enumerate}
+\lean{Findist} \leanok
+\end{definition}
+The notation $2^{\Omega}$ in \cref{def:probability-space} represents the power set of $\Omega$. We assume that the event space $\mathcal{F}$ is the power set of $\Omega$. The main reason to define $\mathcal{F}$ that is not a power set in a finite probability space is to represent that the available information is limited. Instead, when defining a random process in which information is revealed gradually, we construct new probability spaces. 
+
+Because the complete probability space \cref{def:probability-space} is identified with a $P \in \Delta_n$, we use it interchangeably with a distribution $P$.
+
+
+% \begin{definition}[Measure]
+%   The measure $\PP [\mathcal{S}]$ of the set $\mathcal{S} \subseteq \Nats$ given a probability space is defined as
+%   \[
+%    \PP [\mathcal{S}] := \sum_{i \in \Omega} \mathbb{I}[ i\in \mathcal{S} ].
+%  \]
+%  The definition requires that the set is decidable. 
+%  %\lean{Probability.Finprob.measure}
+% \end{definition}
+
+
+\begin{example} \label{exm:probability-space}
+ Suppose I want to model the behavior of coin flips. I have a coin that that is twice as likely to come up heads than tails. I flip the coin twice. One possible probability space would have a dimension 4 and be defined as follows. 
+  \begin{enumerate}
+  \item The sample space is $\Omega := \Nats_4 = \left\{ 0, 1, 2, 3 \right\}$, where the sample space elements correspond to $ \left( \mathrm{HH}, \mathrm{HT}, \mathrm{TH}, \mathrm{TT} \right)$ and H is heads and T is tails. 
+  \item The probability distribution is $P_0 = (\frac{2}{3})^2$ corresponding to the probability of seeing two heads, $P_1 = \frac{2}{3} \cdot \frac{1}{3}$ corresponding to the probability of heads followed by tails, \ldots.
+  \end{enumerate}
+\end{example}
+
+% For the sake of completeness, we include also the notion of measurability. However, since we are only concerned with complete probability spaces, all random variables we define will be measurable. 
+% \begin{definition} \label{def:preimage-measurable}
+% A function $f\colon \mathcal{X} \to \mathcal{Y}$ with $\sigma$-algebras $\mathcal{D} \subseteq 2^{\mathcal{X}}$ and $\mathcal{E} \subseteq 2^{\mathcal{Y}}$ is \emph{measurable} when the \emph{pre-image} of each $E\in \mathcal{E}$ is in $\mathcal{D}$:
+%   \[
+%     f^{-1}(E) \in \mathcal{D}.
+%   \]
+% Here, the application to $f^{-1}$ to a set $E \subseteq \mathcal{Y}$ is defined as:
+% \begin{equation} 
+% f^{-1}(E) := \bigcup_{e \in E} f^{-1}(e) .
+% \end{equation}
+% \end{definition}
+% The measurability in the definition of random variables is required for us to reason about their probability distributions.
+
+\begin{definition}
+A \emph{random variable} $\tilde{x} \in \mathbb{L}_n^{\tau}$ for $n\in \Nats$ is a function that returns a value of type $\tau$.  
+\lean{FinRV} \leanok
+\end{definition}
+Note that we do not include the standard measurability requirement in the definition of a random variable because it is vacuous in complete probability spaces defined above.
+
+When manipulating random variables we denote them with a tilde, such as $\tilde{x}, \tilde{s}$. This corresponds to the common practice to use uppercase letters to denote random variables. We drop the tilde when treating the random variable as an ordinary function. We drop the tilde when the random variable is evaluated for some input, such as $x_i$.
+
+\begin{definition}
+  The set of Boolean random variables of dimension $n\in \Nats$ is defined as $\mathbb{B}_n := \mathbb{L}_n^{\bool}$. Here, $\bool := \left\{ \true, \false \right\}$. Implicitly, $b\in \mathbb{B}_n$ represents a finite set
+\[
+   \left\{ i\in \Nats_n \mid  b_i = \true \right\} = \tilde{b}^{-1}(\true).
+\]
+ \lean{FinRV n Bool}
+\end{definition}
+
+We use the operator (function) $\mathbb{P}$ denote the probability of the set of sample space that corresponds to a given condition. We use a non-standard definition for convenience (and show that this definition equals to the standard one later).
+\begin{definition} \label{def:probability}
+Given $n\in \Nats$, $P \in \Delta_n$, and $\tilde{b} \in \mathbb{B}_n$, the probability operator $\PP$ is defined as
+\[
+\PP^P\left[ \tilde{b} \right] := P(\tilde{b}^{-1}(\true)) = P \left( \left\{ i \in \Nats_n \mid  b_i = \true \right\} \right) = \sum_{i\in \Omega} P_i b_i,
+\]
+where $b_i$ coerced to $\mathbb{Q}$ is interpreted as $0$ if $b_i = \false$ and $1$ if $b_i = \true$. 
+\lean{probability} \leanok
+\end{definition}
+
+Note that \cref{def:probability} is the standard definition using the notion of the pre-image which is defined implicitly by the boolean random variable. 
+
+\emph{Probability distributions} are typically defined for random variables. The distribution of a random variable is characterized by the \emph{cumulative distribution function}~(CDF), defined as follows.
+\begin{definition}[CDF]
+  The \emph{cumulative distribution function} $F_{\tilde{x}}\colon \mathbb{Q} \to [0,1]$ of a real-valued random variable $\tilde{x} \in \mathbb{L}_n^{\mathbb{Q}}$ for $P\in \Delta_n$ is defined as
+  \[
+   F_{\tilde{x}}(x) := \PP\left[\tilde{x} \le x \right], \qquad \forall x\in \mathbb{Q}.
+  \]
+\lean{cdf} \leanok
+\end{definition}
+
+Some random variables also have a \emph{probability density function}~(PDF), and discrete random variables have a \emph{probability mass function}~(PMF). In this class, we will be primarily dealing with discrete random variables.
+\begin{definition}[PMF]
+The \emph{probability mass function} $p_{\tilde{x}}\colon \mathcal{E} \to [0,1]$ for a discrete random variable $\tilde{x}\colon \Omega  \to  \mathcal{E}$ with a finite $\mathcal{E}$ is defined as
+  \[
+    p_{\tilde{x}}(e) := \PP\left[\tilde{x} = e\right], \qquad \forall e\in \mathcal{E} .
+ \]
+In Lean, \texttt{PMF} is the proposition that a given function is the PMF of a random variable.
+\lean{PMF} \leanok
+\end{definition}
+
+
+\begin{definition} \label{def:joint-probability}
+The \emph{joint probability} of two random variables $\tilde{x}\colon \Omega \to \mathcal{X}$ and $\tilde{y} \colon \Omega \to \mathcal{Y}$ is defined as
+\[
+ \PP\left[\tilde{x} = x, \tilde{y} = y\right] := \PP\left[\tilde{x} = x \wedge \tilde{y} = y\right] , \forall  x\in \mathcal{X}, y\in \mathcal{Y}.
+\]
+One can also define a joint PMF for two discrete random variables $p_{\tilde{x}, \tilde{y}}(x,y)$ for $x\in \mathcal{X}$ and $y\in \mathcal{Y}$ as
+\[
+ p_{\tilde{x}, \tilde{y}}(x,y) = \PP\left[\tilde{x} = x, \tilde{y} = y\right]. 
+\]
+\end{definition}
+
+\begin{definition} \label{def:probability_cnd}
+The \emph{conditional probability} of $\tilde{b}\colon \Omega \to \mathbb{B}$ on $\tilde{c}\colon \Omega \to \mathbb{B}$ is defined as
+\[
+\PP\left[ \tilde{b} \mid  \tilde{c} \right]  := \frac{ \PP[\tilde{b} \wedge \tilde{c} ] }{ \PP \left[ \tilde{c} \right]}
+\]
+\lean{probability\_cnd} \leanok
+\end{definition}
+
+\begin{definition}[Independent RV]
+  Events $A,B \in \mathcal{F}$ are independent when
+  \[
+   \PP[ A \cap B ] = \PP[ A ] \cdot \PP[ B ].
+  \]
+  Random variables $\tilde{x}\colon \Omega \to \mathcal{X}$ and $\tilde{y}\colon \Omega \to \mathcal{Y}$ are \emph{independent} when
+  \[
+    F_{\tilde{x}, \tilde{y}}(x,y) = F_{\tilde{x}}(x) \cdot F_{\tilde{y}}(y),
+    \forall x\in \mathcal{X}, y\in \mathcal{Y}.
+  \]
+\end{definition}
+Discrete random variables $\tilde{x}$ and $\tilde{y}$ are independent if and only if
+\[
+  \PP\left[\tilde{x} = x, \tilde{y} = y\right] = \PP\left[\tilde{x} = x\right] \cdot \PP\left[\tilde{y} = y\right], \forall x\in \mathcal{X}, y\in \mathcal{Y}.
+\]
+\cc{Gap: the joint CDF $F_{\tilde{x},\tilde{y}}$ appearing in the independence definition is never defined, and a CDF is only meaningful for an ordered codomain, so the stated definition does not typecheck for general $\mathcal{X},\mathcal{Y}$. Moreover, this ``if and only if'' characterization for discrete random variables is asserted with no proof.}
+
+
+The expectation of a random variable is its mean. As with probabilities, we use a non-standard definition for the sake of computational convenience and then show that it is equivalent to the common definition of probabilities. 
+\begin{definition}[Expected Value] \label{def:expectation}
+For $P \in \Delta_n$, and $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$ the \emph{expected value} is defined as
+\[
+ \E^P\left[\tilde{x}\right] := \sum_{i \in \Nats_n }  x_i \cdot P_i.
+\]
+\lean{expect} \leanok
+\end{definition}
+
+\Cref{thm:expect-correct} shows that this definition of expected value is equal to the standard definition of expected values.
+Our definition in \cref{def:expectation} is non-standard. The usual definition uses the Lebesgue integral as follows:
+\[
+ \E^P\left[\tilde{x}\right] := \int_{\Omega} \tilde{x} \, dP.
+\]
+
+
+
+The expectation operator is linear.
+\begin{theorem} \label{thm:exp-linear}
+  Assume $\tilde{x},\tilde{y} \in \mathbb{L}_n^{\mathbb{Q}}$ and $c\in \mathbb{Q} $ and $P\in \Delta_n$. Then:
+  \begin{align*}
+    \E\left[c\cdot \tilde{x}\right] &= c \cdot  \E\left[\tilde{x}\right]\\
+    \E\left[\tilde{x} + \tilde{y}\right] &= \E\left[\tilde{x}\right] + \E\left[\tilde{y}\right]\\
+    \E\left[\tilde{x} \cdot \tilde{y}\right] &= \E\left[\tilde{x}\right] \cdot \E\left[\tilde{y}\right] \quad \text{for independent } \tilde{x}, \tilde{y}.
+\end{align*}
+\lean{exp\_homogenous, exp\_additive\_two, exp\_additive}
+(The product rule for independent random variables is not formalized in Lean.)
+\cc{The product rule is not proved here either; its proof needs the (unproved) discrete characterization of independence stated above.}
+\end{theorem}
+
+\begin{theorem}[Expectation of a constant] \label{thm:exp-const}
+  For $c \in \mathbb{Q}$ and $P\in \Delta_n$:
+  \[
+    \E\left[ c \right] = c,
+  \]
+  where the constant $c$ is interpreted as a constant random variable.
+  \lean{exp\_const, exp\_one} \leanok
+\end{theorem}
+
+\begin{theorem}[Monotonicity of expectation] \label{thm:exp-monotone}
+  For $\tilde{x},\tilde{y} \in \mathbb{L}_n^{\mathbb{Q}}$ with $\tilde{x} \le \tilde{y}$ element-wise, and $P \in \Delta_n$:
+  \[
+    \E\left[ \tilde{x} \right] \le \E\left[ \tilde{y} \right].
+  \]
+  \lean{exp\_monotone} \leanok
+\end{theorem}
+
+
+\begin{definition} \label{def:expect-cnd}
+The \emph{conditional expectation} of $\tilde{x} \in \mathbb{L}_n^{\mathbb{Q}}$ conditioned on $\tilde{b} \in \mathbb{B}_n$ is defined as
+\[
+\E \left[ \tilde{x} \mid  \tilde{b} \right] :=
+\frac{1}{\PP[\tilde{b}]} \E \left[  \tilde{x} \cdot \I \circ \tilde{b} \right],
+\]
+where we define that $x / 0 = 0$ for each $x\in \Real$.
+\lean{expect\_cnd} \leanok
+\end{definition}
+
+\begin{remark}
+It is common to prohibit conditioning on a zero probability event both for expectation and probabilities. In this document, we follow the Lean convention, where the division by $0$ is $0$; see \texttt{div\_zero}. However, even some basic probability and expectation results may require that we assume that the conditioned event does not have probability zero for it to hold. 
+\end{remark}
+
+\begin{definition} \label{def:expect-cnd-rv}
+The \emph{random conditional expectation} of a random variable $\tilde{x} \in \mathbb{L}_n^{\mathbb{Q}}$ conditioned on $\tilde{l} \in \mathbb{L}_n^{\Nats_m}$ for a finite set $\mathcal{Y}$ is the random variable $\E \left[ \tilde{x} \mid  \tilde{l} \right] \in \mathbb{L}_n^{\mathbb{Q}}$ is defined as
+\[
+\E \left[ \tilde{x} \mid  \tilde{l} \right](\omega)
+:=
+\E \left[ \tilde{x} \mid  \tilde{l} = l_{\omega} \right], \quad \forall \omega \in \Nats_n.
+\]
+\lean{expect\_cnd\_rv} \leanok
+\end{definition}
+
+
+
+
+\subsection{Basic}
+
+This section states basic properties of probabilities and expectations. See \texttt{Probability/Basic.lean}.
+
+\begin{theorem} \label{thm:prob-in-range}
+  For each $P\in \Delta_n$ and $\tilde{b}\in \mathbb{B}_n$, the probability is a probability value (\cref{def:probablity-value}):
+  \[
+    0 \le \PP\left[ \tilde{b} \right] \le 1.
+  \]
+  \lean{Findist.ge\_zero, Findist.le\_one, Findist.in\_prob} \leanok
+\end{theorem}
+
+\begin{theorem}[Complement] \label{thm:prob-complement}
+  For each $P\in \Delta_n$, $\tilde{b}\in \mathbb{B}_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, and $t\in \mathbb{Q}$:
+  \begin{align*}
+    \PP\left[ \tilde{b} \right] + \PP\left[ \neg \tilde{b} \right] &= 1, \\
+    \PP\left[ \tilde{x} \le t \right] + \PP\left[ \tilde{x} > t \right] &= 1, \\
+    \PP\left[ \tilde{x} < t \right] + \PP\left[ \tilde{x} \ge t \right] &= 1.
+  \end{align*}
+  \lean{prob\_compl\_sums\_to\_one, prob\_le\_compl\_gt, prob\_lt\_compl\_ge} \leanok
+\end{theorem}
+
+\begin{theorem}[Monotonicity] \label{thm:prob-monotone}
+  Suppose that $P\in \Delta_n$, $\tilde{a}, \tilde{b} \in \mathbb{B}_n$, $\tilde{x}, \tilde{y} \in \mathbb{L}_n^{\mathbb{Q}}$, and $t_1 \le t_2 \in \mathbb{Q}$. Then:
+  \begin{align*}
+    (\forall \omega\in \Omega,\, a_{\omega} \Rightarrow b_{\omega})
+    &\implies \PP\left[ \tilde{a} \right] \le \PP\left[ \tilde{b} \right], \\
+    \tilde{x} \le \tilde{y}
+    &\implies \PP\left[ \tilde{y} \le t_1 \right] \le \PP\left[ \tilde{x} \le t_2 \right], \\
+    \tilde{x} \le \tilde{y}
+    &\implies \PP\left[ \tilde{y} < t_1 \right] \le \PP\left[ \tilde{x} < t_2 \right], \\
+    t < q &\implies \PP\left[ \tilde{x} \le t \right] \le \PP\left[ \tilde{x} < q \right].
+  \end{align*}
+  \lean{prob\_bool\_monotone, prob\_le\_monotone, prob\_lt\_monotone, prob\_lt\_le\_monotone} \leanok
+  \cc{The last item uses the symbols $t$ and $q$, which are not among the quantified variables ($t_1,t_2$ are).}
+\end{theorem}
+
+The CDF inherits the monotonicity properties of the probability operator.
+\begin{theorem}[CDF monotonicity] \label{thm:cdf-monotone}
+  For each $P\in \Delta_n$ and $\tilde{x}, \tilde{y} \in \mathbb{L}_n^{\mathbb{Q}}$:
+  \begin{align*}
+    t_1 \le t_2 &\implies F_{\tilde{x}}(t_1) \le F_{\tilde{x}}(t_2), \\
+    \tilde{x} \le \tilde{y} &\implies F_{\tilde{x}}(t) \ge F_{\tilde{y}}(t), \quad \forall t\in \mathbb{Q}.
+  \end{align*}
+  \lean{cdf\_nondecreasing, cdf\_monotone\_xy} \leanok
+\end{theorem}
+
+\begin{theorem} \label{lem:prob-lumpy}
+  For each $t\in \Real$:
+  \[
+    \PP[\tilde{x} = t] > 0
+    \implies
+    \exists \omega \in \Omega, x(\omega) = t.
+  \]
+  \lean{prob\_atomic\_omega} \leanok
+\end{theorem}
+\begin{proof}
+  The result follows by induction on the size of the probability space $|\Omega|$ after generalizing the statement to drop the constraint $\bm{1}\tr \bm{p} = 1$.
+  \cc{The statement quantifies $t\in \Real$ although the whole development is over $\mathbb{Q}$, and $P$ and $\tilde{x}$ are never quantified. The proof is only a sketch: the generalized statement that the induction is on is not written down, and $\bm{1}$ and $\bm{p}$ are undefined notation. A direct contrapositive argument ($x_{\omega}\ne t$ for all $\omega$ gives $\PP[\tilde{x}=t]=\sum_{\omega} P_{\omega}\cdot 0 = 0$) would avoid the induction entirely.}
+\end{proof}
+
+\begin{theorem} \label{lem:prob-increase}
+  For each $t\in \Real$, the exists $q > t$ such that
+  \[
+   \PP[\tilde{x} \le t] =
+   \PP[\tilde{x} < q].
+ \]
+ Moreover, if $t < \max_{\omega \in \Omega } x_{\omega }$, then $q$ can be chosen such that $q= x_{\omega}$ for some $\omega\in \Omega$.
+ \lean{rv\_le\_step\_lt, prob\_le\_step\_lt, prob\_le\_step\_lt\_max} \leanok
+\end{theorem}
+\begin{proof}
+  First, assume that $t < \max_{\omega \in \Omega } x_{\omega }$ and let $\mathcal{Y} := \left\{ x_{\omega} \mid x_{\omega} > t, \omega \in \Omega  \right\}$ which is nonempty by the assumption. Then, $q := \min \mathcal{Y}$ exists because $\mathcal{Y}$ is finite and nonempty. The properties $q > t$ and $\exists \,\omega \in \Omega, \, q = x_{\omega}$ hold from $q\in \mathcal{Y}$. Next, for each $\omega \in \Omega$, $x_{\omega}\le t \Rightarrow x_{\omega} < q$ follows from transitivity of $\le$ and $<$.  Finally, we can prove $x_{\omega} < q \Rightarrow x_{\omega} < t$ by contradiction from the fact the $q$ is the minimum of $\mathcal{Y}$.
+ \cc{Error: the implication to prove is $x_{\omega} < q \Rightarrow x_{\omega} \le t$ (not $x_{\omega} < t$); with $<t$ the two events are not equal, e.g.\ when some $x_{\omega} = t$. Also, the statement quantifies $t\in \Real$ rather than $\mathbb{Q}$, and $P$, $\tilde{x}$ are not quantified.}
+
+ Second, if $t \ge \max_{\omega \in \Omega } x_{\omega }$, let $q := t + 1$. Then $q > t$ holds trivially, and since $x_{\omega} \le \max_{\omega \in \Omega} x_{\omega} \le t < q$ for every $\omega \in \Omega$, both $\tilde{x} \le t$ and $\tilde{x} < q$ hold identically (are the constant function $\true$), giving the required equality.
+\end{proof}
+
+\begin{theorem} \label{thm:exp_cond_eq_def}
+ For $\tilde{x} \in \mathbb{L}_n^{\mathbb{Q}}$ and $\tilde{b} \in \mathbb{L}_n^{\bool}$:
+  \[
+     \E\left[\tilde{x} \mid \tilde{b} \right] \cdot  \PP\left[\tilde{b}\right] = \E\left[\tilde{x} \cdot  \bm{1}_{\tilde{b}}\right].
+  \]
+  \lean{exp\_cond\_eq\_def} \leanok
+\end{theorem}
+\begin{proof}
+By conditioning on $\PP\left[\tilde{b}\right] = 0$ and then by algebraic manipulation.
+\end{proof}
+
+
+\begin{theorem}[Law of the unconscious statistician] \label{thm:lotus}
+  For any  $\tilde{l} \in \mathbb{L}_n^{\Nats_m}$ and $g\colon \Nats_m \to \mathbb{Q}$:
+  \[
+    \E\left[g(\tilde{l})\right] = \sum_{i \in \Nats_m} g(i) \cdot  \PP\left[\tilde{l} = i\right].
+  \]
+  \lean{LOTUS} \leanok
+\end{theorem}
+\begin{proof}
+\begin{align*}
+  \E\left[g(\tilde{l})\right]
+  &= \sum_{i \in \mathbb{N}_m} \E\left[g(\tilde{l}) \mid \tilde{l} = i\right] \cdot \PP\left[\tilde{l} = i\right] && \text{(def.\ expectation)} \\
+  &= \sum_{i \in \mathbb{N}_m} g(i) \cdot \PP\left[\tilde{l} = i\right] && \text{(def.\ conditional expectation)}
+\end{align*}
+where the second step uses $g(\tilde{l}) = g(i)$ on the event $\{\tilde{l} = i\}$, and the convention $0 \cdot (\,\cdot\,) = 0$ handles the case $\PP[\tilde{l} = i] = 0$.
+\cc{Circularity: the first step is justified as ``def.\ expectation'', but it is exactly the law of total expectation (\cref{thm:total-expectation}), whose proof in turn invokes this theorem. One of the two must be proved directly from \cref{def:expectation} by partitioning $\Omega$ into the preimages $\tilde{l}^{-1}(i)$, $i\in \Nats_m$. The second step also needs \cref{thm:exp_cond_eq_def} rather than the definition alone, since $\E[\,\cdot \mid \tilde{l}=i]$ divides by $\PP[\tilde{l}=i]$.}
+\end{proof}
+
+\begin{theorem}[Law of total expectation] \label{thm:total-expectation}
+Let $\tilde{x} \in \mathbb{L}_n^{\mathbb{Q}}$ and $\tilde{y} \in \mathbb{L}_{n}^{\mathbb{N}_m}$ be random variables. Then:
+\[
+\E\left[\E\left[\tilde{x} \mid  \tilde{y}\right]\right] = \E \left[ \tilde{x} \right].
+\]
+\lean{law\_total\_exp} \leanok
+\end{theorem}
+\begin{proof}
+\begin{align*}
+  \E\left[\E\left[\tilde{x} \mid \tilde{y}\right]\right]  &= \sum_{i \in \mathbb{N}_m} \PP \left[\tilde{y} = i\right] \cdot \E\left[\tilde{x} \mid \tilde{y} = i\right] && \why{\cref{thm:lotus}} \\
+  &= \sum_{i \in  \mathbb{N}_m} \E\left[\tilde{x} \cdot \mathbf{1}_{\{\tilde{y} = i\}}\right] && \why{\cref{thm:exp_cond_eq_def}} \\
+  &= \E\left[\tilde{x}\right] && \why{partition of $\Omega$}
+\end{align*}
+\cc{The first step applies \cref{thm:lotus} with $g(i) := \E[\tilde{x}\mid\tilde{y}=i]$, which should be said explicitly; note the resulting circularity with the proof of \cref{thm:lotus}, which in turn invokes this identity. The last step also needs linearity of expectation (\cref{thm:exp-linear}) to exchange the finite sum with $\E$, in addition to the partition property $\sum_{i} \mathbf{1}_{\{\tilde{y}=i\}} = 1$.}
+\end{proof}
+
+The following theorem shows that our definition of the expectation operator coincides with the standard definition. 
+\begin{theorem} \label{thm:expect-correct}
+  For $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, we have that
+  \[
+   \E[\tilde{x}] = \sum_{x \in \tilde{x}(\Nats_n)} x \cdot \PP[\tilde{x} = x].  
+  \]
+  \lean{expect\_def\_correct} \notready
+  (The Lean proof of this theorem is currently incomplete.)
+\end{theorem}
+\begin{proof}
+Let $\mathcal{X} := \tilde{x}(\Nats_n)$ and choose some \emph{bijection} $o \colon \Nats_m \to  \mathcal{X} $ where $m := |\mathcal{X}|$. Then by enumerating $\mathcal{X}$:
+  \begin{align*}
+    \sum_{x \in \tilde{X}} x \cdot \PP[\tilde{x} = x]
+    &= \sum_{k\in \Nats_m} o(k) \cdot \PP[\tilde{x} = o(k)] \\
+    &= \sum_{k\in \Nats_m} o(k) \cdot \PP[o^{-1}(\tilde{x}) = k]
+  \end{align*}
+The result then follows from \cref{thm:lotus} by setting $l_i = o^{-1}(x_i), i\in \Nats_n$ and $g(k) = o(k), k\in \Nats_m$.
+\cc{Gaps: (i) the first display writes $\sum_{x\in \tilde{X}}$ where $\mathcal{X}$ is meant; (ii) the step $\PP[\tilde{x}=o(k)] = \PP[o^{-1}(\tilde{x})=k]$ needs the injectivity of $o$ and that $o^{-1}$ is only defined on $\mathcal{X} = \tilde{x}(\Nats_n)$, which is where $\tilde{x}$ takes its values; (iii) the final appeal to \cref{thm:lotus} additionally requires $o(o^{-1}(x_i)) = x_i$ for all $i$, i.e.\ that $g\circ \tilde{l} = \tilde{x}$, which is not stated.}
+\end{proof}
+
+
+\begin{theorem}[Law of Total Probability] \label{thm:total-probability}
+Let $\tilde{b} \colon \Omega \to \mathbb{B}$ and $\tilde{y} \colon \Omega \to \mathcal{Y}$ be random variables with a finite set $\mathcal{Y}$. Then:
+\[
+\sum_{y\in \mathcal{Y}} \PP\left[\tilde{b} \wedge (\tilde{y} = y) \right] = \PP \left[ \tilde{b} \right].
+\]
+\lean{law\_of\_total\_probs} \leanok
+\cc{No proof is given. Also, $\tilde{y}$ is typed into an arbitrary finite $\mathcal{Y}$ while the probability operator is only defined for $\mathbb{L}_n^{\Nats_m}$-valued variables, and $\mathbb{B}$ is used where $\bool$ was defined.}
+\end{theorem}
+
+\subsection{Quantile}
+
+This section defines quantiles of random variables and states their basic properties. See \texttt{Probability/Quantile.lean}.
+
+\begin{definition}[Quantile] \label{def:quantile}
+For $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, and $\alpha \in \mathbb{Q}$, a value $q\in \mathbb{Q}$ is an \emph{$\alpha$-quantile} of $\tilde{x}$ when
+\[
+  \PP\left[ \tilde{x} \le q \right] \ge \alpha
+  \quad \wedge \quad
+  \PP\left[ \tilde{x} \ge q \right] \ge 1 - \alpha.
+\]
+The set of all $\alpha$-quantiles is denoted by $\mathcal{Q}(P, \tilde{x}, \alpha) := \left\{ q\in \mathbb{Q} \mid q \text{ is an } \alpha\text{-quantile} \right\}$.
+\lean{Statistic.IsQuantile, Statistic.Quantile} \leanok
+\cc{$\alpha$ is only required to be in $\mathbb{Q}$; for $\alpha \notin [0,1]$ the definition degenerates (for $\alpha<0$ every $q$ larger than $\max_{\omega} x_{\omega}$ qualifies, for $\alpha>1$ the set is empty). A hypothesis $\alpha\in[0,1]$ appears to be intended.}
+\end{definition}
+
+\begin{definition}[Lower quantile bound] \label{def:quantile-lower}
+For $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, and $\alpha \in \mathbb{Q}$, a value $q\in \mathbb{Q}$ is a \emph{lower bound on the $\alpha$-quantile} of $\tilde{x}$ when
+\[
+  \PP\left[ \tilde{x} \ge q \right] \ge 1 - \alpha.
+\]
+The set of all such values is denoted by $\mathcal{Q}_{\mathrm{L}}(P, \tilde{x}, \alpha)$.
+\lean{Statistic.IsQuantileLower, Statistic.QuantileLower} \leanok
+\end{definition}
+
+\begin{theorem} \label{thm:qsetlower-lt}
+For each $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in \mathbb{Q}$, and $q\in \mathbb{Q}$:
+\[
+  q \in \mathcal{Q}_{\mathrm{L}}(P, \tilde{x}, \alpha)
+  \iff
+  \PP\left[ \tilde{x} < q \right] \le \alpha.
+\]
+\lean{Statistic.qsetlower\_def\_lt} \leanok
+\end{theorem}
+\begin{proof}
+From \cref{thm:prob-complement} by algebraic manipulation.
+\end{proof}
+
+\begin{theorem} \label{thm:quantile-sub-lower}
+Every quantile is a lower quantile bound:
+\[
+  \mathcal{Q}(P, \tilde{x}, \alpha) \subseteq \mathcal{Q}_{\mathrm{L}}(P, \tilde{x}, \alpha).
+\]
+\lean{Statistic.quantile\_implies\_quantilelower, Statistic.quantile\_subset\_quantilelower} \leanok
+\end{theorem}
+
+\begin{theorem}[Negation] \label{thm:quantile-neg}
+For each $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in \mathbb{Q}$, and $q\in \mathbb{Q}$:
+\[
+  q \in \mathcal{Q}(P, \tilde{x}, \alpha)
+  \iff
+  -q \in \mathcal{Q}(P, -\tilde{x}, 1-\alpha).
+\]
+\lean{Statistic.isquant\_neg, Statistic.quantile\_neg} \leanok
+\end{theorem}
+
+\begin{theorem}[Monotone transformation] \label{thm:quantile-strictmono}
+Suppose that $f\colon \mathbb{Q} \to \mathbb{Q}$ is strictly increasing. Then:
+\[
+  q \in \mathcal{Q}(P, \tilde{x}, \alpha)
+  \iff
+  f(q) \in \mathcal{Q}(P, f \circ \tilde{x}, \alpha),
+\]
+and analogously for $\mathcal{Q}_{\mathrm{L}}$. If $f$ is merely non-decreasing, then only the forward implications hold.
+\lean{Statistic.quantile\_f\_strictmono, Statistic.quantilelower\_f\_strictmono, Statistic.quantile\_f\_monotone, Statistic.quantilelower\_f\_monotone} \leanok
+\end{theorem}
+
+\begin{theorem}[Translation] \label{thm:quantilelower-cash}
+Adding a constant $c\in \mathbb{Q}$ to a random variable shifts its lower quantile set:
+\[
+  \mathcal{Q}_{\mathrm{L}}(P, \tilde{x} + c \bm{1}, \alpha)
+  =
+  \left\{ q + c \mid q \in \mathcal{Q}_{\mathrm{L}}(P, \tilde{x}, \alpha) \right\}.
+\]
+\lean{Statistic.quantilelower\_cashinv, Statistic.quantilelower\_cash\_image} \leanok
+\end{theorem}
+
+\section{Risk Measures}
+
+\subsection{VaR: Value at Risk}
+
+This section defines the Value at Risk (VaR) risk measure and states its basic properties. See \texttt{Risk/VaR.lean}.
+
+\begin{definition}[Risk level] \label{def:risk-level}
+An $\alpha \in \mathbb{Q}$ is a \emph{risk level} when $0 \le \alpha < 1$.
+\lean{Risk.IsRiskLevel, Risk.RiskLevel} \leanok
+\end{definition}
+
+\begin{definition} \label{def:var}
+A condition $\isvar(P,\tilde{x},\alpha,v)$ for $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in [0,1)$, and $v\in \mathbb{Q}$ states that $v$ is the greatest element of the lower quantile set (\cref{def:quantile-lower}):
+  \[
+   \isvar(P,\tilde{x},\alpha,v) := \left(v \in \max \mathcal{Q}_{\mathrm{L}}(P, \tilde{x}, \alpha)\right)
+   = \left(v \in \max \left\{ t \in \mathbb{Q} \mid  \PP^P[\tilde{x} < t] \le \alpha \right\}\right),
+ \]
+ where the second equality follows from \cref{thm:qsetlower-lt}.
+ \lean{Risk.IsVaR} \leanok
+ \cc{Notation error: $\max \mathcal{Q}_{\mathrm{L}}$ denotes an element, so ``$v \in \max \mathcal{Q}_{\mathrm{L}}$'' is not well-formed; the intended meaning is that $v$ is a \emph{greatest element} of $\mathcal{Q}_{\mathrm{L}}$, i.e.\ $v\in \mathcal{Q}_{\mathrm{L}} \wedge \forall t\in \mathcal{Q}_{\mathrm{L}}, t\le v$. The same abuse occurs in \cref{def:var-q}. Nothing here (or later) proves that such a greatest element \emph{exists} for every $P,\tilde{x},\alpha$; that is what \cref{thm:finvar-correct} supplies, so the two should be ordered accordingly.}
+\end{definition}
+
+An alternative definition uses the quantile set (\cref{def:quantile}) instead of the lower quantile set; \cref{thm:varq-eq-var} shows that the two definitions are equivalent.
+\begin{definition} \label{def:var-q}
+A condition $\isvar_{\mathrm{Q}}(P,\tilde{x},\alpha,v)$ for $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in [0,1)$, and $v\in \mathbb{Q}$ states that $v$ is the greatest element of the quantile set:
+  \[
+   \isvar_{\mathrm{Q}}(P,\tilde{x},\alpha,v) := \left(v \in \max \mathcal{Q}(P, \tilde{x}, \alpha)\right).
+ \]
+ \lean{Risk.IsVaR\_Q} \leanok
+\end{definition}
+
+\begin{definition} \label{def:finvar}
+The discrete VaR operator for $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in [0,1)$ is defined as
+\[
+  \finvar_{\alpha } \left[ \tilde{x} \right]
+  :=
+  \max \left\{ x_i \mid i\in \Nats_n,\, \PP \left[ \tilde{x} < x_i \right] \le \alpha  \right\}.
+\]
+The maximum is well-defined because the set is finite and nonempty; see \cref{thm:finvarset-nonempty}.
+\lean{Risk.FinVaR} \leanok
+\end{definition}
+
+\begin{remark}
+\Cref{def:finvar} differs from the standard VaR definition in \cref{def:var} in that it only searches for the discrete values that satisfy the VaR condition.
+\end{remark}
+
+\begin{theorem} \label{thm:finvarset-nonempty}
+For $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in [0,1)$, the set
+$\left\{ x_i \mid i\in \Nats_n,\, \PP \left[ \tilde{x} < x_i \right] \le \alpha  \right\}$ is nonempty.
+\lean{Risk.FinVarSet\_nonempty} \leanok
+\end{theorem}
+\begin{proof}
+The minimum $x_{\min} := \min_{\omega\in \Omega} x_{\omega}$ is a member of the set because $\PP[\tilde{x} < x_{\min}] = 0 \le \alpha$.
+\end{proof}
+
+\begin{theorem} \label{thm:finvar-prob-cond}
+For $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in [0,1)$:
+  \[
+    \PP\left[\tilde{x} <  \finvar_{\alpha }[\tilde{x}]\right]
+    \le \alpha
+    < \PP\left[\tilde{x} \le \finvar_{\alpha }[\tilde{x}] \right].
+  \]
+ \lean{Risk.finvar\_prob\_cond} \leanok
+\end{theorem}
+\begin{proof}
+The inequality $\PP\left[\tilde{x} <  \finvar_{\alpha }[\tilde{x}]\right] \le \alpha $ follows directly from the definition of $\finvar$ because the maximizer is a member of the set. Then, to prove $\alpha < \PP\left[\tilde{x} \le \finvar_{\alpha }[\tilde{x}] \right]$ by contradiction, we show that $\alpha \ge \PP\left[\tilde{x} \le \finvar_{\alpha }[\tilde{x}] \right]$ contradicts with the maximality of $x_i$ in \cref{def:finvar}. In particular, for any $x_i$ there exists $x_j > x_i$ such that $\alpha \ge \PP\left[\tilde{x} \le x_i \right] =  \PP\left[\tilde{x} \le x_j \right]$  using \cref{lem:prob-increase} since $\PP\left[\tilde{x} \le x_i \right] \le \alpha < 1$.
+\cc{Error: \cref{lem:prob-increase} gives $\PP[\tilde{x}\le x_i] = \PP[\tilde{x} < x_j]$, with a \emph{strict} inequality on the right, not $\PP[\tilde{x}\le x_j]$. The strict form is also what is needed: it shows $x_j$ belongs to the set of \cref{def:finvar}, and $x_j > x_i$ then contradicts maximality. In addition, the ``moreover'' clause of \cref{lem:prob-increase} (which is what yields $x_j = x_{\omega}$ for some $\omega$) requires $x_i < \max_{\omega} x_{\omega}$; this follows from $\PP[\tilde{x}\le x_i]\le \alpha<1$ but the argument is not spelled out.}
+\end{proof}
+
+\begin{theorem} \label{thm:var-prob-cond}
+ For $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in [0,1)$:
+  \[
+    \isvar(P,\tilde{x},\alpha, v)
+    \Longleftrightarrow
+    \PP^P[\tilde{x} < v] \le \alpha < \PP^P[\tilde{x} \le v].
+  \]
+  \lean{Risk.var\_prob\_cond} \leanok
+\end{theorem}
+\begin{proof}
+  We decompose the proof into four parts: the first two parts show the forward implication and second two parts show the backward implication.
+
+  \emph{First}, the implication $\isvar(P,\tilde{x},\alpha, v) \implies \PP^P[\tilde{x} < v] \le \alpha$ follows directly from the definition of $\isvar$ algebraic manipulation.
+
+  \emph{Second}, we prove $\isvar(P,\tilde{x},\alpha, v) \implies \alpha < \PP^P[\tilde{x} \le v]$ by contradiction supposing that $\alpha \ge \PP^P[\tilde{x} \le v]$. Then, using \cref{lem:prob-increase}, there exists $q > v$ such that $\alpha \ge \PP^P[\tilde{x} \le v] =  \PP^P[\tilde{x} < q]$ which contradicts that $v$ is maximal in the definition of $\isvar$.
+
+  \emph{Third}, the implication $\PP^P[\tilde{x} < v] \le \alpha \implies v \in \left\{ t \in \mathbb{Q} \mid  \PP^P[\tilde{x} < t] \le \alpha \right\}$ follows immediately from the definition.
+
+  \emph{Fourth}, to prove  $\alpha < \PP^P[\tilde{x} \le v] \implies \forall t \in \left\{ t \in \mathbb{Q} \mid  \PP^P[\tilde{x} < t] \le \alpha \right\}, v \ge t$ by contradiction, suppose that $\exists t \in \left\{ t \in \mathbb{Q} \mid  \PP^P[\tilde{x} < t] \le \alpha \right\}, v < t$. Then, by the monotonicity of the probability operator we get a contradiction as
+ \[
+   \alpha
+   < \PP^P \left[ \tilde{x} \le v \right]
+   \le \PP^P \left[ \tilde{x} < t \right]
+   \le \alpha.
+ \]
+\cc{The forward direction additionally needs $v$ to be a \emph{member} of the set (not merely an upper bound), which the ``First'' paragraph glosses as ``follows directly \ldots{} algebraic manipulation''; a word appears to be missing there too. Nothing in this proof establishes that a $v$ satisfying $\isvar$ exists.}
+\end{proof}
+
+The following theorem is the main correctness result: the discrete VaR operator computes a value that satisfies the VaR condition.
+\begin{theorem}[Correctness of discrete VaR] \label{thm:finvar-correct}
+For $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in [0,1)$:
+  \[
+    \isvar\left(P, \tilde{x}, \alpha, \finvar_{\alpha}[\tilde{x}]\right).
+  \]
+  \lean{Risk.finvar\_correct} \leanok
+\end{theorem}
+\begin{proof}
+Combine \cref{thm:finvar-prob-cond} with \cref{thm:var-prob-cond}.
+\end{proof}
+
+\begin{theorem}[Equivalence of VaR definitions] \label{thm:varq-eq-var}
+For $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in [0,1)$, and $v\in \mathbb{Q}$:
+  \[
+    \isvar_{\mathrm{Q}}(P,\tilde{x},\alpha, v)
+    \Longleftrightarrow
+    \isvar(P,\tilde{x},\alpha, v).
+  \]
+  Consequently, $\isvar_{\mathrm{Q}}(P,\tilde{x},\alpha, v) \Leftrightarrow \PP^P[\tilde{x} < v] \le \alpha < \PP^P[\tilde{x} \le v]$.
+  \lean{Risk.varq\_eq\_var, Risk.varq\_prob\_cond} \leanok
+\end{theorem}
+\begin{proof}
+The sets $\mathcal{Q}(P,\tilde{x},\alpha)$ and $\mathcal{Q}_{\mathrm{L}}(P,\tilde{x},\alpha)$ are mutually cofinal (each element of one set is dominated by an element of the other), and therefore they share upper bounds and greatest elements.
+\cc{Gap: only one half of the cofinality claim is established anywhere ($\mathcal{Q}\subseteq \mathcal{Q}_{\mathrm{L}}$, \cref{thm:quantile-sub-lower}); the other half --- that every $q\in \mathcal{Q}_{\mathrm{L}}$ is dominated by some element of $\mathcal{Q}$ --- is asserted without proof. The only apparent route to it is \cref{thm:var-is-quantile}, which is stated \emph{after} this theorem and is itself given without proof, so as written the development is circular. Note also that cofinality alone does not imply equal greatest elements; the inclusion $\mathcal{Q}\subseteq\mathcal{Q}_{\mathrm{L}}$ is needed as well and should be cited.}
+\end{proof}
+
+Every VaR value is a quantile.
+\begin{theorem} \label{thm:var-is-quantile}
+For $P\in \Delta_n$, $\tilde{x}\in \mathbb{L}_n^{\mathbb{Q}}$, $\alpha\in [0,1)$, and $v\in \mathbb{Q}$:
+  \[
+    \isvar(P,\tilde{x},\alpha, v)
+    \implies
+    v \in \mathcal{Q}(P, \tilde{x}, \alpha).
+  \]
+  In particular, the quantile set $\mathcal{Q}(P, \tilde{x}, \alpha)$ is nonempty.
+  \lean{Risk.var\_is\_quantile, Risk.quantile\_nonempty} \leanok
+  \cc{No proof is given. The natural proof goes through \cref{thm:var-prob-cond} together with \cref{thm:prob-complement}; it should be written out, especially since \cref{thm:varq-eq-var} appears to depend on it.}
+\end{theorem}
+
+\subsubsection{VaR Properties}
+
+\begin{theorem}[Monotonicity] \label{thm:var-monotone}
+Suppose that $\tilde{x} \le \tilde{y}$ element-wise. Then, for $\alpha\in [0,1)$:
+  \[
+    \isvar(P,\tilde{x},\alpha, v_1) \wedge \isvar(P,\tilde{y},\alpha, v_2)
+    \implies
+    v_1 \le v_2.
+  \]
+  \lean{Risk.var\_monotone} \leanok
+  \cc{No proof is given (it follows from \cref{thm:var-prob-cond} and \cref{thm:prob-monotone}). Also, $P$, $\tilde{x}$, $\tilde{y}$, $v_1$, $v_2$ are not quantified in the statement.}
+\end{theorem}
+
+\begin{theorem}[Translation invariance] \label{thm:var-translation}
+For each $c\in \mathbb{Q}$ and $\alpha\in [0,1)$:
+  \[
+    \finvar_{\alpha}\left[ \tilde{x} + c \bm{1} \right]
+    =
+    \finvar_{\alpha}\left[ \tilde{x} \right] + c.
+  \]
+  \lean{Risk.isvar\_translation\_invariant, Risk.var\_translation\_invariant} \leanok
+\end{theorem}
+\begin{proof}
+From \cref{thm:quantilelower-cash} and \cref{thm:finvar-correct}.
+\cc{Gap: \cref{thm:finvar-correct} only says that $\finvar_{\alpha}$ \emph{satisfies} the $\isvar$ predicate. To conclude an \emph{equality} of $\finvar$ values one needs the (missing) lemma that the value satisfying $\isvar(P,\tilde{x},\alpha,\cdot)$ is unique --- immediate from the uniqueness of a greatest element, but never stated. The same missing lemma is needed in \cref{thm:var-strictmono}. Also, $P$, $\tilde{x}$ are not quantified.}
+\end{proof}
+
+\begin{theorem}[Monotone transformation] \label{thm:var-strictmono}
+Suppose that $f\colon \mathbb{Q} \to \mathbb{Q}$ is strictly increasing. Then, for $\alpha\in [0,1)$:
+  \[
+    \finvar_{\alpha}\left[ f \circ \tilde{x} \right]
+    =
+    f\left( \finvar_{\alpha}\left[ \tilde{x} \right] \right).
+  \]
+  \lean{Risk.isvar\_f\_strictmono, Risk.var\_f\_strictmono} \leanok
+  \cc{No proof is given; it should follow from \cref{thm:quantile-strictmono} plus the uniqueness lemma noted above. $P$ and $\tilde{x}$ are again unquantified.}
+\end{theorem}
+
+\begin{corollary}[Positive homogeneity] \label{thm:var-homog}
+For each $c > 0$ and $\alpha\in [0,1)$:
+  \[
+    \finvar_{\alpha}\left[ c \cdot \tilde{x} \right]
+    =
+    c \cdot \finvar_{\alpha}\left[ \tilde{x} \right].
+  \]
+  \lean{Risk.var\_positive\_homog} \leanok
+\end{corollary}
+\begin{proof}
+Apply \cref{thm:var-strictmono} with $f(x) := c\cdot x$.
+\end{proof}
+
+
+\section{Formal Decision Framework}
+
+\subsection{Markov Decision Process}
+
+\newcommand{\Fin}{\operatorname{Fin}}
+
+\begin{definition} \label{def:MDP}
+A \emph{Markov decision process} $M := (S, A, P, r)$ consists of:
+\begin{itemize}
+  \item positive integer $S \in \Nats_{>0}$ representing state set $\Nats_S$
+  \item positive integer $A \in \Nats_{>0}$ representing action set $\Nats_A$
+  \item transition function $P \colon \Nats_S \times \Nats_A \to \Delta_S$, mapping each state–action to the next state distribution
+  \item reward function $r \colon \Nats_S \times \Nats_A \times \Nats_S \to \Real$, mapping each transition to a reward
+\end{itemize}
+\lean{MDPs.MDP} \leanok
+\cc{The rest of the document writes $\mathcal{S}$, $\mathcal{A}$ and $p$ for the components of $M$, none of which are introduced here ($\Nats_S$, $\Nats_A$ and $P$ are). Also, $r$ maps into $\Real$ while everything else is restricted to $\mathbb{Q}$ for computability.}
+\end{definition}
+
+\subsection{Histories}
+
+We implicitly assume in the remainder of the section an MDP $M = (S, A, P, r)$.
+\begin{definition} \label{def:Hist}
+A \emph{history} $h$ in a set of histories $\mathcal{H}$ is a sequence of states and actions defined for $M$ recursively as
+\[
+  h := \langle s_0 \rangle, \quad
+  \why{or} \quad
+  h := \langle h', a, s \rangle,
+\]
+where $s_0, s \in \Fin(S)$, $a \in \Fin(A)$, and $h'\in \mathcal{H}$.
+\lean{MDPs.Hist} \leanok
+\end{definition}
+
+\begin{definition} \label{def:hist-length}
+The \emph{length} $|h|\in  \Nats$ of a history $h\in \mathcal{H}$ is the number of actions taken, defined as
+\begin{align*}
+|\langle s \rangle| &:= 0, \\
+|\langle h', a, s \rangle| &:= 1 + |h'|, \qquad h' \in \mathcal{H}.
+\end{align*}
+\lean{MDPs.Hist.length} \leanok
+\end{definition}
+
+\begin{theorem} \label{thm:hist-foll-len}
+For each $h\in \mathcal{H}$, $a\in \mathcal{A}$, and $s\in \mathcal{S}$:
+\[
+  |\langle h, a, s \rangle| = |h| + 1.
+\]
+\lean{MDPs.hist\_foll\_len} \leanok
+\end{theorem}
+
+\begin{definition} \label{def:hist-last}
+The \emph{last state} $s_{\mathrm{last}}\colon \mathcal{H} \to \mathcal{S}$ of a history is defined as
+\begin{align*}
+  s_{\mathrm{last}}(\langle s \rangle) &:= s, \\
+  s_{\mathrm{last}}(\langle h', a, s \rangle) &:= s.
+\end{align*}
+\lean{MDPs.Hist.last} \leanok
+\end{definition}
+
+\begin{definition} \label{def:hist-ne}
+The set $\mathcal{H}_{\mathrm{NE}}$ of \emph{non-empty histories} is
+\[
+\mathcal{H}_{\mathrm{NE}} := \left\{ h \in \mathcal{H} \mid  |h| \ge 1 \right\}.
+\]
+\lean{MDPs.HistNE} \leanok
+\end{definition}
+
+\begin{definition}\label{def:histories}
+  \emph{Following histories} $\mathcal{H}(h,t) \subseteq \mathcal{H}$ for $h\in \mathcal{H}$ and $t\in \Nats$ are defined recursively as
+  \[
+    \mathcal{H}(h,t) :=
+    \begin{cases}
+    \left\{  h \right\}  &\text{if } t = 0, \\
+    \left\{  \langle h', a, s \rangle \mid h'\in \mathcal{H}(h, t-1), a\in \mathcal{A}, s\in \mathcal{S}  \right\}  &\text{otherwise}. \\
+    \end{cases}
+  \]
+  \lean{MDPs.Histories} \leanok
+\end{definition}
+
+\begin{definition} \label{def:histories-horizon}
+  The set of \emph{histories} $\mathcal{H}_{t}$ of \emph{length} $t \in \Nats$ is defined recursively as
+  \[
+    \mathcal{H}_t =
+    \begin{cases}
+      \left\{ \langle s \rangle \mid  s\in \mathcal{S} \right\} &\text{if } t = 0, \\
+      \left\{ \langle h, a, s\rangle \mid h \in \mathcal{H}_{t-1}, a\in \mathcal{A}, s\in \mathcal{S} \right\} &\text{otherwise}.
+    \end{cases}
+  \]
+  \lean{MDPs.MDP.HistoriesHorizon} \leanok
+\end{definition}
+
+The following theorem shows that $\mathcal{H}_t$ contains exactly the histories of length $t$; as a consequence, the histories of length $t$ form a finite type.
+\begin{theorem} \label{thm:hist-horizon-exact}
+  For each $t\in \Nats$ and $h\in \mathcal{H}$:
+  \[
+    h \in \mathcal{H}_t \iff |h| = t.
+  \]
+  \lean{MDPs.hist\_horiz\_complete, MDPs.hist\_horiz\_exact, MDPs.MDP.HistoriesHorizonT} \leanok
+\end{theorem}
+\begin{proof}
+Both directions follow by induction on $t$.
+\end{proof}
+
+\begin{theorem} \label{thm:hist-lenth-eq-horizon}
+  For $h \in \mathcal{H}$:
+  \[
+   |h'| = |h| + t, \qquad \forall h'\in \mathcal{H}(h, t).
+  \]
+\lean{MDPs.hist\_lenth\_eq\_horizon} \notready
+(The Lean proof of this theorem is currently incomplete.)
+\end{theorem}
+\begin{proof}
+The theorem follows by induction on $t$ from the definition.
+\end{proof}
+
+\begin{definition} \label{def:hist-prefix}
+The \emph{prefix} $h_{\le k} \in \mathcal{H}$ of a history $h \in \mathcal{H}$ is the longest prefix of $h$ with length at most $k\in \Nats$.
+\lean{MDPs.Hist.prefix} \leanok
+\end{definition}
+
+\begin{remark}
+The definitions and theorems in the remainder of this document (the $k$-th states and actions of histories, history rewards, policies, history distributions, and the dynamic programming results) have \emph{not yet been formalized} in the Lean code. The \texttt{MDPs.*} names in comments are placeholders for the intended formalization.
+\end{remark}
+
+\begin{definition}
+  We use $\tilde{s}_k\colon \mathcal{H} \to \mathcal{S}$ to denote the 0-based $k$-th state of each history.
+  %%\lean{MDPs.state}\leanok
+\end{definition}
+
+\begin{definition}
+  We use $\tilde{a}_k\colon \mathcal{H} \to \mathcal{A}$ to denote the 0-based $k$-th action of each history.
+  %%\lean{MDPs.action}\leanok
+\end{definition}
+
+\begin{definition} \label{def:reward}
+The \emph{history-reward} random variable $\rew\colon \mathcal{H} \to \Real$ for $h = \langle h', a, s \rangle \in  \mathcal{H}$ for $h'\in \mathcal{H}$, $a\in \mathcal{A}$, and $s\in \mathcal{S}$ is defined recursively as
+\[
+\rew(h) := r(s_{|h|}(h'), a, s) + r_{\mathrm{h}}(h').
+\]
+%%\lean{MDPs.reward} \leanok
+\cc{Three errors: (i) the base case $\rew(\langle s \rangle) := 0$ is missing, so the recursion is not well-founded; (ii) the right-hand side writes $r_{\mathrm{h}}(h')$, an undefined symbol --- it should be $\rew(h')$; (iii) $s_{|h|}(h')$ is out of range for $h'$, which has states indexed $0,\dots,|h'| = |h|-1$; the intended term is the last state of $h'$, i.e.\ $s_{|h'|}(h')$.}
+\end{definition}
+
+\begin{definition}\label{reward_at}
+The \emph{history-reward} random variable $\rew_k \colon \mathcal{H} \to \Real$ for $h = \langle h', a, s \rangle \in  \mathcal{H}$ for $h'\in \mathcal{H}$, $a\in \mathcal{A}$, and $s\in \mathcal{S}$ is defined as the $k$-th reward (0-based) of a history.
+%%\lean{MDPs.reward_at} \leanok
+\end{definition}
+
+\begin{definition}\label{reward_to}
+The \emph{history-reward} random variable $\rew_{\le k} \colon \mathcal{H} \to \Real$ for $h = \langle h', a, s \rangle \in  \mathcal{H}$ for $h'\in \mathcal{H}$, $a\in \mathcal{A}$, and $s\in \mathcal{S}$ is defined as the sum of all $k$-th or earlier rewards (0-based) of a history.
+%%\lean{MDPs.reward_to} \leanok
+\end{definition}
+
+\begin{definition}\label{reward_from}
+The \emph{history-reward} random variable $\rew_{\ge k}\colon \mathcal{H} \to \Real$ for $h = \langle h', a, s \rangle \in  \mathcal{H}$ for $h'\in \mathcal{H}$, $a\in \mathcal{A}$, and $s\in \mathcal{S}$ is defined as the sum of $k$-th or later reward (0-based) of a history.
+%%\lean{MDPs.reward_from} \leanok
+\cc{\Cref{reward_at,reward_to,reward_from} give no defining equations at all --- only prose --- and the preamble ``for $h=\langle h',a,s\rangle$'' is vacuous since it constrains nothing. In particular it is left unspecified whether $\rew_{\ge k}$ includes the reward at index $k$, and what these evaluate to when $|h| \le k$. The dynamic-programming proofs later depend on exactly this convention (e.g.\ the split $\rew = \rew_{\le k_0-1} + \rew_{\ge k_0}$ used in \cref{thm:sum-rew-eq-sum-rew-rg} and \cref{thm:dph-correct-vf}), so it must be pinned down.}
+\end{definition}
+
+\subsection{Policies}
+
+\begin{definition} \label{def:decision-rule}
+The set of \emph{decision rules} $\mathcal{D}$ is defined as \(\mathcal{D} := \mathcal{A}^{\mathcal{S}}. \) A single action $a \in \mathcal{A}$ can also be interpreted as a decision rule $\mathcal{d} := s \mapsto a$.
+%%\lean{MDPs.DecisionRule}\leanok
+\cc{Typo: $\mathcal{d}$ should be $d$ (or $\mathcal{D}$-typeset consistently).}
+\end{definition}
+
+\begin{definition} \label{def:policy-hr}
+The set of \emph{history-dependent policies} is \(\PiHR :=  \Delta(\mathcal{A})^{\mathcal{H}}. \)
+%%\lean{MDPs.PolicyHR} \leanok
+\end{definition}
+
+
+\begin{definition} \label{def:policy-md}
+The set of \emph{Markov deterministic policies} $\PiMD$ is \(\PiMD :=  \mathcal{D}^{\Nats}. \)
+A Markov deterministic policy $\pi \in \PiMD$ can also be interpreted as $\bar{\pi} \in \PiHR$:
+\[
+  \bar{\pi}(h) := \delta \left[  \pi(|h|, s_{|h|}(h)) \right],
+\]
+where $\delta$ is the Dirac distribution,  and $s_{|h|}$ is the history's last state.
+%%\lean{MDPs.PolicyMD}\leanok
+\end{definition}
+
+\begin{definition} \label{def:policy-sd}
+The set of \emph{stationary deterministic policies} $\Pi_{\mathrm{SD}}$ is defined as \(\Pi_{\mathrm{SD}} := \mathcal{D}. \)
+A stationary policy $\pi \in \Pi_{\mathrm{SD}}$ can be interpreted as $\bar{\pi} \in \PiHR$:
+\[
+  \bar{\pi}(h) := \delta \left[  \pi(s_{|h|}(h)) \right],
+\]
+where $\delta$ is the Dirac distribution and $s_{|h|}$ is the history's last state.
+%%\lean{MDPs.PolicySD}\leanok
+\end{definition}
+
+\subsection{Distribution}
+
+
+\begin{definition}\label{def:hist-dist}
+The \emph{history probability distribution} $p^{\mathrm{h}}_T \colon  \PiHR \to \Delta(\mathcal{H}(h,t))$  and $\pi \in \PiHR$ is defined for each $T \in \Nats$ and $h\in \mathcal{H}(\hat{h},t)$ as
+\[
+(p^{\mathrm{h}}_T(\pi))(h) :=
+\begin{cases}
+\I(h = \hat{h}) &\text{if } T = 0, \\
+p_{T-1}^{\mathrm{h}}(h', \pi) \cdot \pi(h',a) \cdot  p(s_{|h|}(h'), a , s) &\text{if } T > 1 \wedge h = \langle h', a, s \rangle.
+\end{cases}
+\]
+Moreover, the function $p^{\mathrm{h}}$ maps policies to correct probability distribution.
+%%\lean{MDPs.HistDist} \leanok
+\cc{Several problems: (i) $\hat{h}$ and $t$ occur free --- they are never bound by the definition, although the codomain $\Delta(\mathcal{H}(h,t))$ and the base case $\I(h=\hat{h})$ both use them (and the codomain uses $h$ where $\hat{h}$ is presumably meant); (ii) the second case is guarded by $T>1$, leaving $T=1$ undefined --- it should be $T\ge 1$; (iii) the recursive call is written $p^{\mathrm{h}}_{T-1}(h',\pi)$, with arguments in the opposite order to the left-hand side $(p^{\mathrm{h}}_T(\pi))(h)$; (iv) $s_{|h|}(h')$ is out of range for $h'$ and should be $s_{|h'|}(h')$, and $p$ is the transition function called $P$ in \cref{def:MDP}; (v) the closing sentence asserts that $p^{\mathrm{h}}$ returns a genuine probability distribution (i.e.\ that it is nonnegative and sums to one over $\mathcal{H}(\hat{h},t)$) without any proof.}
+\end{definition}
+
+TODO: This definition needs to be updated. 
+A probability space $(\Omega_{h,t}, 2^{\Omega_{h,t} }, \hat{p}_{h,\pi})$ which is defined as
+\begin{align}
+\label{eq:omega-def}
+  \Omega_{h,t} &:= \left\{ h' \in \mathcal{H}_{|h| + t} \mid s_k(h) = s_k(h') \wedge a_k(h) = a_k(h'), \forall k \le |h| \right\}, \\
+  \label{eq:phat-def}
+\hat{p}_{h,\pi}\left(\left< h', a, s \right>\right)
+&:= \begin{cases}
+1 &\text{if } \left< h', a, s \right> = h, \\
+\hat{p}_{h,\pi}(h') \cdot  \pi(h', a) \cdot p(s_{|h'|}(h'), a, s)
+&\text{otherwise},
+\end{cases}
+\end{align}
+for each $\left< h', a, s \right> \in \Omega_{h,t}$. The random variables are defined as $\tilde{s}_k(h') := s_k(h')$, $\tilde{a}_k(h') := a_k(h')$, $\forall h'\in \Omega_{h,t}$. We interpret the subscripts analogously on all operators, including other risk measures, and $\E$, and $\mathbb{P}$.
+\cc{This block is explicitly flagged as needing an update, and it currently conflicts with \cref{def:hist-dist}: two different history distributions ($p^{\mathrm{h}}$ and $\hat{p}_{h,\pi}$) are defined, and the later proofs use $\hat{p}$ while \cref{def:expect-h} uses $p^{\mathrm{h}}$. Concretely: (i) \eqref{eq:omega-def} imposes $a_k(h)=a_k(h')$ for all $k\le |h|$, but actions of a history of length $|h|$ are indexed only $0,\dots,|h|-1$, so the case $k=|h|$ is undefined; (ii) $\hat{p}_{h,\pi}$ is declared on $\Omega_{h,t}$, whose elements all have length $|h|+t$, yet the recursion evaluates $\hat{p}_{h,\pi}(h')$ at strictly shorter histories that are not in $\Omega_{h,t}$ --- the domain of the recursion must be enlarged (e.g.\ to all $h'$ extending $h$); (iii) the first case ``$=1$ if $\langle h',a,s\rangle = h$'' can never fire when $t\ge 1$, and cannot be written in the form $\langle h',a,s\rangle$ at all when $|h|=0$, so the base case is unreachable/ill-formed as stated.}
+
+
+
+\begin{definition}\label{def:expect-h}
+The \emph{history-dependent expectation} is defined for each $t\in \Nats$, $\pi\in \PiHR$, $\hat{h}\in \mathcal{H}$ and a $\tilde{x}\colon \mathcal{H} \to \Real$ as
+\begin{equation*}
+\E^{\hat{h}, \pi, t} [\tilde{x}]
+:= \E \left[ \tilde{x} \right] 
+= \sum_{h \in \mathcal{H}(\hat{h}, t)} p^{\mathrm{h}}(h, \pi) \cdot \tilde{x}(h).
+\end{equation*}
+In the $\E$ operator above, the random variable $\tilde{x}$ lives in a probability space $(\Omega, p)$ where $\Omega = \mathcal{H}(\hat{h}, t)$ and $p(h) = p^{\mathrm{h}}(h, \pi), \forall h\in \Omega$.
+Moreover, if $\hat{h}$ is a state, then it is interpreted as a history with the single initial state.
+%%\lean{MDPs.expect_h} \leanok
+\cc{$p^{\mathrm{h}}(h,\pi)$ is written without the horizon subscript and with the arguments in the opposite order to \cref{def:hist-dist}. It is also left unproved that $p$ restricted to $\Omega=\mathcal{H}(\hat{h},t)$ is a probability distribution, which is what makes the appeal to \cref{def:expectation} legitimate; and $\tilde{x}$ maps into $\Real$ while \cref{def:expectation} requires $\mathbb{Q}$.}
+\end{definition}
+
+
+\begin{definition}\label{def:expect-h-cnd}
+The \emph{history-dependent expectation} is defined for each $t\in \Nats$, $\pi\in \PiHR$, $\hat{h}\in \mathcal{H}$, $\tilde{x}\colon \mathcal{H} \to \Real$, $\tilde{b}\colon \mathcal{H} \to \mathcal{\mathbb{B}}$ as
+\begin{equation*}
+\E^{\hat{h}, \pi, t} [\tilde{x} \mid \tilde{b} ]
+:= \E \left[ \tilde{x} \mid  \tilde{b} \right].
+\end{equation*}
+In the $\E$ operator above, the random variables $\tilde{x}$ and $\tilde{b}$ live in a probability space $(\Omega, p)$ where $\Omega = \mathcal{H}(\hat{h}, t)$ and $p(h) = p^{\mathrm{h}}(h, \pi), \forall h\in \Omega$.
+Moreover, if $\hat{h}$ is a state, then it is interpreted as a history with the single initial state.
+%%\lean{MDPs.expect_h_cnd} \leanok
+\end{definition}
+
+\begin{definition}\label{def:expect-h-cnd-rv}
+The \emph{history-dependent expectation} is defined for each $t\in \Nats$, $\pi\in \PiHR$, $\hat{h}\in \mathcal{H}$, $\tilde{x}\colon \mathcal{H} \to \Real$, $\tilde{y}\colon \mathcal{H} \to \mathcal{\mathcal{V}}$ as
+\begin{equation*}
+\E^{\hat{h}, \pi, t} [\tilde{x} \mid \tilde{y} ](h)
+:= \E \left[ \tilde{x} \mid \tilde{y} = \tilde{y}(h) \right](h), \quad\forall h\in \mathcal{H}(\hat{h}, t).
+\end{equation*}
+In the $\E$ operator above, the random variables $\tilde{x}$ and $\tilde{h}$ live in a probability space $(\Omega, p)$ where $\Omega = \mathcal{H}(\hat{h}, t)$ and $p(h) = p^{\mathrm{h}}(h, \pi), \forall h\in \Omega$.
+Moreover, if $\hat{h}$ is a state, then it is interpreted as a history with the single initial state.
+%%\lean{MDPs.expect_h_cnd_rv} \leanok
+\cc{The right-hand side $\E[\tilde{x}\mid \tilde{y}=\tilde{y}(h)](h)$ applies a scalar to $(h)$; per \cref{def:expect-cnd-rv} it should read $\E[\tilde{x}\mid\tilde{y}](h)$. Also, $\tilde{y}$ is allowed an arbitrary codomain $\mathcal{V}$ whereas \cref{def:expect-cnd-rv} requires $\Nats_m$-valued conditioning variables, and the last sentence refers to ``$\tilde{x}$ and $\tilde{h}$'' where $\tilde{y}$ is meant.}
+\end{definition}
+
+
+\subsection{Basic Properties}
+
+
+\begin{theorem} \label{thm:exph-congr}
+Assume $\tilde{x} \colon \mathcal{H} \to \Real$ and $c \in \Real$. Then $\forall h\in \mathcal{H}, \pi\in \PiHR, t \in \Nats$:
+\[
+  \E^{\hat{h}, \pi, t} \left[ c + \tilde{x} \right]
+  =
+  c + \E^{\hat{h}, \pi, t} \left[ \tilde{x} \right].
+\]
+%%\lean{MDPs.exph_congr} \leanok
+\cc{The quantifier ranges over $h\in \mathcal{H}$ but the statement uses $\hat{h}$, which is unbound. The same mismatch recurs in \cref{thm:exph-add-rv,thm:exph-const,thm:exph-add-const}.}
+\end{theorem}
+\begin{proof}
+Directly from \cref{thm:exp-linear,thm:exp-const}.
+\end{proof}
+
+\begin{theorem} \label{thm:exph-add-rv}
+Suppose that $\tilde{x}, \tilde{y} \colon \mathcal{H} \to \Real $. Then $\forall h\in \mathcal{H}, \pi\in \PiHR, t \in \Nats$:
+\[
+  \E^{\hat{h}, \pi, t} \left[ \tilde{x} + \tilde{y} \right]
+  =
+  \E^{\hat{h}, \pi, t} \left[ \tilde{x} \right] + \E^{\hat{h}, \pi, t} \left[ \tilde{y} \right].
+\]
+%%\lean{MDPs.exph_add_rv}
+\end{theorem}
+\begin{proof}
+  From \cref{thm:exp-linear}.
+\end{proof}
+
+\begin{theorem} \label{thm:exph-const}
+Suppose that $c\in \Real$. Then $\forall h\in \mathcal{H}, \pi\in \PiHR, t \in \Nats$:
+\[
+  \E^{\hat{h}, \pi, t} \left[ c \right] = c.
+\]
+%%\lean{MDPs.exph_const}
+\end{theorem}
+\begin{proof}
+  From \cref{thm:exp-const}.
+\end{proof}
+
+\begin{theorem} \label{thm:exph-add-const}
+Suppose that $\tilde{x}, \tilde{y} \colon \mathcal{H} \to \Real $ satisfy that $\tilde{x}(h) = \tilde{y}(h), \forall h \in \mathcal{H}$. Then $\forall h\in \mathcal{H}, \pi\in \PiHR, t \in \Nats$:
+\[
+  \E^{\hat{h}, \pi, t} \left[ \tilde{x} \right]
+  =
+  c + \E^{\hat{h}, \pi, t} \left[ \tilde{y} \right].
+\]
+%%\lean{MDPs.exph_add_const} 
+\cc{The statement is malformed: the hypothesis says $\tilde{x}$ and $\tilde{y}$ are \emph{equal} pointwise, yet the conclusion introduces an undeclared constant $c$. Presumably the intended hypothesis is $\tilde{x}(h) = c + \tilde{y}(h)$ for all $h$ --- in which case the result is exactly \cref{thm:exph-congr} and the two should be merged. As stated, the theorem is false (take $\tilde x = \tilde y$ nonzero and $c\ne 0$). This matters because \cref{thm:sum-rew-eq-sum-rew-rg} cites it.}
+\end{theorem}
+\begin{proof}
+From \cref{thm:exp-linear}.
+\end{proof}
+
+\begin{theorem}\label{thm:expret-eq-sum-rew}
+For each $\hat{h}\in \mathcal{H}$, $\pi \in \PiHR$, and $t\in \Nats$:
+\[
+\E^{\hat{h}, \pi, t} \left[ \rew \right]
+=
+\E^{\hat{h}, \pi, t} \left[ \sum_{k=0}^{|\tilde{\id}|-1}  r(\tilde{s}_k, \tilde{a}_k, \tilde{s}_{k+1}) \right],
+\]
+where $\tilde{\id}(h)$ is the identity function, $|\cdot|$ is the length of a history (0-based), $\tilde{s}_k\colon \mathcal{H} \to \mathcal{S}$ and $\tilde{a}_k\colon \mathcal{H} \to \mathcal{A}$ are the 0-based $k$-th state and action, respectively of each history.
+%%\lean{MDPs.expret_eq_sum_rew} \leanok
+\end{theorem}
+\begin{proof}
+Follows from \cref{thm:exph-congr} and the equality of the reward function $\tilde{r}^{\mathrm{h}}$ and the sum in the expectation.
+\cc{The citation is not to the point: \cref{thm:exph-congr} is about adding a constant and plays no role. The content of the theorem is the pointwise identity $\rew(h) = \sum_{k=0}^{|h|-1} r(s_k(h),a_k(h),s_{k+1}(h))$, which needs a proof by induction on $|h|$ from \cref{def:reward}; that induction is not given. The statement's notation is also unclear: $|\tilde{\id}|$ is used as a random upper summation limit and $\tilde{\id}$ is described only as ``the identity function''.}
+\end{proof}
+
+\begin{theorem}\label{thm:sum-rew-eq-sum-rew-rg}
+For each $h\in \mathcal{H}$, $\pi \in \PiHR$, and $t\in \Nats$:
+\[
+\E^{h, \pi, t} \left[  \rew \right]
+=
+\rew(h) + \E^{h, \pi, t} \left[ \rew_{\ge k_0} \right],
+\]
+where $k_0:=|h|$.
+  %%\lean{MDPs.sum_rew_eq_sum_rew_rg }
+\end{theorem}
+\begin{proof}
+Follows from \cref{thm:exph-add-const}.
+\cc{\Cref{thm:exph-add-const} is malformed (see the comment there), so this proof rests on nothing. What is actually needed is (i) the decomposition $\rew = \rew_{\le k_0-1} + \rew_{\ge k_0}$, and (ii) that $\rew_{\le k_0-1}$ is \emph{constant} equal to $\rew(h)$ on $\mathcal{H}(h,t)$ --- both unproved, and both sensitive to the unspecified indexing convention of \cref{reward_to,reward_from}. Note the potential off-by-one: $\rew_{\ge k_0}$ with $k_0=|h|$ must not double-count the reward already included in $\rew(h)$.}
+\end{proof}
+
+\begin{theorem}\label{thm:sum-rew-cnd}
+For each $\hat{h}\in \mathcal{H}$, $\pi \in \PiHR$, $t\in \Nats$, $h\in \mathcal{H}$:
+\begin{equation*}
+  \PP^{\hat{h},\pi,t}[\tilde{s}_{k_0}=\tilde{s}_{k_0}(\omega) \wedge \tilde{a}_{k_0} = \tilde{a}_{k_0}(\omega) ] > 0
+\quad\Rightarrow \quad
+  \E^{\hat{h}, \pi, t} \left[ \rew_{k_0} \mid  \tilde{s}_{k_0}, \tilde{a}_{k_0}\right](h) = \rew_{k_0}(h), \forall h \in \mathcal{H}.
+\end{equation*}
+where $k_0:= |\hat{h}|$.
+%%\lean{MDPs.sum_rew_eq_sum_rew_rg }
+\end{theorem}
+\begin{proof}
+ From \cref{thm:exp-const}. 
+\cc{The statement is malformed and, on the natural reading, false. (i) $\omega$ is free --- it appears only inside the hypothesis and is never quantified; presumably the hypothesis should be attached to each $h$, i.e.\ $\PP^{\hat h,\pi,t}[\tilde{s}_{k_0}=s_{k_0}(h)\wedge \tilde{a}_{k_0}=a_{k_0}(h)]>0$. (ii) $h$ is bound twice (declared in the preamble and again by ``$\forall h\in\mathcal{H}$''), and should be restricted to $\mathcal{H}(\hat{h},t)$. (iii) More seriously, $\rew_{k_0}$ is the reward $r(s_{k_0},a_{k_0},s_{k_0+1})$, which also depends on $\tilde{s}_{k_0+1}$; conditioning on $(\tilde{s}_{k_0},\tilde{a}_{k_0})$ alone therefore does \emph{not} determine it, so it is not a constant on the conditioning event and \cref{thm:exp-const} does not apply. (iv) Correspondingly, \cref{thm:dph-correct-vf} invokes this theorem with conditioning on $(\tilde{a}_{k_0},\tilde{s}_{k_0+1})$, not $(\tilde{s}_{k_0},\tilde{a}_{k_0})$ --- the statement should be changed to that pair (for which it is true, since $\tilde{s}_{k_0}$ is fixed at $s_{\mathrm{last}}(\hat{h})$ when $k_0=|\hat{h}|$).}
+\end{proof}
+
+\begin{theorem} \label{thm:exph-horizon-trim}
+Assume $h \in \mathcal{H}$ and $f \colon \mathcal{H} \to \Real$ such that $s_0 := s_{|h|}(h)$
+\[
+f(\left< h, a, s \right>) = f(\left< s_0, a, a \right>) , \forall a\in \mathcal{A}, s\in \mathcal{S}.
+\]
+Then
+\[
+\E^{h,\pi,1}\left[ \tilde{f} \right] =   
+\E^{s_0,\pi,1}\left[ \tilde{f} \right].
+\]
+\end{theorem}
+%%\lean{MDPs.exph_horizon_trim }
+\begin{proof}
+  Directly from the definition of the expectation.
+\cc{The statement is false as written for $\pi\in \PiHR$: $\E^{h,\pi,1}$ uses $\pi(h)$ whereas $\E^{s_0,\pi,1}$ uses $\pi(\langle s_0\rangle)$, and a history-dependent policy may choose differently at these two histories. The hypothesis constrains only $f$, not $\pi$ (which is in fact never quantified in the statement). Every use of this theorem later is with a fixed action in place of $\pi$, so it should be restated for $\E^{h,a,1}$. Separately, the hypothesis contains a typo: $f(\langle s_0,a,a\rangle)$ should be $f(\langle \langle s_0\rangle, a, s\rangle)$.}
+\end{proof}
+
+\subsection{Total Expectation}
+
+\begin{theorem}[Total Expectation] \label{thm:total-expectation-h}
+  For each $h\in \mathcal{H}$, $\pi\in \PiHR$, $t\in \Nats$, $\tilde{x}\colon \mathcal{H} \to \Real$ and $\tilde{y}\colon \mathcal{H} \to \mathcal{V}$:
+  \[
+    \E^{h, \pi, t} \left[ \E^{h, \pi, t} \left[  \tilde{x} \mid  \tilde{y} \right] \right]
+    =
+    \E^{h, \pi, t} \left[ \tilde{x} \right].
+  \]
+%%\lean{MDPs.total_expectation_h}
+\end{theorem}
+\begin{proof}
+From \cref{thm:total-expectation}.
+\end{proof}
+
+\begin{theorem}\label{thm:exp-horizon-cut}
+Suppose that the random variable $\tilde{x}\colon \mathcal{H} \to \Real$ satisfies for some $k, t \in \Nats$, with $k \le t$, that
+  \[
+   \tilde{x}(h) = \tilde{x}(h_{\le k}) , \forall h\in  \mathcal{H},
+ \]
+ where $h_{\le k}$ is the prefix of $h$ of length $k$. Then for each $h\in \mathcal{H}, \pi\in \PiHR$:
+ \[
+  \E^{h,\pi,t} \left[ \tilde{x} \right]  = \E^{h,\pi,k} \left[  \tilde{x} \right].
+ \]
+ %%%\lean{MDPs.exp_horizon_cut}
+ \cc{No proof is given, and this theorem carries real weight (it is the step that collapses horizon $t+1$ to horizon $1$ in \cref{thm:dph-correct-vf}). Note also that the hypothesis is phrased with \emph{absolute} prefix length $k$, whereas the application in \cref{thm:dph-correct-vf} needs it relative to $|h|$; as stated the hypothesis is not satisfied there.}
+\end{theorem}
+
+
+\subsection{Conditional Properties}
+
+\begin{theorem} \label{thm:exph-cond-eq-hist}
+For each $h\in \mathcal{H}$, $\pi\in \PiHR$, $t\in \Nats$, $\tilde{x}\colon \mathcal{H} \to \Real$, $s\in \mathcal{S}$, $a\in \mathcal{A}$:
+\[
+  \E^{h,\pi,t+1}[\tilde{x} \mid \tilde{a}_{|h|} = a, \tilde{s}_{|h|+1} = s]
+  =
+  \E^{\langle h, a, s\rangle,\pi,t}[\tilde{x}],
+\]
+when $\mathbb{P} [\tilde{a}_{|h|} = a, \tilde{s}_{|h|+1} = s] > 0$.
+%%\lean{MDPs.exph_cond_eq_hist}
+\end{theorem}
+\begin{proof}
+  Let
+  \[
+    \begin{aligned}
+      b &:= \mathbb{P}^{h,\pi,t+1} \left[ \tilde{a}_{|h|} = a, \tilde{s}_{|h|+1} = s \right] \\
+      &= \hat{p}_{h,\pi}(h') \cdot  \pi(h', a) \cdot p(s_{|h'|}(h'), a, s) \\
+       &> 0
+    \end{aligned}
+  \]
+  where the inequality holds from the hypothesis. Also, let
+  \[
+    \mathbb{B} := \left\{ h'\in \Omega_{h,t+1} \mid a_{|h|}(h') = a \wedge s_{|h|+1}(h') = s\right\}.
+  \]
+  Note that
+  \begin{equation} \label{eq:set-equivalence}
+    \mathbb{B} = \Omega_{\left< h', a, s \right>, t},
+\end{equation}
+  which can be seen by algebraic manipulation from \eqref{eq:omega-def}.
+  \cc{Notation collision and errors: $h'$ is used simultaneously as a free symbol in the displayed formula for $b$, as the bound summation index, and inside $\Omega_{\langle h',a,s\rangle,t}$ --- the latter should be $\Omega_{\langle h,a,s\rangle,t}$ in all three occurrences, and the formula for $b$ should read $b = \pi(h,a)\cdot p(s_{|h|}(h),a,s)$ (using $\hat{p}_{h,\pi}(h)=1$). Also, \eqref{eq:set-equivalence} is asserted ``by algebraic manipulation'' with no argument, and the third step of the display --- replacing $\frac{1}{b}\hat{p}_{h,\pi}$ by $\hat{p}_{\langle h,a,s\rangle,\pi}$ --- requires the factorization $\hat{p}_{h,\pi}(h') = b\cdot \hat{p}_{\langle h,a,s\rangle,\pi}(h')$ for all $h'$ in the set, which needs an induction on $t$ rather than a direct appeal to \eqref{eq:phat-def}. Finally, the conditioning $\E[\cdot\mid \tilde{a}_{|h|}=a,\tilde{s}_{|h|+1}=s]$ on a \emph{pair} of variables is not covered by \cref{def:expect-h-cnd}, which conditions on a single Boolean variable.}
+
+  Using the notation above, we can show the result as
+  \begin{align*}
+  \E^{h,\pi,t+1}[\tilde{x} \mid \tilde{a}_{|h|} = a, \tilde{s}_{|h|+1} = s]
+  &= \frac{1}{b} \sum_{h'\in \mathbb{B}} \hat{p}_{h,\pi}(h') \cdot x(h')
+  && \why{definition}\\
+  &= \frac{1}{b} \sum_{h'\in \Omega_{\left< h', a, s \right>, t}} \hat{p}_{h,\pi}(h') \cdot x(h')
+  && \why{\cref{eq:set-equivalence}} \\
+  &= \sum_{h'\in \Omega_{\left< h', a, s \right>, t}} \hat{p}_{\left<h, a,s  \right>,\pi}(h') \cdot x(h')
+  && \why{\cref{eq:phat-def}} \\
+  &= \E^{\langle h, a, s\rangle,\pi,t}[\tilde{x}]. && \why{definition}
+  \end{align*}
+\end{proof}
+
+\section{Dynamic Program: History-Dependent Finite Horizon}
+
+In this section, we derive dynamic programming equations for histories. We assume an MDP $M = (\mathcal{S}, \mathcal{A}, p, r)$ throughout this section.
+
+The main idea of the proof is to:
+\begin{enumerate}
+\item Derive (exponential-size) dynamic programming equations for the history-dependent value function of history-dependent policies
+  \begin{enumerate}
+    \item Define the value function
+    \item Define an optimal value function
+  \end{enumerate}
+\item Show that value functions decompose to equivalence classes
+\item Show that the value function for the equivalence classes can be computed efficiently
+\end{enumerate}
+
+\subsection{Definitions}
+
+\begin{definition} \label{def:ObjectiveFH}
+  A finite horizon objective definition is given by $O := (s_0, T)$ where $s_0\in \mathcal{S}$ is the initial state and $T\in \Nats$ is the horizon.
+  %%\lean{MDPs.ObjectiveFH} \leanok
+\end{definition}
+
+In the reminder of the section, we assume an objective $O = (s_0, T)$.
+\begin{definition} \label{sec:objective-fh}
+  The \emph{finite horizon objective function} for and objective $O$ is $\pi\in \PiHR$ is defined as
+  \[
+    \rho(\pi, O)
+    :=
+    \E^{s_0, \pi, T} \left[\rew \right].
+  \]
+  %%\lean{MDPs.objective_fh} \leanok
+\end{definition}
+
+\begin{definition}\label{def:return-optimal-fh}
+  A policy $\pi\opt\in \PiHR$ is \emph{return optimal} for an objective $O$ if
+  \[
+   \rho(\pi\opt, O) \ge \rho(\pi, O), \quad \forall \pi \in \PiHR.
+ \]
+ %%\lean{MDPs.OptimalVF_fh} \leanok
+\end{definition}
+
+\begin{definition} \label{def:values-h}
+  The \emph{set of history-dependent value functions} $\mathcal{U}$ is defined as
+  \[
+   \mathcal{U} := \Real^{\mathcal{H}}.
+ \]
+ %%\lean{MDPs.ValuesH} \leanok
+\end{definition}
+
+\begin{definition} \label{def:u-pi}
+A \emph{history-dependent policy value function} $\hat{u}^{\pi}_t\colon \mathcal{H} \to \Real$ for each $h\in \mathcal{H}$, $\pi \in \PiHR$, and $t\in \Nats$ is defined as
+  \[
+   \hat{u}^{\pi}_t(h) := \E^{h, \pi, t} \left[ \rew_{\ge |h|} \right],
+ \]
+ %%\lean{MDPs.hvalue_π} \leanok
+\end{definition}
+
+
+\begin{definition}
+The optimal history-dependent value function $\hat{u}_t\opt\colon \mathcal{H} \to \Real$ is defined for a horizon $t\in \Nats$ as
+ \[
+  \hat{u}\opt_t(h) := \sup_{\pi\in \PiHR} \hat{u}_t^{\pi}(h). 
+ \] 
+\cc{This definition is never used again: nothing in the document relates $\hat{u}\opt_t$ to the DP value function $u\opt_t$ of \cref{def:u-dp-opt}. \Cref{thm:dph-opt-vf-opt} proves only the inequality $u\opt_t \ge \hat{u}^{\pi}_t$ for all $\pi$; the converse direction $u\opt_t \le \sup_{\pi}\hat{u}^{\pi}_t$ --- equivalently, the existence of a policy attaining $u\opt_t$ --- is the missing half of the optimality argument and is never proved. Note also that $\PiHR$ contains randomized policies, so $\sup$ cannot be replaced by $\max$ without an argument; the theorem after \cref{def:pi-opt} is presumably intended to supply the attainment but does not state it in this form.}
+\end{definition}
+
+The following definition is another way of defining an optimal policy.
+\begin{definition} \label{def:optimal-fh}
+For each $t\in \Nats$, a policy $\pi\opt \in \PiHR$ is optimal if
+\[
+   \hat{u}_t^{\pi\opt}(h) \ge \hat{u}_t^{\pi}(h), \quad \forall \pi \in \PiHR, h\in \mathcal{H}.
+ \]
+ %%\lean{MDPs.Optimal_fh}\leanok
+\end{definition}
+
+\begin{theorem} \label{def:optimalvf-imp-optimal}
+A policy $\pi\opt \in \PiHR$ optimal in \cref{def:optimal-fh} is also return optimal in \cref{def:return-optimal-fh} for any initial state $s_0$ and horizon $T$.
+%%\lean{MDPs.optimalvf_imp_optimal}
+\cc{No proof is given. It also requires the unstated identity $\rho(\pi,O) = \hat{u}^{\pi}_T(\langle s_0\rangle)$, i.e.\ that $\E^{s_0,\pi,T}[\rew] = \E^{s_0,\pi,T}[\rew_{\ge 0}]$, which depends on the (unspecified) convention of \cref{reward_from}.}
+\end{theorem}
+
+\subsection{History-dependent Dynamic Program}
+
+The following definitions of history-dependent value functions use a dynamic program formulation.
+
+\begin{definition} \label{def:DPhpi}
+The \emph{history-dependent policy Bellman operator} $L_{\mathrm{h}}^{\pi} \colon \mathcal{U} \to \mathcal{U}$ is defined for each $\pi\in \PiHR$ as
+  \[
+    (L_{\mathrm{h}}^{\pi} \tilde{u}) (h)
+    :=
+    \E^{h, \pi, 1} \left[ \rew_{|h|} + \tilde{u} \right], \quad \forall h\in \mathcal{H}, \tilde{u} \in \mathcal{U},
+  \]
+  where the value function $\tilde{u}$ is interpreted as a random variable on defined on the sample space $\Omega = \mathcal{H}$.
+  %%\lean{MDPs.DPhπ} \leanok
+\end{definition}
+
+\begin{definition}\label{def:DPhopt} 
+The \emph{history-dependent optimal Bellman operator} $L_{\mathrm{h}}\opt \colon \mathcal{U} \to \mathcal{U}$ is defined as
+  \[
+    (L\opt_{\mathrm{h}} \tilde{u}) (h)
+    :=
+    \max_{a\in \mathcal{A}} \E^{h, a, 1} \left[ \rew_{|h|} + \tilde{u} \right], \quad \forall h\in \mathcal{H}, \tilde{u} \in \mathcal{U},
+  \]
+  where the value function $\tilde{u}$ is interpreted as a random variable on defined on the sample space $\Omega = \mathcal{H}$.
+  %%\lean{MDPs.DPhopt}\leanok
+  \cc{$\E^{h,a,1}$ is undefined: \cref{def:expect-h} takes a policy $\pi\in \PiHR$ as its second superscript, and \cref{def:decision-rule} only remarks that an action can be read as a \emph{decision rule}, not as a history-dependent policy. An explicit coercion $a \mapsto \bar{\pi}_a \in \PiHR$ (and the corresponding notation) is needed, since this operator, \cref{def:DPMopt}, \cref{def:pi-opt} and \cref{def:DPMpi} all rely on it.}
+\end{definition}
+
+\begin{definition} \label{def:u-dp-pi}
+  The history-dependent \emph{DP value function} $u_t^{\pi} \in \mathcal{U}$ for a policy $\pi\in \PiHR$ and $t\in \Nats$ is defined as
+  \[
+   u_t^{\pi} :=
+   \begin{cases}
+     0 &\text{if } t = 0, \\
+     L_{\mathrm{h}}^{\pi} u_{t-1}^{\pi} &\text{otherwise}.
+   \end{cases}
+ \]
+ %%\lean{MDPs.u_dp_π}\leanok
+\end{definition}
+
+\begin{definition} \label{def:u-dp-opt}
+  The history-dependent \emph{DP value function} $u_t\opt \in \mathcal{U}$ for $t\in \Nats$ is defined as
+  \[
+   u_t\opt  :=
+   \begin{cases}
+     0 &\text{if } t = 0, \\
+     L_{\mathrm{h}}\opt u_{t-1}\opt &\text{otherwise}.
+   \end{cases}
+ \]
+ %%\lean{MDPs.u_dp_opt}\leanok
+\end{definition}
+
+\begin{lemma}\label{thm:dp-opt-ge-dp-pi}
+  Suppose that $u^1, u^2 \in \mathcal{U}$ satisfy that $u^1(h) \ge u^2(h), \forall h\in \mathcal{H}$. Then
+  \[
+   (L_{\mathrm{h}}\opt u^1)(h) \ge  
+   (L_{\mathrm{h}}^{\pi} u^2)(h), \quad \forall \pi\in \PiHR, h\in \mathcal{H}.
+  \]
+\end{lemma}
+%%\lean{MDPs.dp_opt_ge_dp_pi}
+\begin{proof}
+  From \cref{thm:exp-monotone}.
+  \cc{Incomplete: monotonicity of $\E$ only handles the step from $u^2$ to $u^1$ inside a \emph{fixed} expectation. The remaining --- and essential --- step is that the $\pi$-average over actions is bounded by the maximum over actions, $\E_{a\sim \pi(h)}[\cdot] \le \max_{a\in\mathcal{A}}[\cdot]$. That averaging argument is not proved anywhere in the document.}
+\end{proof}
+
+The following theorem shows the history-dependent value function can be computed by the dynamic program. The following theorem is akin to \citep[theorem~4.2.1]{Puterman2005}.
+\begin{theorem} \label{thm:dph-correct-vf}
+For each $\pi\in \PiHR$ and $t\in \Nats$:
+  \[
+    \hat{u}^{\pi}_t(h)
+    =
+    u^{\pi}_t(h), \quad \forall h\in \mathcal{H}.
+  \]
+  %%\lean{MDPs.dph_correct_vf }
+\end{theorem}
+\begin{proof}
+By induction on $t$. The base case for $t=0$ follows from the definition. The inductive case for $t + 1$ follows for each $h\in \mathcal{H}$ when $|h| = k_0$ as
+{\allowdisplaybreaks
+\begin{align*}
+\hat{u}_{t+1}^{\pi}(h)
+&= \E^{h, \pi, t+1} \left[ \rew_{\ge k_0}  \right] && \why{\cref{def:u-pi}}\\
+&= \E^{h, \pi, t+1} \left[  \E^{h, \pi, t+1} \left[ \rew_{\ge k_0} \mid \tilde{a}_{k_0}, \tilde{s}_{k_0+1} \right] \right]  && \why{\cref{thm:total-expectation-h}} \\
+&= \E^{h, \pi, t+1} \left[\rew_{k_0} +  \E^{h, \pi, t+1} \left[  \rew_{\ge k_0+1} \mid \tilde{a}_{k_0}, \tilde{s}_{k_0+1} \right] \right] && \why{\cref{thm:sum-rew-cnd}} \\
+&= \E^{h, \pi, t+1} \left[\rew_{k_0} +  \E^{\langle h,\tilde{a}_{k_0},\tilde{s}_{k_0+1}\rangle, \pi, t} \left[ \rew_{\ge k_0+1} \right]\right] && \why{\cref{thm:exph-cond-eq-hist}} \\
+&= \E^{h, \pi, t+1} \left[\rew_{k_0} +  \hat{u}_t(\langle h,\tilde{a}_{k_0},\tilde{s}_{k_0+1}\rangle; \pi) \right] && \why{\cref{def:u-pi}} \\
+&= \E^{h, \pi, t+1} \left[\rew_{k_0} +  u^{\pi}_t(\langle h,\tilde{a}_{k_0},\tilde{s}_{k_0+1}\rangle) \right] && \why{inductive assm} \\
+&= \E^{h, \pi, 1} \left[\rew +  \tilde{u}^{\pi}_t \right] && \why{\cref{thm:exp-horizon-cut}} \\
+&= L_{\mathrm{h}}^{\pi} u_t^{\pi} && \why{\cref{def:DPhpi}} \\
+&= u^{\pi}_t(h). && \why{\cref{def:u-dp-pi}}
+\end{align*}
+}
+Also, we use $\tilde{u}_t^{\pi}$ to emphasize when we treat $u^{\pi}_t$ as a random variable. 
+\cc{Several gaps in this chain. (i) The final line reads $u^{\pi}_t(h)$ but must be $u^{\pi}_{t+1}(h)$ to close the induction; likewise the penultimate line is missing its argument $(h)$. (ii) Step 2 applies \cref{thm:total-expectation-h} conditioning on the \emph{pair} $(\tilde{a}_{k_0},\tilde{s}_{k_0+1})$, whereas that theorem (and \cref{def:expect-h-cnd-rv}) is stated for a single conditioning variable. (iii) Step 3 cites \cref{thm:sum-rew-cnd}, which is stated for the pair $(\tilde{s}_{k_0},\tilde{a}_{k_0})$ --- a different pair (see the comment there) --- and additionally uses linearity of \emph{conditional} expectation, which is never established. (iv) Step 4 substitutes random variables $\tilde{a}_{k_0},\tilde{s}_{k_0+1}$ into the superscript of $\E$; \cref{thm:exph-cond-eq-hist} only justifies this for fixed $a,s$ with $\PP[\cdot]>0$, so the substitution needs \cref{def:expect-h-cnd-rv} plus a check that the zero-probability branches contribute nothing --- neither is done. (v) Step 7 cites \cref{thm:exp-horizon-cut}, whose hypothesis is about absolute prefix length $k$, but here the cut is at $|h|+1$; it also silently changes $\rew_{k_0}$ to $\rew$.}
+\end{proof}
+
+The following theorem is akin to \citep[theorem~4.3.2]{Puterman2005}.
+\begin{theorem}\label{thm:dph-opt-vf-opt}
+For each $t\in \Nats$:
+  \[
+    u\opt_t(h)
+    \ge 
+    \hat{u}_t(h; \pi), \quad \forall h\in \mathcal{H}, \pi\in \PiHR.
+  \]
+  %%\lean{MDPs.dph_opt_vf_opt}
+\end{theorem}
+\begin{proof}
+  By induction on $t$. The base case is immediate. The inductive case follows for $t+1$ as follows. For each $\pi\in \PiHR$:
+  \begin{align*}
+    u_{t+1}\opt(h)
+    &= (L_{\mathrm{h}}\opt u_t\opt)(h) && \why{\cref{def:DPhopt}} \\
+    &\ge (L_{\mathrm{h}}^{\pi} \hat{u}_t(\cdot; \pi))(h) && \why{ind asm, \cref{thm:dp-opt-ge-dp-pi}} \\
+    &= (L_{\mathrm{h}}^{\pi} u_t^{\pi})(h) && \why{\cref{thm:dph-correct-vf}} \\
+    &= u_t^{\pi}(h) && \why{\cref{def:u-pi}} \\
+    &= \hat{u}_t(h; \pi). && \why{\cref{thm:dph-correct-vf}} \\
+  \end{align*}
+\cc{Off-by-one: the chain should end at $u^{\pi}_{t+1}(h) = \hat{u}_{t+1}(h;\pi)$, but the last two lines are written with subscript $t$. The step ``$= u^{\pi}_t(h)$'' also cites \cref{def:u-pi} where \cref{def:u-dp-pi} is meant. In addition, the base case is dismissed as ``immediate'' but $\hat{u}^{\pi}_0(h) = \E^{h,\pi,0}[\rew_{\ge|h|}]$ equals $0$ only under the reward convention that is left unspecified in \cref{reward_from}. Finally, note the notation clash: $\hat{u}_t(h;\pi)$ here versus $\hat{u}^{\pi}_t(h)$ in \cref{def:u-pi}.}
+\end{proof}
+
+\section{Expected Dynamic Program: Markov Policy}
+
+\subsection{Optimality}
+We discuss results needed to prove the optimality of Markov policies. 
+
+\begin{definition} \label{def:Values}
+  The set of \emph{independent value functions} is defined as $\mathcal{V} := \Real^{\mathcal{S}}$.
+  %%\lean{MDPs.Values}\leanok
+\end{definition}
+
+\begin{definition}\label{def:DPMopt}
+A \emph{Markov Bellman operator} $L\opt\colon \mathcal{V} \to \mathcal{V}$ is defined as
+\[
+(L\opt  v)(h)  :=
+\max_{a\in \mathcal{A}} \E^{h, a, 1} \left[ \rew + v(\tilde{s}_{|h|}) \right], \quad \forall \tilde{u} \in \mathcal{U},
+\]
+%%\lean{MDPs.DPMopt}\leanok
+\cc{Type errors: $L\opt$ maps $\mathcal{V}=\Real^{\mathcal{S}}$ to $\mathcal{V}$, so its argument should be a state $s\in \mathcal{S}$, not a history $h$; the quantifier ``$\forall \tilde{u}\in \mathcal{U}$'' quantifies a variable that does not occur and should be $\forall v\in \mathcal{V}, s\in \mathcal{S}$; and $\tilde{s}_{|h|}$ refers to the free $h$ --- for a one-step expectation from $\langle s\rangle$ the successor state is $\tilde{s}_1$.}
+\end{definition}
+
+\begin{definition} \label{def:v-dp-opt}
+The \emph{optimal value function} $v\opt_t\in \mathcal{V}, t\in \Nats$ is defined as
+\[
+v\opt_t := 
+\begin{cases}
+    0 &\text{if } t = 0 \\
+    (L\opt  v\opt _{t-1}) &\text{otherwise}.
+\end{cases}
+\]
+%%\lean{MDPs.v_dp_opt}\leanok
+\end{definition}
+
+\begin{theorem}
+Suppose that $t\in \Nats $. Then:
+\[
+v\opt_t(s_{|h|}(h)) = u\opt_t(h), \quad \forall h\in \mathcal{H}.
+\]
+%%\lean{MDPs.v_dp_opt_eq_u_opt} 
+\end{theorem}
+\begin{proof}
+By induction on $t$. The base case follows immediately from the definition. The inductive step for $t+1$ follows as:
+\begin{align*}
+  u\opt_{t+1}(h)
+  &= \max_{a\in \mathcal{A}} \E^{h, a, 1} \left[ \rew_{|h|} + \tilde{u}\opt_t  \right]
+  && \why{\cref{def:u-dp-opt}} \\
+  &= \max_{a\in \mathcal{A}} \E^{h, a, 1} \left[ \rew_{|h|} + v\opt_t(\tilde{s}_l) \right] 
+    && \why{inductive asm.}  \\
+  &= \max_{a\in \mathcal{A}} \E^{s_0, a, 1} \left[ \rew_{|h|} + v\opt_t(\tilde{s}_l) \right]
+    && \why{\cref{thm:exph-horizon-trim}} \\
+  &= \max_{a\in \mathcal{A}} \E^{s_0, a, 1} \left[ \rew + v\opt_t(\tilde{s}_l) \right]
+  && \why{\cref{thm:exph-congr}} \\
+  &= v\opt_{t+1}(s_{|h|}(h)) && \why{\cref{def:v-dp-opt}}.
+\end{align*}
+\cc{Problems in this chain: the theorem has no label and reuses the Lean name \texttt{v\_dp\_opt\_eq\_u\_opt} of the later theorem; the index $l$ in $\tilde{s}_l$ is never defined (it should be $|h|+1$, and $\tilde{s}_1$ after the horizon trim); the third step invokes \cref{thm:exph-horizon-trim}, which as stated is false for policies and whose hypothesis (that the integrand depends only on the last state of $h$) is not verified here; and the fourth step cites \cref{thm:exph-congr}, which is about adding a \emph{constant} and does not justify replacing $\rew_{|h|}$ by $\rew$ --- what is needed is $\rew(\langle s_0\rangle)=0$, i.e.\ the missing base case of \cref{def:reward}.}
+\end{proof}
+
+
+\begin{definition} \label{def:pi-opt}
+  The \emph{optimal finite-horizon policy} $\pi\opt_t, t\in \Nats$ is defined as
+  \[
+    \pi\opt_t(k,s) :=
+    \begin{cases}
+      \arg\max_{a\in \mathcal{A}}  \E^{s, a, 1} \left[ \rew + v_{t-k}\opt (\tilde{s}_{|h|}) \right]
+      &\text{if } k \le t, \\
+      a_0 &\text{otherwise},
+    \end{cases}
+  \]
+  where $a_0$ is an arbitrary action.
+  \cc{$\arg\max$ is set-valued and may contain ties, so a choice function must be fixed for $\pi\opt_t$ to be well defined. Also $\tilde{s}_{|h|}$ uses a free $h$ (it should be $\tilde{s}_1$, the successor of $s$), $\rew$ should presumably be $\rew_0$ relative to $\langle s\rangle$, and $t-k$ must be read as truncated subtraction on $\Nats$. The subscript $t$ on $\pi\opt_t$ plays no role in the definition of the two branches other than the guard $k\le t$.}
+  %%\lean{MDPs.πopt}\leanok
+\end{definition}
+
+\begin{theorem}
+Assume a horizon $T\in \Nats$. Then:
+\[
+  v\opt_{T-|h|}(s_{|h|}(h)) = u^{\pi\opt_{T-h}}_{T-|h|}(h), \quad
+  \forall h\in \left\{ h\in \mathcal{H} \mid |h| \le T \right\}.
+\]
+%%\lean{MDPs.v_dp_opt_eq_u_opt} 
+\end{theorem}
+\begin{proof}
+Fix some $T \in \Nats$. By induction on $k$ from $k = T$ to $k=0$. The base case is immediate from the definition. We prove the inductive case for $k-1$ from $k$ as
+\begin{align*}
+u^{\pi\opt_T}_{T-k + 1}(h)
+  &=  \E^{h, \pi\opt_T, 1} \left[ \rew_k + \tilde{u}^{\pi\opt_T}_{T-k} \right]
+  && \why{\cref{def:DPhpi}} \\
+  &=  \E^{h, a\opt, 1} \left[ \rew_k + \tilde{u}^{\pi\opt_T}_{T-k} \right]
+  && \why{???} \\
+  &=  \E^{h, a\opt, 1} \left[ \rew_{k} + v_{T-k}\opt(\tilde{s}_1) \right]
+  && \why{ind asm} \\
+  &=  \E^{s_0, a\opt, 1} \left[ \rew +  v_{T-k}\opt(\tilde{s}_1) \right]
+  && \why{\cref{thm:exph-horizon-trim}} \\
+  &=  \max_{a\in \mathcal{A}} \E^{s_0, a, 1} \left[ \rew +  v_{T-k}\opt(\tilde{s}_1) \right]
+  && \why{???} \\
+  &=  v_{T-k+1}\opt(s_0). && \why{\cref{def:v-dp-opt}}
+\end{align*}
+Here, $k := |h|$, $a\opt := \pi\opt_T(k, s_0)$, and $s_0 := s_{|h|}(h)$
+\cc{This proof has two steps explicitly marked ``???'', i.e.\ unproved, and they are the substantive ones: (i) replacing $\pi\opt_T$ by the single action $a\opt$ requires a lemma that $\E^{h,\bar{\pi},1} = \E^{h,a,1}$ when $\bar{\pi}$ puts a Dirac mass on $a$ at $h$ (see the comment on \cref{def:DPhopt}); (ii) the step $\E^{s_0,a\opt,1}[\cdot] = \max_{a}\E^{s_0,a,1}[\cdot]$ is precisely the defining property of the $\arg\max$ in \cref{def:pi-opt} and needs to be stated as a lemma. Further problems: the theorem statement writes $\pi\opt_{T-h}$, subtracting a history from a number; the induction is described as running downward from $k=T$ to $k=0$ but the displayed step derives the case $T-k+1$ from $T-k$, i.e.\ it is an upward induction on $T-k$, and no base case is verified; the first line cites \cref{def:DPhpi} where \cref{def:u-dp-pi} is also needed; and $\tilde{s}_1$ here is written $\tilde{s}_{|h|}$ in \cref{def:pi-opt}. Finally, this theorem never gets combined with \cref{thm:dph-opt-vf-opt} into the conclusion the section is aiming at --- that the Markov deterministic policy $\pi\opt$ is optimal within $\PiHR$; that corollary is missing.}
+\end{proof}
+
+\subsection{Evaluation}
+We discuss results pertinent to the evaluation of Markov policies. 
+
+Markov value functions depend on the length of the history.
+\begin{definition} \label{def:ValuesM}
+  The set of \emph{independent value functions} is defined as $\mathcal{V}_{\mathrm{M}} := \Real^{\Nats \times \mathcal{S}}$.
+  %%\lean{MDPs.ValuesM}\leanok
+\end{definition}
+
+
+\begin{definition}\label{def:DPMpi}
+A \emph{Markov policy Bellman operator} $L_k^{\pi}\colon \mathcal{V} \to \mathcal{V}$ for $\pi\in \Pi$ is defined as
+\[
+(L^{\pi} v)(k, s)  :=
+\max_{a\in \mathcal{A}} \E^{s, a, 1} \left[ \rew + v(k + 1, \tilde{s}_{|h|}) \right], \quad \forall v\in \mathcal{V}_{\mathrm{M}}, k\in \Nats, s\in \mathcal{S}.
+\]
+\cc{Error: this is meant to be the \emph{policy} Bellman operator, but it takes $\max_{a\in\mathcal{A}}$ and never uses $\pi$; it should evaluate at $a := \pi(k)(s)$ (or average over $\pi(k,s)$ for randomized policies). Additionally, the operator is declared with type $\mathcal{V}\to\mathcal{V}$ although it acts on $\mathcal{V}_{\mathrm{M}} = \Real^{\Nats\times\mathcal{S}}$; the subscript $k$ in $L^{\pi}_k$ is never used; ``$\pi\in \Pi$'' refers to an undefined set $\Pi$ (presumably $\PiMD$); and $\tilde{s}_{|h|}$ again refers to a free $h$.}
+%%\lean{MDPs.DPMopt}\leanok
+\end{definition}
+
+\begin{definition} \label{def:v-dp-pi}
+  The \emph{Markov policy value function} $v^{\pi}_t\in \mathcal{V}_{\mathrm{M}}, t \in \Nats$  for $\pi\in \PiMD$ is defined as
+  \[
+    v^{\pi}_t :=
+    \begin{cases}
+      0 &\text{if } t = 0, \\
+      (L^{\pi}  v^{\pi}_{t-1}) &\text{otherwise}.
+    \end{cases}
+  \]
+  %%\lean{MDPs.v_dp_π}\leanok
+  \cc{The ``Evaluation'' subsection ends here with no results at all: there is no counterpart of \cref{thm:dph-correct-vf} relating $v^{\pi}_t$ to $u^{\pi}_t$ or $\hat{u}^{\pi}_t$, so nothing justifies calling $v^{\pi}_t$ the value function of $\pi$. Also, iterating $L^{\pi}$ (which already carries its own time index $k$) $t$ times leaves the relationship between the two time indices unspecified. Finally, \cref{def:Values} and \cref{def:ValuesM} are both named ``independent value functions''.}
+\end{definition}
+
+
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: LaTeX
+%%% TeX-master: t
+%%% End:

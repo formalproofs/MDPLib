@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build library, docs and paper
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the Lean library
+        uses: leanprover/lean-action@v1
+        with:
+          build-args: "MDPLib"
+
+      - name: Build the API documentation
+        run: lake -R build MDPLib:docs
+
+      - name: Build the LaTeX paper
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: main.tex
+          working_directory: latex
+
+      - name: Assemble the website
+        run: |
+          mkdir -p _site
+          cp -r .lake/build/doc _site/docs
+          find _site/docs \( -name '*.trace' -o -name '*.hash' \) -delete
+          cp latex/main.pdf _site/main.pdf
+          cp .github/pages-index.html _site/index.html
+
+      - name: Upload the paper as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper
+          path: latex/main.pdf
+
+      - name: Upload the GitHub Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy documentation to GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

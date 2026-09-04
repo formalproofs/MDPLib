@@ -1,5 +1,6 @@
 # Formalizing Markov Decision Processes in Lean
 
+[![CI](https://github.com/formalproofs/MDPLib/actions/workflows/ci.yml/badge.svg)](https://github.com/formalproofs/MDPLib/actions/workflows/ci.yml)
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://formalproofs.github.io/MDPLib/)
 
 **Documentation:** the [API documentation](https://formalproofs.github.io/MDPLib/docs/)

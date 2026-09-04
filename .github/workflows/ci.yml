@@ -22,6 +22,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The Lean toolchain is ~3 GB extracted; caching it skips the elan
+      # install and the toolchain download on every run.
+      - name: Cache the Lean toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.elan
+          key: elan-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}
+
+      # Mathlib's oleans are NOT cached here: they are 6.7 GB, over GitHub's
+      # 10 GB per-repo budget, and `lake exe cache get` already fetches them
+      # from Mathlib's CDN. What is cached is our own build plus the packages
+      # that must be compiled from source (doc-gen4 and its dependencies),
+      # which is the expensive part not covered by the Mathlib cache.
+      - name: Cache the Lake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .lake/build
+            .lake/packages/doc-gen4
+            .lake/packages/Cli
+            .lake/packages/UnicodeBasic
+            .lake/packages/MD4Lean
+            .lake/packages/BibtexQuery
+            .lake/packages/checkdecls
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json') }}-${{ github.sha }}
+          restore-keys: |
+            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json') }}-
+            lake-${{ runner.os }}-
+
       - name: Build the Lean library
         uses: leanprover/lean-action@v1
         with:

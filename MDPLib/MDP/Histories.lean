@@ -49,6 +49,8 @@ abbrev MDP.St := Fin M.S
 abbrev MDP.At := Fin M.A
 
 /-- Set of all states -/
+-- TODO(mathlib): `Fintype.elems` is `Finset.univ` and `Fintype.complete` is `Finset.mem_univ`,
+-- so `setS`/`setA`/`inS`/`inA` are four aliases -- use the Mathlib names directly.
 def MDP.setS : Finset M.St := Fintype.elems 
 /-- Set of all actions -/
 def MDP.setA : Finset M.At := Fintype.elems
@@ -128,6 +130,9 @@ def MDP.idx_to_hist (M : MDP) (t : ℕ) (i : Fin (M.numhist t)) : M.HistT t :=
       ⟨ h'.1.foll a s , 
         by simp only [Hist.length, h'.2, Nat.succ_eq_add_one]; exact Nat.add_comm 1 t'⟩ 
 
+-- TODO(mathlib): = `by rw [Nat.sub_one_mul, Nat.sub_add_cancel (Nat.le_mul_of_pos_left n h)]`
+-- (`Nat.sub_one_mul` is core `Init/Data/Nat/Basic.lean:1189`). Verified.
+-- Also note this declares into the root `Nat` namespace from a project file.
 lemma Nat.sum_one_prod_cancel (n : ℕ) {m : ℕ} (h : 0 < m) : (m-1) * n + n = m*n := 
   by rw [Nat.sub_one_mul]
      apply Nat.sub_add_cancel

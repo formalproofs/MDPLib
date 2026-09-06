@@ -152,6 +152,7 @@ variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {q q₁ v₁ v₂ c : ℚ} {α : 
 theorem var_monotone : X ≤ Y → IsVaR P X α v₁ → IsVaR P Y α v₂ → v₁ ≤ v₂ :=
   fun hle hv1 hv2 => upperBounds_mono_of_isCofinalFor (quantile_le_monotone hle) hv2.2 hv1.1
 
+-- TODO(mathlib): literal alias of `add_left_strictMono` -- use the Mathlib name at call sites.
 theorem const_monotone_univ : StrictMono (fun x ↦ x + c)  := add_left_strictMono
 
 theorem isvar_translation_invariant : IsVaR P X α v → IsVaR P (X+c•1) α (v+c) := by

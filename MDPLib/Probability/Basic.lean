@@ -159,51 +159,62 @@ variable {f : ℚ → ℚ} {x : ℚ}
 
 --- LE
 
+omit [FinEnum Ω] in 
 theorem rv_f_le_monotone (hm : Monotone f) : (X ≤ᵣ x) ≤ (f ∘ X ≤ᵣ f x) := 
-    by intro ω; apply bool_ineq; simpa using fun a ↦ hm a
+    by intro ω; rw [Bool.le_iff_imp]; simpa using fun a ↦ hm a
 
 
+omit [FinEnum Ω] in 
 theorem rv_f_le_antitone (hm : Antitone f) : (X ≤ᵣ x) ≤ (f ∘ X ≥ᵣ f x) := 
-    by intro ω; apply bool_ineq; simpa using fun a ↦ hm a
+    by intro ω; rw [Bool.le_iff_imp]; simpa using fun a ↦ hm a
 
-
+omit [FinEnum Ω] in 
 theorem rv_f_le_strictmono (hm : StrictMono f) : (X ≤ᵣ x) = (f ∘ X ≤ᵣ f x) := 
-    by ext ω; apply bool_eq; simpa using fun a ↦ hm.monotone a; simpa using hm.le_iff_le.mp
+    by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.le_iff_le.symm
 
+omit [FinEnum Ω] in 
 theorem rv_f_le_strictanti (hm : StrictAnti f) : (X ≤ᵣ x) = (f ∘ X ≥ᵣ f x) := 
-    by ext ω; apply bool_eq; simpa using fun a ↦ hm.antitone a; simpa using hm.le_iff_ge.mp
+    by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.le_iff_ge.symm
 
 --- LT
 
+omit [FinEnum Ω] in 
 theorem rv_f_lt_strictmono (hm : StrictMono f) : (X <ᵣ x) = (f ∘ X <ᵣ f x) := 
-    by ext ω; apply bool_eq; simpa using fun a => hm a; simpa using hm.lt_iff_lt.mp 
+    by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.lt_iff_lt.symm
 
+omit [FinEnum Ω] in 
 theorem rv_f_lt_strictanti (hm : StrictAnti f) : (X <ᵣ x) = (f ∘ X >ᵣ f x) := 
-    by ext ω; apply bool_eq; simpa using fun a => hm a; simpa using hm.lt_iff_gt.mp 
+    by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.lt_iff_gt.symm
 
 --- GE
 
+omit [FinEnum Ω] in 
 theorem rv_f_ge_monotone (hm : Monotone f) : (X ≥ᵣ x) ≤ (f ∘ X ≥ᵣ f x) := 
-    by intro ω; apply bool_ineq; simpa using fun a ↦ hm a
+    by intro ω; rw [Bool.le_iff_imp]; simpa using fun a ↦ hm a
 
+omit [FinEnum Ω] in 
 theorem rv_f_ge_antitone (hm : Antitone  f) : (X ≥ᵣ x) ≤ (f ∘ X ≤ᵣ f x) := 
-    by intro ω; apply bool_ineq; simpa using fun a ↦ hm a
+    by intro ω; rw [Bool.le_iff_imp]; simpa using fun a ↦ hm a
 
 
+omit [FinEnum Ω] in 
 theorem rv_f_ge_strictmono (hm : StrictMono f) : (X ≥ᵣ x) = (f ∘ X ≥ᵣ f x) := 
-    by ext ω; apply bool_eq; simpa using fun a ↦ hm.monotone a; simpa using hm.le_iff_le.mp
+    by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.le_iff_le.symm
 
+omit [FinEnum Ω] in 
 theorem rv_f_ge_strictanti (hm : StrictAnti f) : (X ≥ᵣ x) = (f ∘ X ≤ᵣ f x) := 
-    by ext ω; apply bool_eq; simpa using fun a ↦ hm.antitone a; simpa using hm.le_iff_ge.mp
+    by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.le_iff_ge.symm
 
 --- GT
 
+omit [FinEnum Ω] in 
 theorem rv_f_gt_strictmono (hm : StrictMono f) : (X >ᵣ x) = (f ∘ X >ᵣ f x) := 
-    by ext ω; apply bool_eq; simpa using fun a => hm a; simpa using hm.lt_iff_lt.mp 
+    by ext ω;  rw [Bool.eq_iff_iff]; simpa using hm.lt_iff_lt.symm
 
 
+omit [FinEnum Ω] in 
 theorem rv_f_gt_strictanti (hm : StrictAnti f) : (X >ᵣ x) = (f ∘ X <ᵣ f x) := 
-    by ext ω; apply bool_eq; simpa using fun a => hm a; simpa using hm.lt_iff_gt.mp
+    by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.lt_iff_gt.symm
 
 
 end Monotone
@@ -214,12 +225,16 @@ section CashInvariance
 
 variable (c : ℚ) {x : ℚ}
 
+omit [FinEnum Ω] in 
 theorem rv_le_cashinvar : (X ≤ᵣ x) = (X + c•1 ≤ᵣ x + c) := by ext ω; simp
 
+omit [FinEnum Ω] in 
 theorem rv_lt_cashinvar : (X <ᵣ x) = (X + c•1 <ᵣ x + c) := by ext ω; simp
 
+omit [FinEnum Ω] in 
 theorem rv_ge_cashinvar : (X ≥ᵣ x) = (X + c•1 ≥ᵣ x + c) := by ext ω; simp
 
+omit [FinEnum Ω] in 
 theorem rv_gt_cashinvar : (X >ᵣ x) = (X + c•1 >ᵣ x + c) := by ext ω; simp
 
 end CashInvariance
@@ -485,15 +500,6 @@ theorem law_total_exp : 𝔼[𝔼[X |ᵣ L // P] // P] = 𝔼[X // P] :=
     _ =  ∑ i : Fin k, 𝔼[X * (L =ᵢ i) // P] := by apply Fintype.sum_congr; intro i; apply exp_congr; rw[indi_eq_indr] 
     _ = 𝔼[X // P]  := by rw [←exp_decompose]
 
---- shows that using a set and list is the same
-lemma finset_image_eq_list_map_dedup : ∀x, x ∈ Finset.univ.image X ↔ x ∈ (((FinEnum.toList Ω).map X) |> List.dedup) :=  by
-    intro x
-    simp only [Finset.mem_image, Finset.mem_univ, true_and, List.mem_dedup, List.mem_map,
-               FinEnum.mem_toList, true_and]
-
-
-lemma finset_list_eq_list_dedup (l : List ℚ) : l.toFinset = l.dedup.toFinset := 
-    List.toFinset.ext (fun _ => List.mem_dedup.symm)
 
 section RV_Unique_Values
 
@@ -504,11 +510,9 @@ variable  {τ:Type} [DecidableEq τ]
 def FinRV.imageList (X : FinRV Ω τ) : List τ := List.dedup ((FinEnum.toList Ω).map X)
 
 /-- The image finset of `X` equals the `toFinset` of its `imageList`. -/
-theorem univ_image_eq_imageList_toFinset (X : FinRV Ω τ) :
-    Finset.univ.image X = X.imageList.toFinset := by
+theorem univ_image_eq_imageList_toFinset (X : FinRV Ω τ) : Finset.univ.image X = X.imageList.toFinset := by
     ext y
-    simp only [FinRV.imageList, Finset.mem_image, Finset.mem_univ, true_and, List.mem_toFinset,
-               List.mem_dedup, List.mem_map, FinEnum.mem_toList, true_and]
+    simp [FinRV.imageList]
 
 theorem sum_finset_eq_sum_image (f : ℚ → ℚ) :
     (∑ y ∈ (Finset.univ.image X), f y) = ((X.imageList).map f).sum := by
@@ -529,7 +533,6 @@ theorem finrv_image_superset_exists (ω) : ∃ i : Fin X.imageList.length, X ω 
   
 theorem finrv_image_nodup : X.imageList.Nodup := List.nodup_dedup _
 
--- Mathlib seems to be missing this function
 def List.finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : Fin L.length := 
     ⟨L.idxOf a, List.idxOf_lt_length_of_mem h⟩
 
@@ -601,11 +604,6 @@ end Probability
 section Probability_Permutation
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t : ℚ}
-
-example (σ : Equiv.Perm (Ω)) (f g : Ω → ℚ) : f ⬝ᵥ g = (f ∘ σ) ⬝ᵥ (g ∘ σ) := 
-  by exact Eq.symm (comp_equiv_dotProduct_comp_equiv f g σ)
-
-example (σ : Equiv.Perm (Ω)) : (1 : Ω → ℚ) = (1 : Ω → ℚ) ∘ σ := rfl
 
 def Findist.perm (P : Findist Ω) (σ : Equiv.Perm (Ω)) : Findist Ω where 
   p :=  P.p ∘ σ

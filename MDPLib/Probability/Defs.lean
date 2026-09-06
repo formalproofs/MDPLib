@@ -7,20 +7,16 @@ import Mathlib.Algebra.Module.PointwisePi -- for smul_pi
 import Mathlib.LinearAlgebra.Matrix.DotProduct -- for monotonicity
 
 
------------ Generic results -----------------
-
-theorem bool_ineq {a b : Bool} (h : a → b) : (a ≤ b) := h
-
-theorem bool_eq {a b : Bool} (h1 : a → b) (h2 : b → a) : a = b := Bool.le_antisymm h1 h2
-
 --------------------------- Findist ---------------------------------------------------------------
-
-
 
 
 -- TODO: do we even need to assume that Ω is finitely enumerable when defining the probability space?
 
 /-- Finite probability distribution over a finitely-enumerable sample space `Ω`. -/
+-- NOTE(mathlib): Mathlib's `StdSimplex ℚ Ω` (`Mathlib/Geometry/Convex/ConvexSpace/Defs.lean:56`)
+-- is the same object (`weights` / `nonneg` / `total`), and `StdSimplex.nonempty` duplicates
+-- `Findist.nonempty` below. We deliberately do NOT switch: `StdSimplex` is `Finsupp`-backed,
+-- whereas this library is built throughout on plain functions and `⬝ᵥ`.
 structure Findist (Ω : Type) [FinEnum Ω] : Type where
     /-- Probability measure -/
     p : Ω → ℚ
@@ -38,6 +34,7 @@ abbrev Delta (Ω : Type) [FinEnum Ω] : Type := Findist Ω
 abbrev Δ (Ω : Type) [FinEnum Ω] : Type := Delta Ω
 
 /-- Dirac (point mass) distribution concentrated at `ω₀`. -/
+-- NOTE(mathlib): `p` here is `Pi.single ω₀ 1`; cf. `StdSimplex.single` / `single_mem_stdSimplex`.
 def dirac {Ω : Type} [FinEnum Ω] (ω₀ : Ω) : Findist Ω where
     p    := fun ω => if ω = ω₀ then 1 else 0
     prob := by simp [dotProduct]
@@ -95,6 +92,17 @@ variable {Ω : Type} [Nonempty Ω] {ρ : Type}
 namespace FinRV
 
 -- for convenience define operations on bools
+-- WARNING: these four instances shadow Mathlib's global `Bool` algebra.
+-- `Mathlib/Algebra/Ring/BooleanRing.lean:515,521` declares `Add Bool := xor` and
+-- `Mul Bool := and` as part of `instance : BooleanRing Bool`, and :540 declares
+-- `Bool.zero_eq_false`, which would collide by name with `zero_eq_false` below.
+-- That file is NOT currently reachable from this import graph (checked: `BooleanRing` and
+-- `Bool.zero_eq_false` are unknown constants here, and `#synth Add Bool` returns
+-- `instBoolAdd`), so there is no ambiguity today -- but the moment anything pulls
+-- `Mathlib.Algebra.Ring.BooleanRing` in, `+` on `Bool` becomes ambiguous between `or` and
+-- `xor`, and `one_of_bool_or_not` / `le_of_le_eq` could change meaning.
+-- If that happens: make these `scoped instance`s in the `FinRV` namespace, or drop them and
+-- write `||` / `&&` explicitly.
 instance instBoolMul : Mul Bool where mul a b := Bool.and a b
 instance instBoolAdd: Add Bool  where add a b := Bool.or a b
 instance instBoolZero : Zero Bool where zero := false
@@ -103,6 +111,7 @@ instance instBoolOne : One Bool where one := true
 variable {A B : Bool}
 
 @[simp] theorem one_eq_true : (1:Bool) = true := rfl
+-- NOTE: name-clashes with Mathlib's `Bool.zero_eq_false` -- see the WARNING above.
 @[simp] theorem zero_eq_false : (0:Bool) = false := rfl
 @[simp] theorem bool_sum_or : A + B = Bool.or A B := rfl
 @[simp] theorem bool_prod_and : A * B = Bool.and A B := rfl
@@ -220,8 +229,13 @@ theorem one_of_ind_bool_or_not : (𝕀∘B) + (𝕀∘(¬ᵣ B)) = (1 : FinRV Ω
 
 variable {X Y: FinRV Ω ℚ} {Xs : Fin k → FinRV Ω ℚ}
 
+-- TODO(mathlib): = `le_abs_self X`. `Ω → ℚ` is a Pi lattice ordered group, so `|X|` is
+-- pointwise and defeq to `abs ∘ X`. Verified: `le_abs_self X` closes this goal as stated.
 theorem rv_le_abs : X ≤ abs ∘ X := by intro i; simp [le_abs_self (X i)]
 
+-- TODO(mathlib): = `(Finset.mul_sum _ _ _).symm`
+-- (`Mathlib/Algebra/BigOperators/Ring/Finset.lean:59`) applied directly in the Pi semiring
+-- `Ω → ℚ` -- no pointwise `ext` needed.
 theorem rv_prod_sum_additive  : ∑ i, Y * (Xs i) = Y * (∑ i, Xs i) :=
     by ext ω; simp [Finset.mul_sum]
 
@@ -236,9 +250,14 @@ variable {β : Type}
 -- assume enumerability of Ω from here because we need a probability space
 variable [FinEnum Ω] [DecidableEq β]
 
+-- TODO(mathlib): = `Finset.univ_nonempty.image X` (`Mathlib/Data/Finset/BooleanAlgebra.lean:50`).
 theorem rv_image_nonempty (X : FinRV Ω β) : (Finset.univ.image X).Nonempty :=
   Finset.image_nonempty.mpr Finset.univ_nonempty
 
+-- NOTE(mathlib): already Mathlib-based (`Finset.min'`/`max'` on the image). An alternative
+-- spelling is `Finset.univ.sup' Finset.univ_nonempty X`, which would make `rv_omega_le_max`
+-- literally `Finset.le_sup' X (Finset.mem_univ ω)`
+-- (`Mathlib/Data/Finset/Lattice/Fold.lean:564`), dually `Finset.inf'_le`. Cosmetic only.
 def FinRV.min [LinearOrder β] (X : FinRV Ω β) : β :=
   (Finset.univ.image X).min' (rv_image_nonempty X)
 
@@ -354,12 +373,14 @@ notation "𝔼[" X "|ᵣ" L "//" P "]" => expect_cnd_rv P X L
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y Z: FinRV Ω ℚ} {B : FinRV Ω Bool}
 
+-- TODO(mathlib): = `congrArg (expect P) h`. This is `congrArg`, nothing more.
 theorem exp_congr (h : X = Y) : 𝔼[X // P] = 𝔼[Y // P] := by 
      unfold expect dotProduct
      apply Fintype.sum_congr
      simp_all
 
 
+-- TODO(mathlib): `CommMonoid.mul_comm` is the unbundled field accessor; use `mul_comm X Y`.
 theorem exp_mul_comm : 𝔼[X * Y // P] = 𝔼[Y * X // P] := exp_congr (CommMonoid.mul_comm X Y)
 
 variable {c : ℚ} {p : Ω → ℚ}
@@ -383,6 +404,7 @@ theorem exp_indi_eq_exp_indr (i) : 𝔼[L =ᵢ i // P] = 𝔼[𝕀 ∘ (L =ᵣ i
 theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV Ω ℚ) : 
     𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] := dotProduct_sum P.p Finset.univ Xs
      
+-- TODO(mathlib): = `dotProduct_add P.p X Y` (`Mathlib/Data/Matrix/Mul.lean:124`).
 theorem exp_additive_two : 𝔼[X + Y // P] = 𝔼[X // P] + 𝔼[Y // P] := by simp [expect]
 
 /-- Expectation is monotone  -/

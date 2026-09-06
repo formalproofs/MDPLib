@@ -25,16 +25,17 @@ theorem of_complement ( hp : Prob p) : Prob (1-p) := by
 theorem complement_inv_nneg (hp : Prob p) : 0 ≤ (1-p)⁻¹ := by
         simp_all only [Prob, inv_nonneg, sub_nonneg]
 
+-- See also `Convex.min_le_combo` / `Convex.combo_le_max` and `min_eq_left h` / `max_eq_left h` and `smul_eq_mul`
 theorem lower_bound_fst (hp : Prob p) (h : x ≤ y) : x ≤ p * x + (1-p) * y := by
-        have h2 : (1-p) * x ≤ (1-p) * y := mul_le_mul_of_nonneg_left h hp.of_complement.1
+        have h2 := mul_le_mul_of_nonneg_left h hp.of_complement.1
         linarith
 
 theorem lower_bound_snd (hp : Prob p) (h : y ≤ x) : y ≤ p * x + (1-p) * y := by
-        have h2 : p * y ≤ p * x := mul_le_mul_of_nonneg_left h hp.1
+        have h2 := mul_le_mul_of_nonneg_left h hp.1
         linarith
 
 theorem upper_bound_fst (hp : Prob p) (h : y ≤ x) : p * x + (1-p) * y ≤ x := by
-        have h2 : (1-p) * y ≤ (1-p) * x := mul_le_mul_of_nonneg_left h hp.of_complement.1
+        have h2 := mul_le_mul_of_nonneg_left h hp.of_complement.1
         linarith
 
 theorem upper_bound_snd (hp : Prob p) (h : x ≤ y) : p * x + (1-p) * y ≤ y := by
@@ -55,31 +56,19 @@ variable {Ω : Type*} [Fintype Ω]
 variable {x y z : Ω → ℚ} {c : ℚ}
 
 
-
 theorem dotProd_hadProd_rotate : x ⬝ᵥ (y * z) = z ⬝ᵥ (x * y) := by
   apply Fintype.sum_congr
   intro i
   rewrite [Pi.mul_apply y z i, Pi.mul_apply]
   ring
 
-example : z * x = x * z := by apply?
-
-theorem dotProd_hadProd_comm : x ⬝ᵥ (y * z) = x ⬝ᵥ (z * y) := by
-  apply Fintype.sum_congr
-  intro i
-  rewrite [mul_comm' z y]
-  ring
+theorem dotProd_hadProd_comm : x ⬝ᵥ (y * z) = x ⬝ᵥ (z * y) := congrArg (x ⬝ᵥ ·) (mul_comm y z)
 
 example : (c • x) i = c * x i := by rw [Pi.smul_apply, smul_eq_mul] 
 
 theorem funmul_eq_smul : (fun _ ↦ c) * X = c • X := rfl 
 
-theorem dotProd_smul_homogeneous : x ⬝ᵥ (c • y) = c * x ⬝ᵥ y := by 
-  rewrite [dotProduct, dotProduct, Finset.mul_sum] 
-  apply Fintype.sum_congr
-  intro i 
-  rw [Pi.smul_apply, smul_eq_mul] 
-  ring
+theorem dotProd_smul_homogeneous : x ⬝ᵥ (c • y) = c * x ⬝ᵥ y := dotProduct_smul c x y
 
 theorem dotProduct_eq_one_had : x ⬝ᵥ y = 1 ⬝ᵥ (x * y) := by simp [dotProduct]
 

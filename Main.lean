@@ -2,6 +2,11 @@ import MDPLib
 import MDPLib.Risk.VaR
 import Lean.Data.Json
 
+-- TODO(naming): `fancy : True` is a placeholder with a non-descriptive name in the root
+-- namespace; it should be deleted rather than renamed.
+-- NOTE(naming): the rest of this file is executable IO glue (`parseRat?`, `computeVaR`,
+-- `main`), where Lean core's `lowerCamelCase` + `?`-for-`Option` conventions apply rather
+-- than Mathlib's lemma-naming rules. It already follows them, so it is not audited further.
 theorem fancy : True := True.intro
 
 example : 0 ≤ (0.5 : ℚ) := by norm_num

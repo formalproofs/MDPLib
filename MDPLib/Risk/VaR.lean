@@ -17,10 +17,18 @@ def RiskLevel := { α : ℚ // IsRiskLevel α}
 --instance instCoeRiskUnit : Coe RiskLevel UnitI where
 --  coe := fun ⟨v,c⟩ => ⟨v, ⟨c.1, le_of_lt c.2⟩ ⟩
 
+-- TODO(naming): `FinVaRSet` → `finVaRSet` and `FinVaR` → `finVaR`. Both are data-valued
+-- `def`s (a `Finset ℚ` and a `ℚ`), which Mathlib requires to be `lowerCamelCase`;
+-- `UpperCamelCase` is reserved for types and `Prop`-valued defs such as `IsVaR` below.
+-- The acronym keeps its internal capitals, as in Mathlib's `nnnorm`/`ENNReal` style.
 def FinVaRSet (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : Finset ℚ :=
   let 𝓧 := Finset.univ.image X
   𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
 
+-- TODO(naming): `FinVarSet_nonempty` → `finVaRSet_nonempty`. Besides the casing, note the
+-- typo: the definition is `FinVaRSet` (capital R) but the lemma says `FinVarSet`, so the
+-- two no longer match as strings — exactly the kind of drift Mathlib's rule of deriving the
+-- lemma name mechanically from the definition name prevents.
 theorem FinVarSet_nonempty (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : (FinVaRSet (Ω := Ω) P X α).Nonempty := by
     apply Finset.filter_nonempty_iff.mpr
     let xmin := (Finset.univ.image X).min' (rv_image_nonempty X)
@@ -42,6 +50,10 @@ def FinVaR (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : ℚ :=
 variable {α : RiskLevel}
 
 
+-- TODO(naming): `finvar_prob_cond` → `finVaR_spec` (or, spelled out,
+-- `probability_lt_finVaR_le_and_lt_probability_leq_finVaR`). `finvar` must track the
+-- definition's casing (`finVaR`), and `prob_cond` reads as "conditional probability",
+-- which this is not — it is the defining two-sided characterisation.
 theorem finvar_prob_cond : ℙ[X <ᵣ (FinVaR P X α) // P] ≤ α.val ∧ α.val < ℙ[X ≤ᵣ (FinVaR P X α) // P]  := by
     constructor
     · unfold FinVaR; extract_lets 𝓧 𝓢 ne𝓢 
@@ -63,6 +75,10 @@ notation "VaR[" X "//" P ", " α "]" => FinVaR P X α
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist Ω) (X Y : FinRV Ω ℚ) (α : RiskLevel) (q v : ℚ)
 
 /-- Value `v` is the Value at Risk at `α` of `X` and probability `P`  -/
+-- TODO(naming): `IsVaR_Q` → `IsVaRQuantile`. An underscore followed by a capital is not a
+-- Mathlib name shape, and a single-letter `_Q` disambiguator does not say how it differs
+-- from `IsVaR`; the difference is that it is stated over `quantile` rather than
+-- `quantileLower`.
 def IsVaR_Q : Prop := IsGreatest (Quantile P X α.val) v
 
 /-- A simpler, equivalent definition of Value at Risk  -/
@@ -70,6 +86,10 @@ def IsVaR : Prop := IsGreatest (QuantileLower P X α.val) v
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {α : RiskLevel} {q v q₁ q₂ : ℚ}
 
+-- TODO(naming): `var_prob_cond` → `isVaR_iff`, and `varq_prob_cond` →
+-- `isVaRQuantile_iff`. Both are `↔` characterisations, which Mathlib names `_iff`;
+-- `var` also collides with the everyday meaning "variance", so spell it `isVaR`/`finVaR`
+-- after the definitions.
 theorem var_prob_cond : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α.val < ℙ[X ≤ᵣ v // P]) :=
   by constructor
      · intro h
@@ -96,8 +116,18 @@ theorem var_prob_cond : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α
          exact not_le_of_gt h.2 hu
 
 -- This is the main correctness proof
+-- TODO(naming): `finvar_correct` → `isVaR_finVaR`. Mathlib does not use "correct" in names
+-- (the name should say *what* holds: `FinVaR P X α` satisfies `IsVaR`).
 theorem finvar_correct : IsVaR P X α (FinVaR P X α) := var_prob_cond.mpr finvar_prob_cond
 
+-- TODO(naming): the four `*_is_quantile*` lemmas become dot-notation lemmas on their
+-- hypothesis, which is how Mathlib states "this predicate implies that one":
+--   `varq_is_quantile`       → `IsVaRQuantile.isQuantile`
+--   `varq_is_quantilelower`  → `IsVaRQuantile.isQuantileLower`
+--   `var_is_quantilelower`   → `IsVaR.isQuantileLower`
+--   `var_is_quantile`        → `IsVaR.isQuantile`
+-- Note `is` as an infix (`x_is_y`) is not a Mathlib connective, and `quantilelower` needs
+-- its internal capital.
 theorem varq_is_quantile : IsVaR_Q P X α v → IsQuantile P X α.val v :=
     fun h => by simp_all only [Set.mem_ofPred_eq,IsVaR_Q,Quantile,IsGreatest]
 
@@ -118,6 +148,10 @@ theorem var_is_quantile : IsVaR P X α v → IsQuantile P X α.val v := by
 theorem quantile_nonempty : (Quantile P X α.val).Nonempty :=
   Set.nonempty_def.mpr ⟨ VaR[X// P,α], finvar_correct  |> var_is_quantile ⟩
 
+-- TODO(naming): `isquantilelower_le_isquantile` → `isCofinalFor_quantileLower_quantile`,
+-- and `isquantile_le_isquantilelower` → `isCofinalFor_quantile_quantileLower`. The relation
+-- proved is `IsCofinalFor`, not `≤`, and the arguments are the *sets* `quantileLower` /
+-- `quantile`, not the `Is*` predicates, so the names currently misstate both halves.
 theorem isquantilelower_le_isquantile : IsCofinalFor (QuantileLower P X α.val) (Quantile P X α.val) := by
     intro q₁ h
     by_cases h2 : q₁ ∈ Quantile P X α.val
@@ -136,6 +170,8 @@ theorem isquantilelower_le_isquantile : IsCofinalFor (QuantileLower P X α.val) 
 theorem isquantile_le_isquantilelower : IsCofinalFor (Quantile P X α.val) (QuantileLower P X α.val) :=
     LE.le.isCofinalFor quantile_subset_quantilelower
 
+-- TODO(naming): `varq_eq_var` → `isVaRQuantile_iff_isVaR`. The statement is an `↔` between
+-- two `Prop`s, which Mathlib names `_iff_`; `_eq_` is for equalities of terms.
 theorem varq_eq_var : IsVaR_Q P X α v ↔ IsVaR P X α v := 
     ⟨fun h => ⟨varq_is_quantilelower h, (upperBounds_mono_of_isCofinalFor isquantilelower_le_isquantile) h.2⟩,
      fun h => ⟨var_is_quantile h, (upperBounds_mono_of_isCofinalFor isquantile_le_isquantilelower) h.2⟩⟩
@@ -149,12 +185,18 @@ section VaR_properties
 
 variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {q q₁ v₁ v₂ c : ℚ} {α : RiskLevel} {f : ℚ → ℚ}
 
+-- TODO(naming): `var_monotone` → `IsVaR.le_of_le` (or `isVaR_mono`). It is not the statement
+-- `Monotone f`, so `_monotone` is wrong; it concludes `v₁ ≤ v₂` from `X ≤ Y`.
 theorem var_monotone : X ≤ Y → IsVaR P X α v₁ → IsVaR P Y α v₂ → v₁ ≤ v₂ :=
   fun hle hv1 hv2 => upperBounds_mono_of_isCofinalFor (quantile_le_monotone hle) hv2.2 hv1.1
 
 -- TODO(mathlib): literal alias of `add_left_strictMono` -- use the Mathlib name at call sites.
 theorem const_monotone_univ : StrictMono (fun x ↦ x + c)  := add_left_strictMono
 
+-- TODO(naming): `isvar_translation_invariant` → `IsVaR.add_const`, and
+-- `var_translation_invariant` → `finVaR_add_const`. Mathlib names the operation applied
+-- (`add_const`) rather than the property it establishes ("translation invariance"), and
+-- `isvar` → `isVaR` to match the definition.
 theorem isvar_translation_invariant : IsVaR P X α v → IsVaR P (X+c•1) α (v+c) := by
     intro h
     rw [IsVaR,quantilelower_cash_image]
@@ -167,6 +209,9 @@ theorem var_translation_invariant : VaR[X + c•1 // P, α] = VaR[X // P, α] + 
   exact le_antisymm (h2.2 h1.1) (h1.2 h2.1)
 
 /-- If `f` is strictly monotone then `f(VaR[X])` is the VaR of `f∘X`. -/
+-- TODO(naming): `isvar_f_strictmono` → `IsVaR.comp_of_strictMono` and `var_f_strictmono` →
+-- `finVaR_comp_of_strictMono`. `f` is a variable name, the operation is `comp`, the
+-- hypothesis belongs after `_of_`, and `strictmono` → `strictMono`.
 theorem isvar_f_strictmono (hm : StrictMono f) (hv : IsVaR P X α v) : IsVaR P (f ∘ X) α (f v) := by
   rw [var_prob_cond]
   rw [var_prob_cond] at hv
@@ -180,6 +225,11 @@ theorem var_f_strictmono (hm : StrictMono f) : VaR[f ∘ X // P, α] = f (VaR[X 
   have h2 : IsVaR P (f ∘ X) α (f (VaR[X // P, α])) := isvar_f_strictmono hm finvar_correct
   exact le_antisymm (h2.2 h1.1) (h1.2 h2.1)
 
+-- TODO(naming): `var_positive_homog` → `finVaR_const_mul`. `homog` is a truncation, and
+-- Mathlib names this by the term being computed, `c * X` (cf. `integral_const_mul`).
+-- TODO(naming): the statement writes `FinVaR P (fun ω => c * X ω)` where the surrounding
+-- lemmas use the `c • X` / notation form; `finVaR_const_mul` should be stated the same way
+-- as its siblings so the names line up with the statements.
 theorem var_positive_homog (hc : c > 0) : FinVaR P (fun ω => c * X ω) α = c * FinVaR P X α :=
   var_f_strictmono (fun _ _ hab => mul_lt_mul_of_pos_left hab hc)
 

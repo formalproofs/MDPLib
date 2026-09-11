@@ -18,6 +18,9 @@ import Mathlib.Data.Finset.Image
 
 import MDPLib.Probability.Basic
 
+-- TODO(naming): namespace `MDPs` → `MDP`. Mathlib namespaces are singular and match the
+-- head type they collect declarations for (`Finset`, `Polynomial`), which would also let
+-- `MDP.maxS` etc. below be written without repeating the `MDP.` prefix.
 namespace MDPs
 
 section Definitions
@@ -25,6 +28,9 @@ section Definitions
 open Findist
 
 /-- Markov decision process -/
+-- TODO(naming): fields `S_ne` and `A_ne` state `0 < S` / `0 < A`, but `_ne` in Mathlib means
+-- `≠` (`Nat.succ_ne_zero`, `one_ne_zero`). Rename to `S_pos` / `A_pos` (and `SA_ne` below to
+-- `SA_pos`) — `pos` is Mathlib's invariable suffix for `0 < _`.
 structure MDP : Type where
   /-- states -/
   S : ℕ
@@ -45,6 +51,9 @@ def MDP.maxA : Fin M.A := ⟨M.A-1, by simp [M.A_ne]⟩
 -- here, we use the fintype property to show that the state and action
 -- sets are complete 
 
+-- TODO(naming): `MDP.St` / `MDP.At` → `MDP.State` / `MDP.Action`. Two-letter truncations of
+-- type names are not a Mathlib shape, and `At` in particular reads as the preposition;
+-- these are type abbreviations, so the full words cost nothing at use sites.
 abbrev MDP.St := Fin M.S 
 abbrev MDP.At := Fin M.A
 
@@ -58,6 +67,9 @@ def MDP.setA : Finset M.At := Fintype.elems
 theorem MDP.inS : ∀s : M.St, s ∈ M.setS := Fintype.complete
 theorem MDP.inA : ∀a : M.At, a ∈ M.setA := Fintype.complete
 
+-- TODO(naming): `MDP.SA` → `MDP.numStateActions` (or `MDP.card_stateAction`), and the lemma
+-- `MDP.SA_ne` → `MDP.numStateActions_pos`. `SA` is an initialism for a `ℕ`-valued def;
+-- Mathlib names a cardinality `card*`/`num*` so it cannot be mistaken for a type.
 def MDP.SA := M.S * M.A
 
 theorem MDP.SA_ne : 0 < M.SA := Nat.mul_pos M.S_ne M.A_ne
@@ -82,11 +94,17 @@ def Hist.length : Hist M → ℕ
   | init _ => 0
   | Hist.foll h _ _ => 1 + length h
 
+-- TODO(naming): `MDP.HistT` → `MDP.HistOfLength` (or `Hist.OfLength`). The trailing `T`
+-- carries no meaning for a reader (type? time? tuple?); the subtype is "histories of length
+-- `t`". Same for `MDP.HistoriesHorizonT` further down.
 def MDP.HistT (M : MDP) (t : ℕ) := {h : Hist M // h.length = t}
 
 -- TODO: We should prove that HistT is a Fintype in order to be able to perform operations on it
 
 /-- Nonempty histories -/
+-- TODO(naming): `HistNE` → `HistNonempty`, or better `Hist.Nonempty`. `NE` collides with
+-- Mathlib's `Ne` (`≠`) as a name part, which is what `NE` reads as; the subtype here is
+-- histories of length `≥ 1`.
 abbrev HistNE (M : MDP) := {m : Hist M // m.length ≥ 1}
 
 /-- Returns the last state of the history -/
@@ -96,14 +114,22 @@ def Hist.last : Hist M → Fin M.S
 
 /-- Number of histories of length t. -/
 @[simp]
+-- TODO(naming): `MDP.numhist` → `MDP.numHist` (a data `def` is `lowerCamelCase`, so the word
+-- boundary must be capitalised), or `MDP.card_histOfLength` to say it is the cardinality of
+-- `HistT`.
 def MDP.numhist (M : MDP) (t : ℕ) : ℕ := M.S * M.SA^t
 
+-- TODO(naming): `hist_len_zero` → `MDP.numHist_zero`. The statement is about `numhist`, not
+-- about a history's length; as named it reads as "a history of length zero".
 theorem hist_len_zero : M.numhist 0 = M.S := by simp [MDP.numhist]
 
 --------------------------- START: Explicit index for hist -------------------------------------------------------------------
 section ExplicitHistIndex
 
 /-- Construct i-th history of length t -/
+-- TODO(naming): `idx_to_hist` → `idxToHist`, `hist_to_idx` → `histToIdx` (and the primed
+-- variants likewise), `MDP.hist_idx_valid` → `MDP.histIdxValid`. All are data-valued `def`s,
+-- which Mathlib writes in `lowerCamelCase`; `snake_case` marks a theorem.
 def MDP.idx_to_hist (M : MDP) (t : ℕ) (i : Fin (M.numhist t)) : M.HistT t := 
   match t with
   | Nat.zero => 
@@ -133,6 +159,13 @@ def MDP.idx_to_hist (M : MDP) (t : ℕ) (i : Fin (M.numhist t)) : M.HistT t :=
 -- TODO(mathlib): = `by rw [Nat.sub_one_mul, Nat.sub_add_cancel (Nat.le_mul_of_pos_left n h)]`
 -- (`Nat.sub_one_mul` is core `Init/Data/Nat/Basic.lean:1189`). Verified.
 -- Also note this declares into the root `Nat` namespace from a project file.
+-- TODO(naming): this declares into Mathlib's `Nat` namespace from a project file — name
+-- squatting that will silently shadow or clash if Mathlib ever adds the same name. Move it
+-- under the project namespace (it is inside `namespace MDPs`, so simply dropping the `Nat.`
+-- prefix suffices), or drop it in favour of the core one-liner in the `TODO(mathlib)` above.
+-- Same issue as `List.finIdxOf` in `Probability/Basic.lean`.
+-- TODO(naming): if kept, `sum_one_prod_cancel` → `sub_one_mul_add_self`. The statement is
+-- `(m-1) * n + n = m * n`; `sum`/`prod` are Mathlib's words for `∑`/`∏`, not `+`/`*`.
 lemma Nat.sum_one_prod_cancel (n : ℕ) {m : ℕ} (h : 0 < m) : (m-1) * n + n = m*n := 
   by rw [Nat.sub_one_mul]
      apply Nat.sub_add_cancel
@@ -198,10 +231,18 @@ def MDP.hist_idx_valid (M : MDP) := {ti : ℕ × ℕ | ti.2 < M.numhist ti.1}
 variable (M : MDP) (t : ℕ) 
 
 
+-- TODO(naming): `state_of_hist_len0` → `exists_init_of_length_eq_zero`, and
+-- `state_of_hist_len_t` → `exists_foll_of_length_eq_succ`. Mathlib puts an existential
+-- conclusion first as `exists_`, spells out `length`, and never puts digits (`len0`) or a
+-- bound variable (`_t`) in a name.
 theorem state_of_hist_len0 (h : M.HistT 0) : ∃s, h.val = Hist.init s := sorry 
 
 theorem state_of_hist_len_t (h : M.HistT t.succ) : ∃h',∃a,∃s, h.val = Hist.foll h' a s := sorry 
 
+-- TODO(naming): `hist_idx_LeftInverse` → `leftInverse_idxToHist_histToIdx`, and
+-- `hist_idx_RightInverse` → `rightInverse_idxToHist_histToIdx`. A capitalised segment inside
+-- a snake_case theorem name is never Mathlib style: the predicate is camel-cased and put
+-- first (`Function.leftInverse_iff_comp`), followed by the two functions in argument order.
 theorem hist_idx_LeftInverse (M : MDP) : LeftInverse (M.idx_to_hist' t) (M.hist_to_idx' t)  := by
   intro h
   unfold MDP.idx_to_hist' MDP.hist_to_idx'
@@ -288,6 +329,9 @@ def Hist.prefix (k : ℕ) (h : Hist M) : Hist M :=
         if hp.length + 1 ≤ k then hp.foll a s
         else hp.prefix k
 
+-- TODO(naming): the `2`-as-"to" family → `tupleToHist`, `histToTuple`, `stateToHist`,
+-- `histToState`. Digits standing for words do not appear in Mathlib names (it writes
+-- `Finset.toList`, `Nat.toDigits`), and these are data `def`s, so `lowerCamelCase`.
 def MDP.tuple2hist : Hist M × (Fin M.A) × (Fin M.S) → HistNE M
   | ⟨h, as⟩ => ⟨h.foll as.1 as.2, Nat.le.intro rfl⟩
 
@@ -299,10 +343,24 @@ open Function
 variable {M : MDP}
 
 -- mapping between tuples and histories are injective
+-- TODO(naming): the `linv_*` / `inj_*` block. Mathlib names a `Function.Injective f` lemma
+-- `f_injective` (subject first, property last) and a `LeftInverse` lemma `leftInverse_g_f`:
+--   `linv_hist2tuple_tuple2hist` → `leftInverse_histToTuple_tupleToHist`
+--   `inj_tuple2hist_l1`          → `tupleToHist_injective`
+--   `inj_tuple2hist`             → `val_comp_tupleToHist_injective`
+--   `linv_hist2state_state2hist` → `leftInverse_histToState_stateToHist`
+--   `inj_state2hist`             → `stateToHist_injective`
+-- Note `_l1` is a disambiguator that says nothing; the two differ by the `Subtype.val`
+-- composition, which is what the name should record.
 lemma linv_hist2tuple_tuple2hist : LeftInverse M.hist2tuple M.tuple2hist := fun _ ↦ rfl
 lemma inj_tuple2hist_l1 : Injective M.tuple2hist  := LeftInverse.injective linv_hist2tuple_tuple2hist
 lemma inj_tuple2hist : Injective (Subtype.val ∘ M.tuple2hist)  := Injective.comp (Subtype.val_injective) inj_tuple2hist_l1
 
+-- TODO(naming): `emb_tuple2hist_l1` → `tupleToHistNEEmbedding`, `emb_tuple2hist` →
+-- `tupleToHistEmbedding`, and `state2hist_emb` → `stateToHistEmbedding`. Three fixes: `emb`
+-- → `Embedding` spelled out, the qualifier put *after* the subject (the current file uses
+-- `emb_` as a prefix here and `_emb` as a suffix below — inconsistent in the same section),
+-- and `lowerCamelCase` for a data `def`.
 def emb_tuple2hist_l1 : Hist M × (Fin M.A) × (Fin M.S) ↪ HistNE M := ⟨M.tuple2hist, inj_tuple2hist_l1⟩
 def emb_tuple2hist : Hist M × (Fin M.A) × (Fin M.S) ↪ Hist M  := ⟨λ x ↦  M.tuple2hist x, inj_tuple2hist⟩
 
@@ -318,6 +376,9 @@ lemma inj_state2hist : Injective (M.state2hist) := LeftInverse.injective linv_hi
 def state2hist_emb : (Fin M.S) ↪ Hist M := ⟨M.state2hist, inj_state2hist⟩
 
 /-- Checks if the first hist is the prefix of the second hist. -/
+-- TODO(naming): `isprefix` → `isPrefix`. It is `Bool`-valued (data), so `lowerCamelCase`
+-- applies and the word boundary must be capitalised; `IsPrefix` would be right only if it
+-- were `Prop`-valued. Compare Mathlib's `List.isPrefixOf` (`Bool`) vs `List.IsPrefix` (`Prop`).
 def isprefix : Hist M → Hist M → Bool 
     | Hist.init s₁, Hist.init s₂ => s₁ = s₂
     | Hist.init s₁, Hist.foll hp _ _ => isprefix (Hist.init s₁) hp 
@@ -332,15 +393,24 @@ def isprefix : Hist M → Hist M → Bool
             (a₁ = a₂) ∧ (s₁' = s₂') ∧ (isprefix h₁ h₂)
 
 /-- All histories that follow h for t decisions -/
+-- TODO(naming): `Histories` → `histories` and `MDP.HistoriesHorizon` /
+-- `MDP.HistoriesHorizonT` → `MDP.historiesHorizon` / `MDP.historiesHorizonT`. All three
+-- return a `Finset`, i.e. data, so `UpperCamelCase` is wrong — it makes them read as types.
 def Histories (h : Hist M) : ℕ → Finset (Hist M) 
     | Nat.zero => {h}
     | Nat.succ t => ((Histories h t) ×ˢ M.setA ×ˢ M.setS).map emb_tuple2hist
 
 abbrev ℋ : Hist M → ℕ → Finset (Hist M) := Histories
 
+-- TODO(naming): `hist_lenth_eq_horizon` → `length_of_mem_histories`. Note the typo
+-- ("lenth"), which a mechanical name derived from `Hist.length` would have prevented; the
+-- statement is a property of every `h' ∈ ℋ h t`, which Mathlib writes as `_of_mem_`.
 theorem hist_lenth_eq_horizon (h : Hist M) (t : ℕ): ∀ h' ∈ (ℋ h t), h'.length = h.length + t := sorry
 
 @[simp]
+-- TODO(naming): `hist_foll_nonempty` → `Hist.length_foll_pos`. The statement is
+-- `0 < (h.foll a s).length`, which is `pos`, not `nonempty` (`Nonempty` is a distinct
+-- Mathlib predicate about types). Likewise `hist_foll_len` → `Hist.length_foll`.
 theorem hist_foll_nonempty (h : Hist M) (a : M.At) (s : M.St) : (h.foll a s).length > 0 := by simp 
 
 theorem hist_foll_len (h : Hist M) (a : M.At) (s : M.St) : (h.foll a s).length = h.length + 1 := 
@@ -354,6 +424,11 @@ def MDP.HistoriesHorizon (M : MDP) (t : ℕ) : Finset (Hist M) :=
 
 section Fintype_props 
 
+-- TODO(naming): `hist_horiz_complete` → `mem_historiesHorizon`, `hist_horiz_exact` →
+-- `length_eq_of_mem_historiesHorizon`, `hist_horiz_complete_t` → `mem_historiesHorizonT`.
+-- `horiz` is a truncation; "complete"/"exact" describe the pair's *purpose* (that the finset
+-- is neither too small nor too large) rather than either statement, and a trailing `_t`
+-- is not a Mathlib disambiguator — the `T` in the definition's name is.
 theorem hist_horiz_complete (t : ℕ) (h : M.HistT t) : h.val ∈ M.HistoriesHorizon t := by
     induction t 
     case zero =>

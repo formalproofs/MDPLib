@@ -6,6 +6,15 @@ import Mathlib.Data.Fin.VecNotation
 
 
 
+-- TODO(naming): namespace `Statistic` → `Findist` (or `Quantile`). Mathlib namespaces are
+-- named after the object the declarations are about, and everything here is about a
+-- `Findist`/`FinRV` pair; "Statistic" names neither, and the singular reads oddly for a
+-- namespace holding many statistics.
+-- TODO(naming): Mathlib states order lemmas in the `≤` / `<` direction and derives the `≥`
+-- / `>` forms via `ge_iff_le`. Most statements in this file (`IsQuantile`, `qset_ub`,
+-- `qsetlower_def`, ...) are written with `≥`, which keeps them from matching Mathlib's
+-- order lemmas by `rw`/`simp` and forces the `suffices ... from this` workarounds below.
+-- Flagged once here rather than per declaration.
 namespace Statistic 
 
 section Definition 
@@ -21,12 +30,18 @@ def IsQuantile  : Prop := ℙ[X ≤ᵣ q // P ] ≥ α ∧ ℙ[X ≥ᵣ q // P] 
 def IsQuantileLower : Prop := ℙ[X ≥ᵣ q // P] ≥ 1 - α
 
 /-- Set of quantiles at a level `α`  --/
+-- TODO(naming): `Quantile` → `quantile` and `QuantileLower` → `quantileLower`. These are
+-- data (a `Set ℚ`), not `Prop`s or types, so Mathlib requires `lowerCamelCase`; the
+-- `UpperCamelCase` spelling makes them look like predicates alongside `IsQuantile`.
 def Quantile : Set ℚ := {q | IsQuantile P X α q}
 
 /-- Set of lower bounds on a quantile at `α` -/
 def QuantileLower : Set ℚ := {q | IsQuantileLower P X α q}
 
 /-- Value `q` is maximum quantile at `α` of `X` and probability `P`  -/
+-- TODO(naming): `IsQuantMax` → `IsGreatestQuantile`, `IsQuantMin` → `IsLeastQuantile`.
+-- `Quant` is a truncation Mathlib would not use, and the underlying predicates are
+-- `IsGreatest`/`IsLeast`, so the names should echo them rather than `Max`/`Min`.
 def IsQuantMax : Prop := IsGreatest (Quantile P X α) q
 
 /-- Value `q` is minimum quantile at `α` of `X` and probability `P`  -/
@@ -36,6 +51,20 @@ end Definition
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {α : ℚ} {q v : ℚ}
 
+-- TODO(naming): the whole `qset_*` / `qsetlower_*` family. `qset` is an unguessable
+-- contraction and every one of these lemmas is really about `∈`, which Mathlib names `mem_`:
+--   `qset_lb`            → `mem_quantile.le` / `le_probability_leq_of_mem_quantile`
+--   `qset_ub`            → `probability_geq_of_mem_quantile`
+--   `qset_def`           → `mem_quantile_iff`        (an `↔` takes `_iff_`, not `_def`)
+--   `qset_not_def`       → `notMem_quantile_iff`     (Mathlib now spells `∉` as `notMem`)
+--   `qsetlower_def`      → `mem_quantileLower_iff`
+--   `qsetlower_def_lt`   → `mem_quantileLower_iff_probability_lt`
+--   `qset_ub_lt`         → `probability_lt_of_mem_quantile`
+--   `qset_of_cond`       → drop; it is `mem_quantile_iff.mpr` (and `_of_cond` says nothing)
+--   `qset_of_cond_lt`    → `mem_quantile_of_probability_lt`
+--   `qsetlower_of_cond`  → drop; it is `mem_quantileLower_iff.mpr`
+--   `qsetlower_of_cond_lt` → `mem_quantileLower_of_probability_lt`
+-- Note `lb`/`ub` are also not Mathlib abbreviations (it writes `lowerBounds`/`upperBounds`).
 theorem qset_lb : q ∈ Quantile P X α → ℙ[X ≤ᵣ q // P ] ≥ α := by simp_all [Quantile, IsQuantile]
 
 theorem qset_ub : q ∈ Quantile P X α → ℙ[X ≥ᵣ q // P] ≥ 1 - α := by simp_all [Quantile, IsQuantile]
@@ -76,11 +105,18 @@ theorem qsetlower_of_cond_lt : ℙ[ X <ᵣ q // P] ≤ α → q ∈ QuantileLowe
        have h2 : ℙ[X ≥ᵣ q // P] ≥ 1 - α := by rw [prob_ge_of_lt]; linarith
        exact qsetlower_of_cond  h2
 
+-- TODO(naming): `quantile_implies_quantilelower` → `IsQuantile.isQuantileLower`. Mathlib
+-- never writes `implies`: an implication from `IsQuantile` is a dot-notation lemma on it.
+-- Likewise `quantile_subset_quantilelower` → `quantile_subset_quantileLower` — the
+-- name is right, but the `lower` must be camel-cased to match the renamed definition.
 theorem quantile_implies_quantilelower : IsQuantile P X α v → IsQuantileLower P X α v :=
     by simp[IsQuantile, IsQuantileLower]
 
 theorem quantile_subset_quantilelower : Quantile P X α ⊆ QuantileLower P X α := fun _ => quantile_implies_quantilelower
 
+-- TODO(naming): `quantile_le_monotone` → `isCofinalFor_quantileLower_of_le`. The conclusion
+-- is `IsCofinalFor ...`, not a monotonicity statement, and the `X ≤ Y` hypothesis belongs
+-- after `_of_`.
 theorem quantile_le_monotone : X ≤ Y → IsCofinalFor (QuantileLower P X α) (IsQuantileLower P Y α) := by
   intro hle q₁ hvar₁
   have hq₁ := le_refl q₁
@@ -88,6 +124,10 @@ theorem quantile_le_monotone : X ≤ Y → IsCofinalFor (QuantileLower P X α) (
 
 section Negation 
 
+-- TODO(naming): `isquant_neg` → `isQuantile_neg_iff` and `quantile_neg` →
+-- `mem_quantile_neg_iff`. Mathlib camel-cases an embedded predicate name inside snake_case
+-- (`isQuantile`, cf. `isCompact_iff`), truncating it to `isquant` loses that, and both
+-- statements are `↔`, which takes `_iff`.
 theorem isquant_neg : (IsQuantile P X α q) ↔ (IsQuantile P (-X) (1-α) (-q)) := by 
   rw [IsQuantile, IsQuantile, prob_ge_neg_le,prob_le_neg_ge]
   have hα : 1-(1-α) = α := by ring 
@@ -117,6 +157,18 @@ section Transformations
 variable {f : ℚ → ℚ}
 
 -- the reverse implications of the following results do not hold
+-- TODO(naming): the six `quantile_f_*` / `quantilelower_f_*` lemmas. `f` names a variable;
+-- the statement's operation is composition, which Mathlib calls `comp`. Also
+-- `strictmono` → `strictMono`, and a hypothesis goes after `_of_`:
+--   `quantile_f_monotone`        → `mem_quantile_comp_of_monotone`
+--   `quantile_f_strictmono`      → `mem_quantile_comp_iff_of_strictMono`
+--   `quantilelower_f_monotone`   → `mem_quantileLower_comp_of_monotone`
+--   `quantilelower_f_strictmono` → `mem_quantileLower_comp_iff_of_strictMono`
+--   `quantile_f_monotone_set`    → `image_quantile_subset_quantile_comp_of_monotone`
+--   `quantilelower_f_monotone_set` → `image_quantileLower_subset_quantileLower_comp_of_monotone`
+-- (`_set` says nothing; the distinguishing content is `f '' _ ⊆ _`.)
+-- Same for `quantile_f_cofinal` / `quantile_f_coinitial` →
+-- `isCofinalFor_quantile_comp_image_of_monotone` / `isCoinitialFor_...`.
 theorem quantile_f_monotone (hm : Monotone f) : q ∈ Quantile P X α → (f q) ∈ Quantile P (f ∘ X) α := by
     intro h; grw [qset_def, prob_f_le_monotone hm, prob_f_ge_monotone hm] at h; exact h
 
@@ -159,6 +211,10 @@ end Transformations
 
 variable {c : ℚ}
 
+-- TODO(naming): `quantilelower_cashinv` → `mem_quantileLower_add_const_iff`, and
+-- `quantilelower_cash_image` → `quantileLower_add_const_eq_image`. "cash invariance" is
+-- risk jargon for what the statement plainly is — adding a constant — and `cashinv` is a
+-- further contraction of it; see the `rv_le_cashinvar` note in `Probability/Basic.lean`.
 theorem quantilelower_cashinv : q ∈ QuantileLower P X α ↔ (q+c) ∈ QuantileLower P (X+c•1) α := by
   constructor
   · intro h; rw [qsetlower_def, prob_ge_cashinvar c] at h; exact h

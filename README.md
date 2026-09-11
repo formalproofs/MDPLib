@@ -1,7 +1,7 @@
 # Formalizing Markov Decision Processes in Lean
 
 [![CI](https://github.com/formalproofs/MDPLib/actions/workflows/ci.yml/badge.svg)](https://github.com/formalproofs/MDPLib/actions/workflows/ci.yml)
-[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://formalproofs.github.io/MDPLib/)
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://formalproofs.github.io/MDPLib/docs/)
 
 **Documentation:** the [API documentation](https://formalproofs.github.io/MDPLib/docs/)
 and the [companion paper](https://formalproofs.github.io/MDPLib/main.pdf) are built by CI and
@@ -115,14 +115,15 @@ file, computes VaR with `computeVaR`, and checks it against reference values
 
 [`MDPLib/MDP/Histories.lean`](MDPLib/MDP/Histories.lean)
 
-| | Result | Lean name |
-|---|---|---|
-| ✅ | Tabular MDP with finite states, actions, transitions and rewards | `MDP` |
-| ✅ | Histories `s₀ a₀ s₁ …`, their length, last state, prefixes, and the length-indexed subtype | `Hist`, `Hist.length`, `Hist.last`, `Hist.prefix`, `MDP.HistT` |
-| ✅ | Counting histories: `\|H_t\| = S · (S·A)^t` | `MDP.numhist` |
-| ✅ | Embeddings `Hist × A × S ↪ Hist` and `S ↪ Hist` | `emb_tuple2hist`, `state2hist_emb` |
+|    | Result                                                                                      | Lean name                                                          |
+|----|---------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| ✅ | Tabular MDP with finite states, actions, transitions and rewards                            | `MDP`                                                              |
+| ✅ | Histories `s₀ a₀ s₁ …`, their length, last state, prefixes, and the length-indexed subtype  | `Hist`, `Hist.length`, `Hist.last`, `Hist.prefix`, `MDP.HistT`     |
+| ✅ | Counting histories: `\|H_t\| = S · (S·A)^t`                                                 | `MDP.numhist`                                                      |
+| ✅ | Embeddings `Hist × A × S ↪ Hist` and `S ↪ Hist`                                             | `emb_tuple2hist`, `state2hist_emb`                                 |
 | ✅ | The horizon-`t` history sets are exactly the histories of length `t`; `Fintype (M.HistT t)` | `hist_horiz_complete`, `hist_horiz_exact`, `MDP.HistoriesHorizonT` |
-| 🚧 | Explicit bijection between histories of length `t` and `Fin (numhist t)` | `MDP.hist_to_idx`, `MDP.idx_to_hist`, `hist_idx_LeftInverse`, `hist_idx_RightInverse` |
+|    | Proof that histories are finitely enumerable                                                |
+|    |                                                                                             |
 
 
 ## Lean Resources

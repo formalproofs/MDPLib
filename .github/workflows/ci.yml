@@ -56,11 +56,17 @@ jobs:
         with:
           build-args: "MDPLib"
 
-      - name: Run the VaR regression tests
-        # Interpreted rather than `lake exe mdplib`: building the executable would
-        # native-compile all of Mathlib. This still exercises `computeVaR` at `ℚ`,
-        # which is the code a decidability/computability regression would break.
-        run: lake env lean --run Main.lean < test_var.json | tee /dev/stderr | grep -q -- '0 failed'
+      - name: Check computability, compile the binary and run it
+        # Four levels: the `#guard`s in MDPLibTest.lean (run via `lake env lean`, so they
+        # re-run even on a warm cache), the interpreted `test_var.json` regression suite,
+        # then native compilation of the executable, then that same suite executed by the
+        # compiled binary rather than the interpreter.
+        #
+        # The native build compiles the whole Mathlib import closure. Mathlib's build
+        # directory is deliberately not cached here (see the cache step above), so this costs
+        # several minutes on every run; the `.c` files themselves come from `lake exe cache
+        # get`, so only the C-to-object step is repeated.
+        run: ./test.sh
 
       - name: Build the API documentation
         run: lake -R build MDPLib:docs

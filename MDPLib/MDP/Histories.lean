@@ -85,6 +85,26 @@ variable {M : MDP R}
 section Histories
 
 /-- Represents a history. The state is type ℕ and action is type ℕ. -/
+-- NOTE(mathlib): `Hist M` is INFINITE -- histories have unbounded length, and there is no
+-- `Fintype`/`FinEnum` instance for it (only `MDP.HistT M t`, the length-`t` slice, has one;
+-- see the `Fintype (M.HistT t)` instance below). Consequently `Δ R (Hist M)` is currently
+-- inexpressible: `Findist` requires `[FinEnum Ω]`.
+--
+-- That matters for the roadmap. Randomized history-dependent policies `Π_HR` and the
+-- trajectory expectations `𝔼^{h,π,T}` (`latex/main.tex:977-1000,1317`) are exactly
+-- distributions over `Hist M`. This file already works with `Finset (Hist M)` in four places
+-- (`Histories`, `MDP.HistoriesHorizon`), so a *finitely supported* distribution is the
+-- natural shape for them.
+--
+-- This is the one place where Mathlib's `Finsupp` would genuinely be the right model -- but it
+-- is noncomputable (see the long NOTE at the top of `MDPLib/Probability/Defs.lean`). Three
+-- options when the time comes, deliberately not decided here:
+--   (a) a library-local `support : Finset Ω` + `toFun` structure. `Finsupp.mk`, `.support` and
+--       `Finsupp.sum` ARE computable -- it is `onFinset`/`single`/`+`/`•` that are not -- so a
+--       hand-rolled version keeps `#eval` and handles infinite `Ω`.
+--   (b) Mathlib's `Finsupp`, accepting noncomputability for history distributions only.
+--   (c) keep indexing by `MDP.HistT M t`, which is finite for each `t`, and never form a
+--       distribution over all of `Hist M`.
 inductive Hist (M : MDP R)  : Type where
   | init : Fin M.S → Hist M
   | foll : Hist M → Fin M.A → Fin M.S → Hist M

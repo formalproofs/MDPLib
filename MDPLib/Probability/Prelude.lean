@@ -43,6 +43,12 @@ theorem complement_inv_nneg (hp : Prob p) : 0 ≤ (1-p)⁻¹ := by
         simp_all only [Prob, inv_nonneg, sub_nonneg]
 
 -- See also `Convex.min_le_combo` / `Convex.combo_le_max` and `min_eq_left h` / `max_eq_left h` and `smul_eq_mul`
+-- TODO(mathlib): confirmed 2026-09-13 -- `Convex.min_le_combo` and `Convex.combo_le_max`
+-- (`Mathlib/Analysis/Convex/Segment.lean:502,506`) assume only `[Semiring 𝕜] [PartialOrder 𝕜]`,
+-- strictly weaker than this library's stack, so the replacement is unconditionally available
+-- (with `•` = `*` via `smul_eq_mul`). The `n`-ary versions are `Finset.inf_le_centerMass` /
+-- `Finset.centerMass_le_sup`, already harvested as `exp_ge_min` / `exp_le_max` in
+-- `MDPLib/Probability/Convexity.lean`.
 -- TODO(naming): the four `lower_bound_*`/`upper_bound_*` lemmas below. `fst`/`snd` describe
 -- an argument position rather than the statement, and "bound" does not say which side.
 -- Mathlib names these after the convex combination they bound:
@@ -138,6 +144,10 @@ theorem abs_dotProd_le_dotProd_abs (p x : Ω → R) (hp : ∀ i, 0 ≤ p i) : |p
     _ = ∑ i, p i * |x i| := Finset.sum_congr rfl (fun i _ => abs_pos_hom (hp i))
     _ = p ⬝ᵥ fun i => |x i| := rfl
 
+-- NOTE(mathlib): general Jensen is now available as `Findist.exp_convexOn_le`
+-- (`MDPLib/Probability/Convexity.lean`), for any convex `f` and any distribution. This lemma
+-- does NOT follow from it directly: Mathlib has no `convexOn_abs` (zero occurrences repo-wide),
+-- so folding it in would first require proving `ConvexOn R Set.univ abs`. Keep it as is.
 -- TODO(naming): `jensen_abs_uniform` → `Matrix.abs_dotProduct_le_dotProduct_abs_uniform`.
 -- This is the triangle inequality specialised to the uniform weights, not Jensen's
 -- inequality; Mathlib names a specialisation after the general lemma it instantiates.

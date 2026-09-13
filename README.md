@@ -17,8 +17,20 @@ Verified Lean algorithms for solving tabular MDPs and proving their properties. 
 ## Library Contents
 
 The main results formalized so far. Everything is developed for *finite* sample spaces
-(`[FinEnum Ω]`) over the rationals `ℚ`, so all definitions are computable and the
-statements are free of measurability side conditions.
+(`[FinEnum Ω]`) over an arbitrary linear ordered field `R`
+(`[Field R] [LinearOrder R] [IsStrictOrderedRing R] [CharZero R] [Archimedean R]`), so the
+statements are free of measurability side conditions. Instantiate at `ℚ` — as
+[`Main.lean`](Main.lean) does — and every definition is computable and executable;
+instantiate at `ℝ` for the standard theory, where the definitions remain well-formed but
+`noncomputable` (`Real.instField` and the classical `DecidableLE ℝ` are noncomputable, so
+`VaR[X // P, α]` cannot be `#eval`'d over `ℝ`).
+
+Because the library is finite throughout — every sum is a `Finset.sum`/`⬝ᵥ` and every
+supremum a `Finset.max'`/`IsGreatest` — nothing here depends on completeness, so `ℚ` is a
+genuine instance rather than an approximation. Future results that *do* need completeness
+(Banach fixed points for `bellman_backup`, suprema over infinite action sets) should live in
+separate files carrying their own stronger assumptions, so that they do not silently make
+the whole development `ℝ`-only.
 
 Legend: ✅ proof complete &nbsp;·&nbsp; 🚧 statement final, proof still depends on a `sorry`
 (check with `#print axioms`).

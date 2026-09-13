@@ -6,6 +6,12 @@ import Mathlib.Algebra.Notation.Pi.Defs -- operations on functions
 import Mathlib.Algebra.Module.PointwisePi -- for smul_pi
 import Mathlib.LinearAlgebra.Matrix.DotProduct -- for monotonicity
 
+set_option linter.unusedSectionVars false
+
+-- The scalar type: any linear ordered field (see `MDPLib/Probability/Prelude.lean`).
+variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
+         [CharZero R] [Archimedean R]
+
 
 --------------------------- Findist ---------------------------------------------------------------
 
@@ -23,9 +29,9 @@ import Mathlib.LinearAlgebra.Matrix.DotProduct -- for monotonicity
 -- TODO(naming): field `nneg` → `nonneg`. `nneg` is not a Mathlib abbreviation; every
 -- `0 ≤ _` field and lemma in Mathlib spells it out (`Finset.sum_nonneg`, `abs_nonneg`).
 -- This one field is the source of the `nneg` spelling throughout the library.
-structure Findist (Ω : Type) [FinEnum Ω] : Type where
+structure Findist (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type where
     /-- Probability measure -/
-    p : Ω → ℚ
+    p : Ω → R
     prob : 1 ⬝ᵥ p = 1
     nneg : 0 ≤ p
 
@@ -34,14 +40,14 @@ namespace Findist
 
 
 /-- Finite probability distribution  -/
-abbrev Delta (Ω : Type) [FinEnum Ω] : Type := Findist Ω
+abbrev Delta (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type := Findist R Ω
 
 /-- Finite probability distribution  -/
-abbrev Δ (Ω : Type) [FinEnum Ω] : Type := Delta Ω
+abbrev Δ (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type := Delta R Ω
 
 /-- Dirac (point mass) distribution concentrated at `ω₀`. -/
 -- NOTE(mathlib): `p` here is `Pi.single ω₀ 1`; cf. `StdSimplex.single` / `single_mem_stdSimplex`.
-def dirac {Ω : Type} [FinEnum Ω] (ω₀ : Ω) : Findist Ω where
+def dirac {Ω : Type} [FinEnum Ω] (ω₀ : Ω) : Findist R Ω where
     p    := fun ω => if ω = ω₀ then 1 else 0
     prob := by simp [dotProduct]
     nneg := by intro ω; by_cases h : ω = ω₀ <;> simp [h]
@@ -51,7 +57,7 @@ section General
 variable {Ω : Type} [FinEnum Ω]
 
 /-- The sample space of a probability distribution is nonempty. -/
-theorem nonempty (P : Findist Ω) : Nonempty Ω := by
+theorem nonempty (P : Findist R Ω) : Nonempty Ω := by
   by_contra h
   rw [not_nonempty_iff] at h
   have := P.prob
@@ -62,7 +68,7 @@ theorem nonempty (P : Findist Ω) : Nonempty Ω := by
 -- a *variant of the same statement* (different hypotheses, same conclusion); here the
 -- conclusion is `False`, a different statement, so the prime is misleading. Mathlib names
 -- "anything follows from this being empty" lemmas `*_elim` (cf. `IsEmpty.elim`).
-theorem nonempty' [IsEmpty Ω] (P : Findist Ω) : False :=
+theorem nonempty' [IsEmpty Ω] (P : Findist R Ω) : False :=
   (not_nonempty_iff.mpr ‹_›) P.nonempty
 
 end General
@@ -82,7 +88,7 @@ using the standard notation:
 
 
 - L =ᵣ i is a boolean indicator random variable
-- L =ᵢ i is a ℚ indicator random variable
+- L =ᵢ i is an `R`-valued indicator random variable
 - L ≤ᵣ i is a bool indicator random variable
 
 Main results
@@ -155,7 +161,8 @@ infix:50 "=ᵣ" => FinRV.eq
 -- TODO(naming): `eqi` → `FinRV.indicatorEq`. `eqi` is unguessable; the `i` stands for
 -- "indicator", which Mathlib would spell out. Suggest renaming the `=ᵢ` notation's target
 -- accordingly (the notation itself can stay).
-@[simp] def eqi [DecidableEq ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω ℚ :=
+@[simp] def eqi {R : Type} [Zero R] [One R] [DecidableEq ρ] (Y : FinRV Ω ρ) (y : ρ) :
+    FinRV Ω R :=
   (fun ω ↦ if Y ω = y then 1 else 0)
 
 /-- 0/1 random variable representing an quality condition -/
@@ -220,10 +227,10 @@ end FinRV
 -- TODO(naming): `indicator` is declared in the root namespace, where it competes with
 -- Mathlib's `Set.indicator`, and `𝕀` is a root-level abbrev. Suggest `FinRV.indicator` with
 -- `scoped notation 𝕀`, so the notation only fires where the library is opened.
-def indicator  [OfNat ℚ 0] [OfNat ℚ 1] (cond : Bool) : ℚ := cond.rec 0 1
+def indicator {R : Type} [Zero R] [One R] (cond : Bool) : R := cond.rec 0 1
 
 /-- Boolean indicator function -/
-abbrev 𝕀 [OfNat ℚ 0] [OfNat ℚ 1] : Bool → ℚ := indicator
+abbrev 𝕀 {R : Type} [Zero R] [One R] : Bool → R := indicator
 
 
 variable {k : ℕ} {L : FinRV Ω (Fin k)}
@@ -231,14 +238,14 @@ variable {k : ℕ} {L : FinRV Ω (Fin k)}
 -- TODO(naming): `indi_eq_indr` → `FinRV.indicator_comp_eq_indicatorEq`. `indi`/`indr` are
 -- two unexplained contractions that differ by one letter; the statement relates
 -- `𝕀 ∘ (L =ᵣ i)` to `L =ᵢ i`, so it should name those two operations.
-theorem indi_eq_indr : ∀i : Fin k, (𝕀 ∘ (L =ᵣ i)) = (L =ᵢ i) := by
+theorem indi_eq_indr : ∀i : Fin k, (𝕀 ∘ (L =ᵣ i) : FinRV Ω R) = (L =ᵢ i) := by
   intro i; unfold FinRV.eq FinRV.eqi 𝕀 indicator; ext ω; by_cases h: L ω = i; repeat simp [h]
 
 variable {B : FinRV Ω Bool}
 
 -- TODO(naming): `ind_zero_one` → `FinRV.indicator_eq_one_or_eq_zero`. `ind` → `indicator`
 -- (no abbreviation), and a disjunctive conclusion is spelled with `_or_` in Mathlib.
-theorem ind_zero_one : (𝕀∘B) ω = 1 ∨ (𝕀∘B) ω = 0 := by
+theorem ind_zero_one : (𝕀∘B : FinRV Ω R) ω = 1 ∨ (𝕀∘B : FinRV Ω R) ω = 0 := by
     by_cases h : B ω
     · left; simp only [Function.comp_apply, h, indicator]
     · right; simp only [Function.comp_apply, h, indicator]
@@ -246,13 +253,13 @@ theorem ind_zero_one : (𝕀∘B) ω = 1 ∨ (𝕀∘B) ω = 0 := by
 /-- Indicator is 0 or 1 -/
 -- TODO(naming): `ind_nneg` → `FinRV.indicator_nonneg` and `ind_le_one` →
 -- `FinRV.indicator_le_one` (`ind` → `indicator`, `nneg` → `nonneg`).
-theorem ind_nneg : (0 : FinRV Ω ℚ) ≤ 𝕀∘B := by
+theorem ind_nneg : (0 : FinRV Ω R) ≤ 𝕀∘B := by
     intro ω; unfold 𝕀 indicator; by_cases h : B ω; repeat simp [h]
 
-theorem ind_le_one : 𝕀∘B ≤ (1 : FinRV Ω ℚ) :=
+theorem ind_le_one : (𝕀∘B : FinRV Ω R) ≤ 1 :=
     by unfold 𝕀 indicator; intro ω; by_cases h : B ω; repeat simp [h]
 
-variable {c : ℚ} {X : FinRV Ω ℚ}
+variable {c : R} {X : FinRV Ω R}
 
 omit [Nonempty Ω] in
 -- TODO(naming): the `rv_*` prefix on this and the following lemmas encodes a namespace in
@@ -261,27 +268,27 @@ omit [Nonempty Ω] in
 -- `Basic.lean`).
 -- TODO(naming): `rv_const_fun_to_one` → `FinRV.const_eq_smul_one`. `_to_` is not a Mathlib
 -- connective for an equality (that is `_eq_`), and `fun` adds nothing.
-theorem rv_const_fun_to_one : (fun _ ↦ c : FinRV Ω ℚ)  = c • 1 := by ext; simp;
+theorem rv_const_fun_to_one : (fun _ ↦ c : FinRV Ω R)  = c • 1 := by ext; simp;
 
 -- TODO(naming): `rv_decompose` → `FinRV.eq_sum_mul_indicatorEq`. Mathlib names a lemma by
 -- its statement rather than by the proof step it performs ("decompose").
-theorem rv_decompose (X : FinRV Ω ℚ) (L : FinRV Ω (Fin k)) : X = ∑ i, X * (L =ᵢ i) := by ext ω; simp
+theorem rv_decompose (X : FinRV Ω R) (L : FinRV Ω (Fin k)) : X = ∑ i, X * (L =ᵢ i) := by ext ω; simp
 
 omit [Nonempty Ω] in
 -- TODO(naming): `one_of_true` → `FinRV.indicator_one`. There is no hypothesis, so `_of_` is
 -- wrong; the statement is `𝕀 ∘ 1 = 1`.
-theorem one_of_true : 𝕀 ∘ (1 : Ω → Bool) = (1 : Ω → ℚ) := by ext; simp [𝕀, indicator]
+theorem one_of_true : 𝕀 ∘ (1 : Ω → Bool) = (1 : Ω → R) := by ext; simp [𝕀, indicator]
 
 -- TODO(naming): `one_of_bool_or_not` → `FinRV.add_not_eq_one`, and `one_of_ind_bool_or_not`
 -- → `FinRV.indicator_add_indicator_not_eq_one`. Both are equalities (`B + ¬ᵣB = 1`), not
 -- `_of_` implications, and the terms should be listed left-to-right as they appear.
 theorem one_of_bool_or_not : B + (¬ᵣ B) = (1 : FinRV Ω Bool) := by ext ω; unfold FinRV.not; simp
 
-theorem one_of_ind_bool_or_not : (𝕀∘B) + (𝕀∘(¬ᵣ B)) = (1 : FinRV Ω ℚ) :=
+theorem one_of_ind_bool_or_not : (𝕀∘B) + (𝕀∘(¬ᵣ B)) = (1 : FinRV Ω R) :=
     by ext ω; unfold FinRV.not 𝕀 indicator not
        by_cases h : B ω <;> simp [h]
 
-variable {X Y: FinRV Ω ℚ} {Xs : Fin k → FinRV Ω ℚ}
+variable {X Y: FinRV Ω R} {Xs : Fin k → FinRV Ω R}
 
 -- TODO(mathlib): = `le_abs_self X`. `Ω → ℚ` is a Pi lattice ordered group, so `|X|` is
 -- pointwise and defeq to `abs ∘ X`. Verified: `le_abs_self X` closes this goal as stated.
@@ -293,7 +300,7 @@ theorem rv_le_abs : X ≤ abs ∘ X := by intro i; simp [le_abs_self (X i)]
 theorem rv_prod_sum_additive  : ∑ i, Y * (Xs i) = Y * (∑ i, Xs i) :=
     by ext ω; simp [Finset.mul_sum]
 
-variable {g : Fin k → ℚ}
+variable {g : Fin k → R}
 
 -- TODO(naming): `rv_prod_const` → `FinRV.comp_mul_indicatorEq`. `prod` is Mathlib's word for
 -- `∏`; the binary operation here is `mul`. The name should also mention `g ∘ L`, the head
@@ -326,7 +333,7 @@ def FinRV.min [LinearOrder β] (X : FinRV Ω β) : β :=
 def FinRV.max [LinearOrder β] (X : FinRV Ω β) : β :=
   (Finset.univ.image X).max' (rv_image_nonempty X)
 
-variable {X : FinRV Ω ℚ}
+variable {X : FinRV Ω R}
 
 -- TODO(naming): `rv_omega_le_max` → `FinRV.le_max` (and `rv_omega_ge_min` in `Basic.lean` →
 -- `FinRV.min_le`, restated in the `≤` direction). `omega` names the bound variable, which
@@ -340,14 +347,14 @@ end RandomVariable
 ------------------------------ Probability ---------------------------
 section Probability 
 
-variable {Ω : Type} [Nonempty Ω] [FinEnum Ω] (P : Findist Ω) (B C : FinRV Ω Bool)
+variable {Ω : Type} [Nonempty Ω] [FinEnum Ω] (P : Findist R Ω) (B C : FinRV Ω Bool)
 
 /-- Probability of B -/
 -- TODO(naming): `probability`, `probability_cnd`, `expect`, `expect_cnd`, `expect_cnd_rv`,
 -- `cdf` and their ~130 lemmas are all in the root namespace. Mathlib would put them in
 -- `namespace Findist` (the head symbol they are about), letting call sites write
 -- `P.probability B` and dot-notation lemmas like `hP.expect_mono`.
-def probability : ℚ :=  P.p ⬝ᵥ (𝕀 ∘ B)
+def probability : R :=  P.p ⬝ᵥ (𝕀 ∘ B)
 
 /-- Probability of B -/
 notation "ℙ[" B "//" P "]" => probability P B
@@ -356,7 +363,7 @@ notation "ℙ[" B "//" P "]" => probability P B
 -- TODO(naming): `probability_cnd` → `Findist.probabilityCond`. `cnd` is an ad-hoc
 -- contraction (Mathlib writes `cond`, as in `condExp`, `cond`), and a data-valued `def`
 -- must be `lowerCamelCase`, so the underscore goes.
-def probability_cnd : ℚ := ℙ[B * C // P] / ℙ[ C // P ]
+def probability_cnd : R := ℙ[B * C // P] / ℙ[ C // P ]
 
 /-- Conditional probability of B on C -/
 notation "ℙ[" B "|" C "//" P "]" => probability_cnd P B C
@@ -368,9 +375,9 @@ theorem prob_one_of_true : ℙ[1 // P] = 1 :=
     by rewrite [probability, one_of_true, dotProduct_comm]
        exact P.prob
 
-example {a b : ℚ} (h : 0 ≤ a) (h2 : 0 ≤ b) : 0 ≤ a * b :=  Rat.mul_nonneg h h2
+example {a b : R} (h : 0 ≤ a) (h2 : 0 ≤ b) : 0 ≤ a * b :=  mul_nonneg h h2
 
-variable {P : Findist Ω} {B : FinRV Ω Bool}
+variable {P : Findist R Ω} {B : FinRV Ω Bool}
 
 -- TODO(naming): `prod_zero_of_prob_zero` →
 -- `Findist.mul_eq_zero_of_probability_eq_zero`. `prod` → `mul`, `prob` → `probability`, and
@@ -385,11 +392,11 @@ theorem prod_zero_of_prob_zero (h : ℙ[B // P] = 0) : (P.p * (𝕀∘B) = 0) :=
 -- (`Mathlib/Probability/ProbabilityMassFunction/Basic.lean`), a genuine collision the moment
 -- that file enters the import graph; (2) it is `Prop`-valued — a predicate asserting that
 -- `pmf` *is* the mass function of `L` — and Mathlib prefixes such defs with `Is`.
-def PMF {K : ℕ} (pmf : Fin K → ℚ) (P : Findist Ω) (L : FinRV Ω (Fin K)) :=
+def PMF {K : ℕ} (pmf : Fin K → R) (P : Findist R Ω) (L : FinRV Ω (Fin K)) :=
     ∀ k : Fin K, pmf k = ℙ[ L =ᵣ k // P]
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
-variable {pmf : Fin k → ℚ} {P : Findist Ω}
+variable {pmf : Fin k → R} {P : Findist R Ω}
 
 -- TODO(naming): `pmf_rv_k_ge_1` → `Findist.IsPMF.pos`. The conclusion is `0 < k`, which
 -- Mathlib always names `pos`, never `ge_1`; digits do not appear in Mathlib lemma names.
@@ -409,9 +416,9 @@ variable {Ω : Type} [FinEnum Ω] [Nonempty Ω]
 
 -- TODO(naming): `cdf` → `Findist.cdf`. Name itself is fine (Mathlib has `ProbabilityTheory.cdf`);
 -- only the root-namespace placement needs fixing.
-def cdf (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ) : ℚ := ℙ[X ≤ᵣ t // P]
+def cdf (P : Findist R Ω) (X : FinRV Ω R) (t : R) : R := ℙ[X ≤ᵣ t // P]
 
-variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {P : Findist R Ω} {X Y : FinRV Ω R} {t t₁ t₂ : R}
 
 
 end CDF
@@ -429,10 +436,10 @@ Main results
 
 section Expectation_properties
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist Ω) (X Y Z: FinRV Ω ℚ) (B : FinRV Ω Bool)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist R Ω) (X Y Z: FinRV Ω R) (B : FinRV Ω Bool)
 
 /-- Standard expectation operator -/
-def expect : ℚ := P.p ⬝ᵥ X
+def expect : R := P.p ⬝ᵥ X
 
 /-- Standard expectation operator -/
 notation "𝔼[" X "//" P "]" => expect P X
@@ -443,13 +450,13 @@ notation "𝔼[" X "//" P "]" => expect P X
 -- parts are abbreviations; note in particular that `exp` is Mathlib's name for the
 -- *exponential* (`Real.exp`, `exp_add`, `exp_log`), so `exp_*` lemma names in this file
 -- read as statements about `Real.exp`. Use `expect_*` throughout.
-theorem prob_eq_exp_ind : ℙ[B // P] = 𝔼[𝕀 ∘ B // P] := by simp only [expect, probability]
+theorem prob_eq_exp_ind : ℙ[B // P] = 𝔼[(𝕀 ∘ B : FinRV Ω R) // P] := by simp only [expect, probability]
 
 /-- Conditional expectation operator -/
 -- TODO(naming): `expect_cnd` → `Findist.expectCond`, and `expect_cnd_rv` →
 -- `Findist.expectCondRV`. Both are data-valued `def`s, so they must be `lowerCamelCase`
 -- with no underscores, and `cnd` → `cond`.
-def expect_cnd : ℚ := 𝔼[ X * (𝕀 ∘ B) // P] / ℙ[ B // P]
+def expect_cnd : R := 𝔼[ X * (𝕀 ∘ B) // P] / ℙ[ B // P]
 
 /-- Conditional expectation operator -/
 notation "𝔼[" X "|" B "//" P "]" => expect_cnd P X B
@@ -457,14 +464,14 @@ notation "𝔼[" X "|" B "//" P "]" => expect_cnd P X B
 variable {k : ℕ} (L : FinRV Ω (Fin k))
 
 /-- Expectation conditioned on a random variable. It creates a random variable -/
-def expect_cnd_rv : Ω → ℚ := fun i ↦ 𝔼[ X | L =ᵣ (L i) // P ]
+def expect_cnd_rv : Ω → R := fun i ↦ 𝔼[ X | L =ᵣ (L i) // P ]
 
 /-- Expectation conditioned on a random variable. It creates a random variable -/
 notation "𝔼[" X "|ᵣ" L "//" P "]" => expect_cnd_rv P X L
 
 --- some basic properties
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y Z: FinRV Ω ℚ} {B : FinRV Ω Bool}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y Z: FinRV Ω R} {B : FinRV Ω Bool}
 
 -- TODO(mathlib): = `congrArg (expect P) h`. This is `congrArg`, nothing more.
 -- TODO(naming): every `exp_*` lemma from here to the end of the section → `expect_*`
@@ -485,10 +492,10 @@ theorem exp_congr (h : X = Y) : 𝔼[X // P] = 𝔼[Y // P] := by
 -- TODO(mathlib): `CommMonoid.mul_comm` is the unbundled field accessor; use `mul_comm X Y`.
 theorem exp_mul_comm : 𝔼[X * Y // P] = 𝔼[Y * X // P] := exp_congr (CommMonoid.mul_comm X Y)
 
-variable {c : ℚ} {p : Ω → ℚ}
+variable {c : R} {p : Ω → R}
 
 theorem exp_const : 𝔼[(fun _ ↦ c) // P] = c := by 
-  rw [rv_const_fun_to_one,expect, dotProduct_smul,smul_eq_mul,dotProduct_comm,P.prob,Rat.mul_one]
+  rw [rv_const_fun_to_one,expect, dotProduct_smul,smul_eq_mul,dotProduct_comm,P.prob,mul_one]
 
 theorem exp_one : 𝔼[ 1 // P] = 1 := exp_const
        
@@ -504,16 +511,16 @@ theorem exp_homogenous : 𝔼[c • X // P] = c * 𝔼[X // P] := by rw [expect,
 -- Mathlib reserves primes for variants of the *same* statement).
 theorem exp_prod_const_fun : 𝔼[(fun _ ↦ c) * X // P] = c * 𝔼[X // P] := by rw [funmul_eq_smul,exp_homogenous]
 
-variable {k : ℕ} {g : Fin k → ℚ}  {L : FinRV Ω (Fin k)}
+variable {k : ℕ} {g : Fin k → R}  {L : FinRV Ω (Fin k)}
 
-theorem exp_indi_eq_exp_indr (i) : 𝔼[L =ᵢ i // P] = 𝔼[𝕀 ∘ (L =ᵣ i) // P] := by rw [indi_eq_indr]
+theorem exp_indi_eq_exp_indr (i) : 𝔼[(L =ᵢ i : FinRV Ω R) // P] = 𝔼[(𝕀 ∘ (L =ᵣ i) : FinRV Ω R) // P] := by rw [indi_eq_indr]
 
 /-- Additivity of expectation --/
 -- TODO(naming): `exp_additive` → `Findist.expect_sum` and `exp_additive_two` →
 -- `Findist.expect_add`. Mathlib names these after the operation being pushed through
 -- (`integral_add`, `integral_finset_sum`), never by the property name "additive"; and
 -- `_two` as a disambiguator becomes unnecessary once the two are `sum` vs `add`.
-theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV Ω ℚ) : 
+theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV Ω R) : 
     𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] := dotProduct_sum P.p Finset.univ Xs
      
 -- TODO(mathlib): = `dotProduct_add P.p X Y` (`Mathlib/Data/Matrix/Mul.lean:124`).
@@ -544,7 +551,7 @@ theorem exp_cond_const (i) (h : ℙ[L =ᵣ i //   P] ≠ 0) : 𝔼[g ∘ L | L =
 theorem exp_cond_eq_def  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B) // P] :=
   by unfold expect_cnd 
      by_cases h: ℙ[B//P] = 0
-     · rw [h, Rat.mul_zero, expect,dotProd_hadProd_comm, dotProd_hadProd_rotate, prod_zero_of_prob_zero h]
+     · rw [h, mul_zero, expect,dotProd_hadProd_comm, dotProd_hadProd_rotate, prod_zero_of_prob_zero h]
        exact (dotProduct_zero X).symm 
      · simp_all 
 
@@ -557,7 +564,8 @@ section Probability_properties
 -- `_mono`), and it belongs in the `FinRV` namespace rather than the root one.
 -- TODO(naming): `A` and `B` here are auto-bound implicits rather than section variables,
 -- so the lemma is stated at a more general type than intended. Bind them explicitly.
-theorem ind_monotone (h : ∀ ω, A ω → B ω) : (𝕀∘A) ≤ (𝕀∘B) := by
+theorem ind_monotone {Ω : Type} [Nonempty Ω] {A B : FinRV Ω Bool}
+    (h : ∀ ω, A ω → B ω) : (𝕀∘A : FinRV Ω R) ≤ (𝕀∘B) := by
   intro ω
   specialize h ω
   by_cases h1 : A ω

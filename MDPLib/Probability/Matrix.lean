@@ -4,6 +4,12 @@ import MDPLib.Probability.Defs
 import Mathlib.Data.Matrix.Mul
 import Mathlib.LinearAlgebra.Matrix.DotProduct
 
+set_option linter.unusedSectionVars false
+
+variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
+         [CharZero R] [Archimedean R]
+
+
 namespace Matrix
 
 section ProbabilityMatrix
@@ -23,13 +29,13 @@ variable {Ω : Type} [FinEnum Ω]
 -- TODO(naming): field `P` shadows the local `variable (Prob : ProbabilityMatrix Ω)` naming
 -- and forces the awkward `Prob.P`; `toMatrix` (or `val`) is the Mathlib spelling for the
 -- carrier of a bundled structure.
-structure ProbabilityMatrix (Ω : Type) [FinEnum Ω] : Type where
+structure ProbabilityMatrix (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type where
     -- Square matrix over `Ω` where each row is a probability distribution
-    P : (Matrix Ω Ω ℚ)
+    P : (Matrix Ω Ω R)
     row_sum : P *ᵥ 1 = 1
     nneg : ∀ i j : Ω, P i j ≥ 0
 
-variable (Prob : ProbabilityMatrix Ω) (μ : Findist Ω) (r : Ω → ℚ) (γ : ℚ)
+variable (Prob : ProbabilityMatrix R Ω) (μ : Findist R Ω) (r : Ω → R) (γ : R)
 
 
 -- TODO(mathlib): = `Matrix.nonneg_vecMul_of_mem_rowStochastic`
@@ -70,17 +76,17 @@ variable {Ω : Type} [FinEnum Ω]
 -- "in_range"; two fields named after their statements give usable dot notation.
 -- TODO(naming): field `Prob : ProbabilityMatrix Ω` → `P` or `transition`. A field whose name
 -- is a truncation of its type carries no information.
-structure DMRP (Ω : Type) [FinEnum Ω] : Type where
-    r : Ω → ℚ --rewards
-    Prob : ProbabilityMatrix Ω --transitions
-    γ : ℚ --discount
+structure DMRP (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type where
+    r : Ω → R --rewards
+    Prob : ProbabilityMatrix R Ω --transitions
+    γ : R --discount
     discount_in_range : 0 ≤ γ ∧ γ < 1
 
-variable (Proc : DMRP Ω) (u : Ω → ℚ) (v : Ω → ℚ)
+variable (Proc : DMRP R Ω) (u : Ω → R) (v : Ω → R)
 
 -- TODO(naming): `bellman_backup` → `bellmanBackup`. It is a data-valued `def`, so Mathlib
 -- requires `lowerCamelCase` with no underscores.
-def bellman_backup (v : Ω → ℚ) : Ω → ℚ := Proc.r + Proc.γ • Proc.Prob.P *ᵥ v
+def bellman_backup (v : Ω → R) : Ω → R := Proc.r + Proc.γ • Proc.Prob.P *ᵥ v
 
 notation "𝔹["v "//" Proc "]" => bellman_backup Proc v
 

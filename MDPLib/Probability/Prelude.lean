@@ -1,9 +1,17 @@
 import Mathlib.Data.Nat.Basic
-import Mathlib.Data.Rat.Defs
 import Mathlib.Algebra.Order.Group.Unbundled.Basic
 import Mathlib.Tactic
 
 import Mathlib.Logic.Function.Defs
+
+-- The scalar type used throughout the library: any linear ordered field.
+-- Instantiate at `ℚ` for computable results and at `ℝ` for the standard theory.
+-- The whole class stack is carried uniformly; Lean auto-includes every instance binder
+-- whenever `R` appears, so the `unusedSectionVars` linter is off in the numeric files.
+set_option linter.unusedSectionVars false
+
+variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
+         [CharZero R] [Archimedean R]
 
 
 /-- states that p is a valid probability value -/
@@ -11,14 +19,14 @@ import Mathlib.Logic.Function.Defs
 -- TODO(naming): `Prob` → `IsProb`. Mathlib prefixes a predicate (a `Prop`-valued def) with
 -- `Is` (`IsGreatest`, `IsQuantile` below); a bare noun reads as a type of probabilities.
 -- Note also that this is literally `p ∈ Set.Icc (0:ℚ) 1`, which Mathlib would spell directly.
-abbrev Prob (p : ℚ) : Prop := 0 ≤ p ∧ p ≤ 1
+abbrev Prob (p : R) : Prop := 0 ≤ p ∧ p ≤ 1
 
 ----------------- Section: Basic Probability -----------------------------------------------
 
 
 namespace Prob
 
-variable {p x y : ℚ}
+variable {p x y : R}
 
 @[simp]
 -- TODO(naming): `Prob.of_complement` → `Prob.one_sub`. `_of_` in Mathlib introduces the
@@ -70,7 +78,7 @@ end FunctionalAnalysis
 section dotProduct
 
 variable {Ω : Type*} [Fintype Ω]
-variable {x y z : Ω → ℚ} {c : ℚ}
+variable {x y z : Ω → R} {c : R}
 
 
 -- TODO(naming): this whole `dotProduct` section lives in the root namespace; Mathlib keeps
@@ -119,12 +127,12 @@ theorem prod_eq_zero_of_nneg_dp_zero (hx : 0 ≤ x) (hy : 0 ≤ y) : x ⬝ᵥ y 
 -- TODO(naming): `abs_pos_hom` → `abs_mul_of_nonneg`. The statement is `|a * b| = a * |b|`
 -- under `0 ≤ a`; "pos_hom" describes a motivation, not the statement, and the hypothesis
 -- is nonnegativity rather than positivity.
-theorem abs_pos_hom {a b : ℚ} (h : 0 ≤ a) : |a * b| = a * |b| := by 
+theorem abs_pos_hom {a b : R} (h : 0 ≤ a) : |a * b| = a * |b| := by 
   rw [abs_mul, abs_of_nonneg h]
 
 -- TODO(naming): `abs_dotProd_le_dotProd_abs` → `Matrix.abs_dotProduct_le_dotProduct_abs`.
 -- Correct structure already; only `dotProd` → `dotProduct` and the namespace.
-theorem abs_dotProd_le_dotProd_abs(p x : Ω → ℚ) (hp : ∀ i, 0 ≤ p i) : |p ⬝ᵥ x| ≤ p ⬝ᵥ fun i => |x i| := by
+theorem abs_dotProd_le_dotProd_abs (p x : Ω → R) (hp : ∀ i, 0 ≤ p i) : |p ⬝ᵥ x| ≤ p ⬝ᵥ fun i => |x i| := by
   calc
     |∑ i : Ω, p i * x i| ≤ ∑ i, |p i * x i| := Finset.abs_sum_le_sum_abs (fun i ↦ p i * x i) Finset.univ
     _ = ∑ i, p i * |x i| := Finset.sum_congr rfl (fun i _ => abs_pos_hom (hp i))
@@ -133,16 +141,16 @@ theorem abs_dotProd_le_dotProd_abs(p x : Ω → ℚ) (hp : ∀ i, 0 ≤ p i) : |
 -- TODO(naming): `jensen_abs_uniform` → `Matrix.abs_dotProduct_le_dotProduct_abs_uniform`.
 -- This is the triangle inequality specialised to the uniform weights, not Jensen's
 -- inequality; Mathlib names a specialisation after the general lemma it instantiates.
-theorem jensen_abs_uniform (x : Fin n → ℚ) (hn : 0 < n) :
-    |(fun _ : Fin n => (1 : ℚ) / n) ⬝ᵥ x| ≤ (fun _ : Fin n => (1 : ℚ) / n) ⬝ᵥ fun i => |x i| := by
-  have hpos : 0 < (n : ℚ) := by exact_mod_cast hn
-  have hnonneg : 0 ≤ (1 : ℚ) / n := by
+theorem jensen_abs_uniform (x : Fin n → R) (hn : 0 < n) :
+    |(fun _ : Fin n => (1 : R) / n) ⬝ᵥ x| ≤ (fun _ : Fin n => (1 : R) / n) ⬝ᵥ fun i => |x i| := by
+  have hpos : 0 < (n : R) := by exact_mod_cast hn
+  have hnonneg : 0 ≤ (1 : R) / n := by
     have := inv_pos.mpr hpos
     simp
-  have hp : ∀ i : Fin n, 0 ≤ (1 : ℚ) / n := fun _ => hnonneg
+  have hp : ∀ i : Fin n, 0 ≤ (1 : R) / n := fun _ => hnonneg
   simpa using
     abs_dotProd_le_dotProd_abs
-      (p := fun _ : Fin n => (1 : ℚ) / n)
+      (p := fun _ : Fin n => (1 : R) / n)
       (x := x)
       (hp := hp)
 

@@ -6,6 +6,12 @@ import Mathlib.Data.Fintype.BigOperators
 
 import Mathlib.Data.Fin.Tuple.Sort -- for Equiv.Perm and permutation operations
 
+set_option linter.unusedSectionVars false
+
+variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
+         [CharZero R] [Archimedean R]
+
+
 
 /-!
   # Basic properties for probability spaces and expectations
@@ -21,7 +27,7 @@ import Mathlib.Data.Fin.Tuple.Sort -- for Equiv.Perm and permutation operations
 section General
 open Matrix
 
-variable {Ω : Type} [Fintype Ω] {p x : Ω → ℚ}
+variable {Ω : Type} [Fintype Ω] {p x : Ω → R}
 
 /-- If a dot product with a nonnegative vector is positive, some coordinate of the
     vector is positive. -/
@@ -40,7 +46,7 @@ end General
 
 namespace Findist
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {B : FinRV Ω Bool}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {B : FinRV Ω Bool}
 
 -- TODO(naming): `Findist.ge_zero` → `Findist.probability_nonneg`, `Findist.le_one` →
 -- `Findist.probability_le_one`, `Findist.in_prob` → `Findist.isProb_probability`.
@@ -57,7 +63,7 @@ theorem le_one : ℙ[B // P] ≤ 1 :=
        calc 𝔼[𝕀 ∘ B//P] ≤ 𝔼[1 // P] := exp_monotone ind_le_one 
             _ = 1 := exp_const 
 
-theorem in_prob (P : Findist Ω) : Prob ℙ[B // P] := ⟨ge_zero, le_one⟩
+theorem in_prob (P : Findist R Ω) : Prob ℙ[B // P] := ⟨ge_zero, le_one⟩
 
 end Findist
 
@@ -66,19 +72,19 @@ end Findist
 
 section RandomVariables
 
-variable {Ω : Type} [Nonempty Ω] {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [Nonempty Ω] {X Y : FinRV Ω R} {t t₁ t₂ : R}
 
 -- TODO(naming): `rvle_monotone` → `FinRV.indicator_leq_mono` and `rvlt_monotone` →
 -- `FinRV.indicator_lt_mono`. `rvle`/`rvlt` jam two namespaces together; the statements are
 -- about `𝕀 ∘ (X ≤ᵣ t)`, so `indicator` belongs in the name, and `_monotone` → `_mono`.
-theorem rvle_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y ≤ᵣ t₁) ≤ 𝕀 ∘ (X ≤ᵣ t₂) := by 
+theorem rvle_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : (𝕀 ∘ (Y ≤ᵣ t₁) : FinRV Ω R) ≤ 𝕀 ∘ (X ≤ᵣ t₂) := by 
     intro ω   
     by_cases h3 : Y ω ≤ t₁
     · simp [FinRV.leq, 𝕀, indicator, h3, (le_trans (le_trans (h1 ω) h3) h2)] 
     · by_cases h5 : X ω ≤ t₂
       repeat simp [h3, h5, 𝕀, indicator] 
 
-theorem rvlt_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y <ᵣ t₁) ≤ 𝕀 ∘ (X <ᵣ t₂) := by 
+theorem rvlt_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : (𝕀 ∘ (Y <ᵣ t₁) : FinRV Ω R) ≤ 𝕀 ∘ (X <ᵣ t₂) := by 
     intro ω   
     by_cases h3 : Y ω < t₁
     · have h4 : X ω < t₂ := 
@@ -92,11 +98,11 @@ theorem rvlt_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y <ᵣ t₁
 -- TODO(naming): `rv_monotone_sharp` → `FinRV.gt_of_geq_of_lt`. This is not a monotonicity
 -- statement at all: from `t₁ < t₂` and `(X ≥ᵣ t₂) ω` it concludes `(X >ᵣ t₁) ω`, which is
 -- exactly the `_of_`-chained shape Mathlib names `lt_of_le_of_lt`.
-theorem rv_monotone_sharp {t₁ t₂ : ℚ} (h : t₁ < t₂) (ω) (hω : (X ≥ᵣ t₂) ω ) : (X >ᵣ t₁) ω :=
+theorem rv_monotone_sharp {t₁ t₂ : R} (h : t₁ < t₂) (ω) (hω : (X ≥ᵣ t₂) ω ) : (X >ᵣ t₁) ω :=
     by simp [FinRV.gt, FinRV.geq] at hω ⊢
        order
 
-variable [FinEnum Ω] {P : Findist Ω} {A B : FinRV Ω Bool}
+variable [FinEnum Ω] {P : Findist R Ω} {A B : FinRV Ω Bool}
 
 -- TODO(naming): `rv_le_max_one` → `FinRV.leq_max`, `rv_max_in_image` →
 -- `FinRV.max_mem_image`, `rv_omega_ge_min` → `FinRV.min_le`, `rv_ge_min_one` →
@@ -117,12 +123,12 @@ theorem rv_ge_min_one : (X ≥ᵣ (FinRV.min X)) = 1 :=
 -- results for discrete probability distributions
 section Atomic 
 
-variable (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ)
+variable (P : Findist R Ω) (X : FinRV Ω R) (t : R)
 
 -- TODO(naming): `prob_atomic_omega` → `Findist.exists_eq_of_probability_pos`. The conclusion
 -- is an existential, which Mathlib puts first as `exists_`; "atomic" describes the setting
 -- and `omega` the bound variable, neither of which belongs in the name.
-theorem prob_atomic_omega {b : ℚ} (h : ℙ[X =ᵣ b // P] > 0) : ∃ω, X ω = b := by 
+theorem prob_atomic_omega {b : R} (h : ℙ[X =ᵣ b // P] > 0) : ∃ω, X ω = b := by 
     obtain ⟨ω, hω⟩ : ∃ω, (𝕀 ∘ (X=ᵣb)) ω > 0 := nneg_dotProd_pos_ex_pos (P.nneg) h 
     use ω
     by_contra!
@@ -156,14 +162,14 @@ theorem rv_le_step_lt_max (h0 : t < (FinRV.max  X)) : ∃q > t, (X ≤ᵣ t) = (
            exact hxω (Finset.mem_image_of_mem X (Finset.mem_univ ω))
        · exact Finset.mem_of_mem_filter q (Finset.min'_mem 𝓨 hnonempty)
 
-theorem rv_le_step_lt (P : Findist Ω) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
+theorem rv_le_step_lt (P : Findist R Ω) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
        by cases' lt_or_ge t (FinRV.max X) with hlt hge
           · obtain ⟨q, h⟩ := rv_le_step_lt_max  X t hlt
             exact ⟨q, ⟨h.1, h.2.1⟩⟩
           · have h := rv_omega_le_max (X:=X)
             grw [hge] at h
             let q := t + 1
-            have b : ∀ω, X ω < q := fun ω => lt_add_of_le_of_pos (h ω) rfl
+            have b : ∀ω, X ω < q := fun ω => lt_add_of_le_of_pos (h ω) zero_lt_one
             have ab : (X ≤ᵣ t) = (X <ᵣ q) := by ext ω; simp_all [FinRV.leq, FinRV.lt]
             exact ⟨q, ⟨lt_add_one t, ab⟩⟩
 
@@ -181,7 +187,7 @@ section Monotone
 
 open Function 
 
-variable {f : ℚ → ℚ} {x : ℚ}  
+variable {f : R → R} {x : R}  
 
 --- LE
 
@@ -260,7 +266,7 @@ end Monotone
 
 section CashInvariance 
 
-variable (c : ℚ) {x : ℚ}
+variable (c : R) {x : R}
 
 omit [FinEnum Ω] in 
 -- TODO(naming): the four `rv_*_cashinvar` lemmas → `FinRV.leq_add_const`,
@@ -284,7 +290,7 @@ end CashInvariance
 section Negation 
 
 
-variable {x : ℚ}
+variable {x : R}
 
 -- TODO(naming): the four `rv_*_neg_*` lemmas → `FinRV.leq_eq_neg_geq_neg`,
 -- `FinRV.geq_eq_neg_leq_neg`, `FinRV.lt_eq_neg_gt_neg`, `FinRV.gt_eq_neg_lt_neg`.
@@ -309,7 +315,7 @@ end RandomVariables
 
 section Probability 
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {A B C : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {A B C : FinRV Ω Bool} {X Y : FinRV Ω R} {t t₁ t₂ : R}
 
 
 -- TODO(naming): `prob_compl_sums_to_one` → `Findist.probability_add_probability_not`, and
@@ -336,7 +342,7 @@ theorem rv_le_compl_gt : (X ≤ᵣ t) + (X >ᵣ t) = 1 := by
 -- likewise `prob_lt_compl_ge` → `Findist.probability_lt_add_probability_geq`.
 theorem prob_le_compl_gt : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t // P] = 1 := by
   rw [prob_eq_exp_ind, prob_eq_exp_ind, ← exp_additive_two]
-  have h : (𝕀 ∘ (X ≤ᵣ t)) + (𝕀 ∘ (X >ᵣ t)) = (1 : FinRV Ω ℚ) := by
+  have h : (𝕀 ∘ (X ≤ᵣ t)) + (𝕀 ∘ (X >ᵣ t)) = (1 : FinRV Ω R) := by
     ext ω
     unfold FinRV.leq FinRV.gt
     simp [𝕀, indicator]
@@ -363,7 +369,7 @@ theorem prob_le_of_gt :  ℙ[X ≤ᵣ t // P] = 1 - ℙ[X >ᵣ t // P] := by
 
 theorem prob_lt_compl_ge : ℙ[X <ᵣ t // P] + ℙ[X ≥ᵣ t // P] = 1 := by
   rw [prob_eq_exp_ind, prob_eq_exp_ind, ← exp_additive_two]
-  have h : (𝕀 ∘ (X <ᵣ t)) + (𝕀 ∘ (X ≥ᵣ t)) = (1 : FinRV Ω ℚ) := by
+  have h : (𝕀 ∘ (X <ᵣ t)) + (𝕀 ∘ (X ≥ᵣ t)) = (1 : FinRV Ω R) := by
     ext ω
     unfold FinRV.lt FinRV.geq
     simp [𝕀, indicator]
@@ -413,11 +419,11 @@ theorem prob_gt_antitone : X ≤ Y → t₁ ≤ t₂ → ℙ[Y >ᵣ t₁ // P] �
 -- TODO(naming): `prob_lt_le_monotone` → `Findist.probability_leq_le_probability_lt`. It is
 -- not a monotonicity statement in either argument; it compares two different events under
 -- `t < q`, so the name should list both sides in the order they appear.
-theorem prob_lt_le_monotone {q : ℚ} (h : q > t) : ℙ[X <ᵣ q // P] ≥ ℙ[X ≤ᵣ t // P] := by 
+theorem prob_lt_le_monotone {q : R} (h : q > t) : ℙ[X <ᵣ q // P] ≥ ℙ[X ≤ᵣ t // P] := by 
      unfold probability 
      apply Finset.sum_le_sum
      intro ω hω
-     have h2 : (𝕀 ∘ (X ≤ᵣ t)) ω ≤ (𝕀 ∘ (X <ᵣ q)) ω :=
+     have h2 : (𝕀 ∘ (X ≤ᵣ t) : FinRV Ω R) ω ≤ (𝕀 ∘ (X <ᵣ q) : FinRV Ω R) ω :=
        by by_cases h3 : X ω ≤ t
           · have h4 : X ω < q := lt_of_le_of_lt h3 h
             simp [FinRV.leq, FinRV.lt, 𝕀, indicator, Function.comp, h3, h4]
@@ -440,7 +446,7 @@ theorem prob_lt_min_eq_zero : ℙ[X <ᵣ (FinRV.min X) // P] = 0 := by
 -- TODO(naming): `prob_le_max_of_le_1` → `Findist.lt_max_of_probability_leq_lt_one`. Digits
 -- do not appear in Mathlib names (`le_1` → `lt_one`), the conclusion (`t < FinRV.max X`)
 -- should come first, and the hypothesis after `_of_`.
-theorem prob_le_max_of_le_1 {t : ℚ} (h : ℙ[X ≤ᵣ t // P] < 1) : t < FinRV.max X := by 
+theorem prob_le_max_of_le_1 {t : R} (h : ℙ[X ≤ᵣ t // P] < 1) : t < FinRV.max X := by 
        by_contra! hcontra
        have h1 := prob_le_monotone (P := P) (le_refl X) hcontra
        rw [prob_le_eq_one] at h1
@@ -448,7 +454,7 @@ theorem prob_le_max_of_le_1 {t : ℚ} (h : ℙ[X ≤ᵣ t // P] < 1) : t < FinRV
 
 section Rounding ---results for discrete probability distributions
 
-variable (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ)
+variable (P : Findist R Ω) (X : FinRV Ω R) (t : R)
 
 -- TODO(naming): `prob_le_step_lt_max` → `Findist.exists_probability_leq_eq_probability_lt_of_lt_max`
 -- and `prob_le_step_lt` → `Findist.exists_probability_leq_eq_probability_lt` (see the
@@ -474,7 +480,7 @@ section Monotone
 
 open Function 
 
-variable {f : ℚ → ℚ} {x : ℚ}  
+variable {f : R → R} {x : R}  
 
 --- LE
 
@@ -510,7 +516,7 @@ end Monotone
 
 section CashInvariance 
 
-variable (c : ℚ) {x : ℚ}
+variable (c : R) {x : R}
 
 -- TODO(naming): the four `prob_*_cashinvar` lemmas → `Findist.probability_leq_add_const`
 -- etc.; see the `rv_le_cashinvar` note above for why "cash invariance" is not a name part.
@@ -526,7 +532,7 @@ end CashInvariance
 
 section Negation 
 
-variable {x : ℚ}
+variable {x : R}
 
 -- TODO(naming): the four `prob_*_neg_*` lemmas → `Findist.probability_leq_eq_neg_geq_neg`
 -- etc.; these are equalities and need `_eq_`, as with the `rv_*_neg_*` family above.
@@ -548,7 +554,7 @@ end Probability
 
 section CDF
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y : FinRV Ω R} {t t₁ t₂ : R}
 
 /-- shows CDF is non-decreasing -/
 -- TODO(naming): `cdf_nondecreasing` → `Findist.cdf_mono`. Mathlib says `mono`, never
@@ -571,9 +577,9 @@ end CDF
 
 section Expectation 
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω}
-variable {k : ℕ} {X : FinRV Ω ℚ} {B : FinRV Ω Bool} {L : FinRV Ω (Fin k)}
-variable (g : Fin k → ℚ)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω}
+variable {k : ℕ} {X : FinRV Ω R} {B : FinRV Ω Bool} {L : FinRV Ω (Fin k)}
+variable (g : Fin k → R)
 
 /-- LOTUS: The law of the unconscious statistician (or similar) -/
 -- TODO(naming): `LOTUS` → `Findist.expect_comp_eq_sum`, keeping "law of the unconscious
@@ -622,7 +628,7 @@ theorem univ_image_eq_imageList_toFinset (X : FinRV Ω τ) : Finset.univ.image X
 -- TODO(naming): `sum_finset_eq_sum_image` → `FinRV.sum_image_univ_eq_sum_imageList`. The
 -- current name says "finset" (uninformative — both sides are finite sums) and "image" for
 -- the side that is actually the `imageList`.
-theorem sum_finset_eq_sum_image (f : ℚ → ℚ) :
+theorem sum_finset_eq_sum_image (f : R → R) :
     (∑ y ∈ (Finset.univ.image X), f y) = ((X.imageList).map f).sum := by
       rw [univ_image_eq_imageList_toFinset]
       exact List.sum_toFinset f (List.nodup_dedup _)
@@ -685,7 +691,7 @@ end Generic
 -- TODO(naming): `sum_eq_sum_image` → `FinRV.sum_image_univ_eq_sum_fin`. As written the name
 -- is nearly identical to `sum_finset_eq_sum_image` above while stating something different
 -- (indexing by `Fin X.imageList.length`).
-theorem sum_eq_sum_image (f : ℚ → ℚ) : 
+theorem sum_eq_sum_image (f : R → R) : 
     ∑ y ∈ (Finset.univ.image X), f y = ∑ i : Fin X.imageList.length, f (X.imageList[i]) := by 
       rw [sum_finset_eq_sum_image, ← List.ofFn_getElem_eq_map, List.sum_ofFn]; rfl
       
@@ -715,13 +721,14 @@ end Expectation
 section Probability 
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
+variable {P : Findist R Ω} {B : FinRV Ω Bool}
 
 /-- The law of total probabilities -/
 -- TODO(naming): `law_of_total_probs` → `Findist.probability_eq_sum`, with "law of total
 -- probability" in the docstring (see `LOTUS` above). `probs` is also a contraction Mathlib
 -- avoids.
 theorem law_of_total_probs : ℙ[B // P] =  ∑ i, ℙ[B * (L =ᵣ i) // P]  := by 
-    rewrite [prob_eq_exp_ind, rv_decompose (𝕀∘B) L, exp_additive]
+    rewrite [prob_eq_exp_ind, rv_decompose (𝕀∘B : FinRV Ω R) L, exp_additive]
     apply Fintype.sum_congr
     intro i 
     rewrite [prob_eq_exp_ind] 
@@ -736,15 +743,15 @@ end Probability
 
 section Probability_Permutation
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω R} {t : R}
 
 -- TODO(naming): `Findist.perm` → `Findist.comp` (or `Findist.map`). The distribution is
 -- literally `P.p ∘ σ`; Mathlib names such a def after the operation, reserving `perm` for
 -- `Equiv.Perm` itself.
-def Findist.perm (P : Findist Ω) (σ : Equiv.Perm (Ω)) : Findist Ω where 
+def Findist.perm (P : Findist R Ω) (σ : Equiv.Perm (Ω)) : Findist R Ω where 
   p :=  P.p ∘ σ
   prob := by 
-    have h1 : 1 = (1 : Ω → ℚ) ∘ σ := rfl 
+    have h1 : 1 = (1 : Ω → R) ∘ σ := rfl 
     rw [h1, comp_equiv_dotProduct_comp_equiv 1 P.p σ]
     exact P.prob
   nneg := fun ω => P.nneg (σ ω)
@@ -761,7 +768,7 @@ theorem exp_eq_perm : 𝔼[X ∘ σ // P.perm σ] = 𝔼[X // P] := by
   exact (comp_equiv_dotProduct_comp_equiv P.1 X σ)
 
 theorem prob_eq_perm : ℙ[A ∘ σ // P.perm σ] = ℙ[A // P] := by 
-  have h1 : (𝕀 ∘ A ∘ σ) = (𝕀 ∘ A) ∘ σ := by rfl 
+  have h1 : (𝕀 ∘ A ∘ σ : FinRV Ω R) = (𝕀 ∘ A) ∘ σ := by rfl 
   rw [prob_eq_exp_ind, h1, exp_eq_perm, ←prob_eq_exp_ind] 
   
 theorem rv_le_perm : (X ∘ σ ≤ᵣ t) = (X ≤ᵣ t) ∘ σ := by unfold FinRV.leq; grind only 

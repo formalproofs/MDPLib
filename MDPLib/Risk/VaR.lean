@@ -1,18 +1,23 @@
 import MDPLib.Probability.Basic
 import MDPLib.Probability.Quantile
-import Mathlib.Data.EReal.Basic
 import Mathlib.Data.Set.Operations
+
+set_option linter.unusedSectionVars false
+
+variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
+         [CharZero R] [Archimedean R]
+
 
 namespace Risk
 
 open Findist FinRV Statistic
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω]
-variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {P : Findist R Ω} {X Y : FinRV Ω R} {t t₁ t₂ : R}
 
-def IsRiskLevel (α : ℚ) : Prop := 0 ≤ α ∧ α < 1
+def IsRiskLevel (α : R) : Prop := 0 ≤ α ∧ α < 1
 
-def RiskLevel := { α : ℚ // IsRiskLevel α}
+def RiskLevel (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] := { α : R // IsRiskLevel α}
 
 --instance instCoeRiskUnit : Coe RiskLevel UnitI where
 --  coe := fun ⟨v,c⟩ => ⟨v, ⟨c.1, le_of_lt c.2⟩ ⟩
@@ -21,7 +26,7 @@ def RiskLevel := { α : ℚ // IsRiskLevel α}
 -- `def`s (a `Finset ℚ` and a `ℚ`), which Mathlib requires to be `lowerCamelCase`;
 -- `UpperCamelCase` is reserved for types and `Prop`-valued defs such as `IsVaR` below.
 -- The acronym keeps its internal capitals, as in Mathlib's `nnnorm`/`ENNReal` style.
-def FinVaRSet (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : Finset ℚ :=
+def FinVaRSet (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R) : Finset R :=
   let 𝓧 := Finset.univ.image X
   𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
 
@@ -29,7 +34,7 @@ def FinVaRSet (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : Finset ℚ 
 -- typo: the definition is `FinVaRSet` (capital R) but the lemma says `FinVarSet`, so the
 -- two no longer match as strings — exactly the kind of drift Mathlib's rule of deriving the
 -- lemma name mechanically from the definition name prevents.
-theorem FinVarSet_nonempty (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : (FinVaRSet (Ω := Ω) P X α).Nonempty := by
+theorem FinVarSet_nonempty (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R) : (FinVaRSet (Ω := Ω) P X α).Nonempty := by
     apply Finset.filter_nonempty_iff.mpr
     let xmin := (Finset.univ.image X).min' (rv_image_nonempty X)
     use xmin
@@ -41,13 +46,13 @@ theorem FinVarSet_nonempty (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) 
 
 /-- Value-at-Risk of X at level α: VaR_α(X) = min { t ∈ X(Ω) | P[X ≤ t] ≥ α }.
     If we assume 0 ≤ α < 1, then the "else 0" branch is never used. -/
-def FinVaR (P : Findist Ω) (X : FinRV Ω ℚ) (α : RiskLevel) : ℚ :=
+def FinVaR (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R) : R :=
    let 𝓧 := Finset.univ.image X
    let 𝓢 := 𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
    have h : 𝓢.Nonempty := FinVarSet_nonempty P X α
    𝓢.max' h
 
-variable {α : RiskLevel}
+variable {α : RiskLevel R}
 
 
 -- TODO(naming): `finvar_prob_cond` → `finVaR_spec` (or, spelled out,
@@ -72,7 +77,7 @@ theorem finvar_prob_cond : ℙ[X <ᵣ (FinVaR P X α) // P] ≤ α.val ∧ α.va
 
 notation "VaR[" X "//" P ", " α "]" => FinVaR P X α
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist Ω) (X Y : FinRV Ω ℚ) (α : RiskLevel) (q v : ℚ)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist R Ω) (X Y : FinRV Ω R) (α : RiskLevel R) (q v : R)
 
 /-- Value `v` is the Value at Risk at `α` of `X` and probability `P`  -/
 -- TODO(naming): `IsVaR_Q` → `IsVaRQuantile`. An underscore followed by a capital is not a
@@ -84,7 +89,7 @@ def IsVaR_Q : Prop := IsGreatest (Quantile P X α.val) v
 /-- A simpler, equivalent definition of Value at Risk  -/
 def IsVaR : Prop := IsGreatest (QuantileLower P X α.val) v
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {α : RiskLevel} {q v q₁ q₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y : FinRV Ω R} {α : RiskLevel R} {q v q₁ q₂ : R}
 
 -- TODO(naming): `var_prob_cond` → `isVaR_iff`, and `varq_prob_cond` →
 -- `isVaRQuantile_iff`. Both are `↔` characterisations, which Mathlib names `_iff`;
@@ -183,7 +188,7 @@ theorem varq_prob_cond : IsVaR_Q P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧
 
 section VaR_properties
 
-variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {q q₁ v₁ v₂ c : ℚ} {α : RiskLevel} {f : ℚ → ℚ}
+variable {P : Findist R Ω} {X Y : FinRV Ω R} {q q₁ v₁ v₂ c : R} {α : RiskLevel R} {f : R → R}
 
 -- TODO(naming): `var_monotone` → `IsVaR.le_of_le` (or `isVaR_mono`). It is not the statement
 -- `Monotone f`, so `_monotone` is wrong; it concludes `v₁ ≤ v₂` from `X ≤ Y`.

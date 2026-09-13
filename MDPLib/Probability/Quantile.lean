@@ -1,7 +1,12 @@
 import MDPLib.Probability.Basic
-import Mathlib.Data.EReal.Basic
 import Mathlib.Data.Set.Operations
 import Mathlib.Data.Fin.VecNotation
+
+set_option linter.unusedSectionVars false
+
+variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
+         [CharZero R] [Archimedean R]
+
 
 
 
@@ -21,7 +26,7 @@ section Definition
 
 --def UnitI := {α : ℚ // 0 ≤ α ∧ α ≤ 1}
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist Ω) (X Y : FinRV Ω ℚ) (α : ℚ) (q v : ℚ)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist R Ω) (X Y : FinRV Ω R) (α : R) (q v : R)
 
 /-- Proof the `q` is an `α`-quantile of `X` --/
 def IsQuantile  : Prop := ℙ[X ≤ᵣ q // P ] ≥ α ∧ ℙ[X ≥ᵣ q // P] ≥ 1 - α
@@ -33,10 +38,10 @@ def IsQuantileLower : Prop := ℙ[X ≥ᵣ q // P] ≥ 1 - α
 -- TODO(naming): `Quantile` → `quantile` and `QuantileLower` → `quantileLower`. These are
 -- data (a `Set ℚ`), not `Prop`s or types, so Mathlib requires `lowerCamelCase`; the
 -- `UpperCamelCase` spelling makes them look like predicates alongside `IsQuantile`.
-def Quantile : Set ℚ := {q | IsQuantile P X α q}
+def Quantile : Set R := {q | IsQuantile P X α q}
 
 /-- Set of lower bounds on a quantile at `α` -/
-def QuantileLower : Set ℚ := {q | IsQuantileLower P X α q}
+def QuantileLower : Set R := {q | IsQuantileLower P X α q}
 
 /-- Value `q` is maximum quantile at `α` of `X` and probability `P`  -/
 -- TODO(naming): `IsQuantMax` → `IsGreatestQuantile`, `IsQuantMin` → `IsLeastQuantile`.
@@ -49,7 +54,7 @@ def IsQuantMin : Prop := IsLeast (Quantile P X α) q
 
 end Definition
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {α : ℚ} {q v : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y : FinRV Ω R} {α : R} {q v : R}
 
 -- TODO(naming): the whole `qset_*` / `qsetlower_*` family. `qset` is an unguessable
 -- contraction and every one of these lemmas is really about `∈`, which Mathlib names `mem_`:
@@ -154,7 +159,7 @@ end UpperLowerBounds
 
 section Transformations
 
-variable {f : ℚ → ℚ}
+variable {f : R → R}
 
 -- the reverse implications of the following results do not hold
 -- TODO(naming): the six `quantile_f_*` / `quantilelower_f_*` lemmas. `f` names a variable;
@@ -199,7 +204,7 @@ theorem quantile_f_cofinal (hm : Monotone f) : IsCofinalFor (Quantile P (f∘X) 
     use a 
     rewrite [qset_def] at ha 
     constructor
-    swap; exact Rat.le_refl
+    swap; exact le_rfl
     refine (Set.mem_image f (Quantile P X α) a).mpr ?_
     sorry 
 
@@ -209,7 +214,7 @@ theorem quantile_f_coinitial (hm : Monotone f) : IsCoinitialFor (Quantile P (f�
 
 end Transformations
 
-variable {c : ℚ}
+variable {c : R}
 
 -- TODO(naming): `quantilelower_cashinv` → `mem_quantileLower_add_const_iff`, and
 -- `quantilelower_cash_image` → `quantileLower_add_const_eq_image`. "cash invariance" is

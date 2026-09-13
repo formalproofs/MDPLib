@@ -56,6 +56,12 @@ jobs:
         with:
           build-args: "MDPLib"
 
+      - name: Run the VaR regression tests
+        # Interpreted rather than `lake exe mdplib`: building the executable would
+        # native-compile all of Mathlib. This still exercises `computeVaR` at `ℚ`,
+        # which is the code a decidability/computability regression would break.
+        run: lake env lean --run Main.lean < test_var.json | tee /dev/stderr | grep -q -- '0 failed'
+
       - name: Build the API documentation
         run: lake -R build MDPLib:docs
 

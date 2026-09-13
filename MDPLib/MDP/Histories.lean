@@ -22,26 +22,19 @@ variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
          [CharZero R] [Archimedean R]
 
 
--- TODO(naming): namespace `MDPs` → `MDP`. Mathlib namespaces are singular and match the
--- head type they collect declarations for (`Finset`, `Polynomial`), which would also let
--- `MDP.maxS` etc. below be written without repeating the `MDP.` prefix.
-namespace MDPs
 
 section Definitions
 
 open Findist
 
 /-- Markov decision process -/
--- TODO(naming): fields `S_ne` and `A_ne` state `0 < S` / `0 < A`, but `_ne` in Mathlib means
--- `≠` (`Nat.succ_ne_zero`, `one_ne_zero`). Rename to `S_pos` / `A_pos` (and `SA_ne` below to
--- `SA_pos`) — `pos` is Mathlib's invariable suffix for `0 < _`.
 structure MDP (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] : Type where
   /-- states -/
   S : ℕ
-  S_ne : 0 < S
+  S_pos : 0 < S
   /-- actions  -/
   A : ℕ
-  A_ne : 0 < A
+  A_pos : 0 < A
   /-- transition probability s, a, s' -/
   P : Fin S → Fin A → Δ R (Fin S)
   /-- reward function s, a, s' -/
@@ -49,34 +42,28 @@ structure MDP (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] : Typ
 
 variable (M : MDP R)
 
-def MDP.maxS : Fin M.S := ⟨M.S-1, by simp [M.S_ne]⟩
-def MDP.maxA : Fin M.A := ⟨M.A-1, by simp [M.A_ne]⟩
+def MDP.maxS : Fin M.S := ⟨M.S-1, by simp [M.S_pos]⟩
+def MDP.maxA : Fin M.A := ⟨M.A-1, by simp [M.A_pos]⟩
 
 -- here, we use the fintype property to show that the state and action
 -- sets are complete 
 
--- TODO(naming): `MDP.St` / `MDP.At` → `MDP.State` / `MDP.Action`. Two-letter truncations of
--- type names are not a Mathlib shape, and `At` in particular reads as the preposition;
--- these are type abbreviations, so the full words cost nothing at use sites.
-abbrev MDP.St := Fin M.S 
-abbrev MDP.At := Fin M.A
+abbrev MDP.State := Fin M.S 
+abbrev MDP.Action := Fin M.A
 
 /-- Set of all states -/
 -- TODO(mathlib): `Fintype.elems` is `Finset.univ` and `Fintype.complete` is `Finset.mem_univ`,
 -- so `setS`/`setA`/`inS`/`inA` are four aliases -- use the Mathlib names directly.
-def MDP.setS : Finset M.St := Fintype.elems 
+def MDP.setS : Finset M.State := Fintype.elems 
 /-- Set of all actions -/
-def MDP.setA : Finset M.At := Fintype.elems
+def MDP.setA : Finset M.Action := Fintype.elems
 
-theorem MDP.inS : ∀s : M.St, s ∈ M.setS := Fintype.complete
-theorem MDP.inA : ∀a : M.At, a ∈ M.setA := Fintype.complete
+theorem MDP.inS : ∀s : M.State, s ∈ M.setS := Fintype.complete
+theorem MDP.inA : ∀a : M.Action, a ∈ M.setA := Fintype.complete
 
--- TODO(naming): `MDP.SA` → `MDP.numStateActions` (or `MDP.card_stateAction`), and the lemma
--- `MDP.SA_ne` → `MDP.numStateActions_pos`. `SA` is an initialism for a `ℕ`-valued def;
--- Mathlib names a cardinality `card*`/`num*` so it cannot be mistaken for a type.
-def MDP.SA := M.S * M.A
+def MDP.numStateActions := M.S * M.A
 
-theorem MDP.SA_ne : 0 < M.SA := Nat.mul_pos M.S_ne M.A_ne
+theorem MDP.numStateActions_pos : 0 < M.numStateActions := Nat.mul_pos M.S_pos M.A_pos
 
 end Definitions
 
@@ -86,14 +73,14 @@ section Histories
 
 /-- Represents a history. The state is type ℕ and action is type ℕ. -/
 -- NOTE(mathlib): `Hist M` is INFINITE -- histories have unbounded length, and there is no
--- `Fintype`/`FinEnum` instance for it (only `MDP.HistT M t`, the length-`t` slice, has one;
--- see the `Fintype (M.HistT t)` instance below). Consequently `Δ R (Hist M)` is currently
+-- `Fintype`/`FinEnum` instance for it (only `MDP.HistOfLength M t`, the length-`t` slice, has one;
+-- see the `Fintype (M.HistOfLength t)` instance below). Consequently `Δ R (Hist M)` is currently
 -- inexpressible: `Findist` requires `[FinEnum Ω]`.
 --
 -- That matters for the roadmap. Randomized history-dependent policies `Π_HR` and the
 -- trajectory expectations `𝔼^{h,π,T}` (`latex/main.tex:977-1000,1317`) are exactly
 -- distributions over `Hist M`. This file already works with `Finset (Hist M)` in four places
--- (`Histories`, `MDP.HistoriesHorizon`), so a *finitely supported* distribution is the
+-- (`histories`, `MDP.historiesHorizon`), so a *finitely supported* distribution is the
 -- natural shape for them.
 --
 -- This is the one place where Mathlib's `Finsupp` would genuinely be the right model -- but it
@@ -103,7 +90,7 @@ section Histories
 --       `Finsupp.sum` ARE computable -- it is `onFinset`/`single`/`+`/`•` that are not -- so a
 --       hand-rolled version keeps `#eval` and handles infinite `Ω`.
 --   (b) Mathlib's `Finsupp`, accepting noncomputability for history distributions only.
---   (c) keep indexing by `MDP.HistT M t`, which is finite for each `t`, and never form a
+--   (c) keep indexing by `MDP.HistOfLength M t`, which is finite for each `t`, and never form a
 --       distribution over all of `Hist M`.
 inductive Hist (M : MDP R)  : Type where
   | init : Fin M.S → Hist M
@@ -118,18 +105,12 @@ def Hist.length : Hist M → ℕ
   | init _ => 0
   | Hist.foll h _ _ => 1 + length h
 
--- TODO(naming): `MDP.HistT` → `MDP.HistOfLength` (or `Hist.OfLength`). The trailing `T`
--- carries no meaning for a reader (type? time? tuple?); the subtype is "histories of length
--- `t`". Same for `MDP.HistoriesHorizonT` further down.
-def MDP.HistT (M : MDP R) (t : ℕ) := {h : Hist M // h.length = t}
+def MDP.HistOfLength (M : MDP R) (t : ℕ) := {h : Hist M // h.length = t}
 
--- TODO: We should prove that HistT is a Fintype in order to be able to perform operations on it
+-- TODO: We should prove that HistOfLength is a Fintype in order to be able to perform operations on it
 
 /-- Nonempty histories -/
--- TODO(naming): `HistNE` → `HistNonempty`, or better `Hist.Nonempty`. `NE` collides with
--- Mathlib's `Ne` (`≠`) as a name part, which is what `NE` reads as; the subtype here is
--- histories of length `≥ 1`.
-abbrev HistNE (M : MDP R) := {m : Hist M // m.length ≥ 1}
+abbrev HistNonempty (M : MDP R) := {m : Hist M // m.length ≥ 1}
 
 /-- Returns the last state of the history -/
 def Hist.last : Hist M → Fin M.S
@@ -138,195 +119,174 @@ def Hist.last : Hist M → Fin M.S
 
 /-- Number of histories of length t. -/
 @[simp]
--- TODO(naming): `MDP.numhist` → `MDP.numHist` (a data `def` is `lowerCamelCase`, so the word
--- boundary must be capitalised), or `MDP.card_histOfLength` to say it is the cardinality of
--- `HistT`.
-def MDP.numhist (M : MDP R) (t : ℕ) : ℕ := M.S * M.SA^t
+def MDP.numHist (M : MDP R) (t : ℕ) : ℕ := M.S * M.numStateActions^t
 
--- TODO(naming): `hist_len_zero` → `MDP.numHist_zero`. The statement is about `numhist`, not
--- about a history's length; as named it reads as "a history of length zero".
-theorem hist_len_zero : M.numhist 0 = M.S := by simp [MDP.numhist]
+theorem numHist_zero : M.numHist 0 = M.S := by simp [MDP.numHist]
 
 --------------------------- START: Explicit index for hist -------------------------------------------------------------------
 section ExplicitHistIndex
 
 /-- Construct i-th history of length t -/
--- TODO(naming): `idx_to_hist` → `idxToHist`, `hist_to_idx` → `histToIdx` (and the primed
--- variants likewise), `MDP.hist_idx_valid` → `MDP.histIdxValid`. All are data-valued `def`s,
--- which Mathlib writes in `lowerCamelCase`; `snake_case` marks a theorem.
-def MDP.idx_to_hist (M : MDP R) (t : ℕ) (i : Fin (M.numhist t)) : M.HistT t := 
+def MDP.idxToHist (M : MDP R) (t : ℕ) (i : Fin (M.numHist t)) : M.HistOfLength t := 
   match t with
   | Nat.zero => 
-      let ii : Fin M.S := ⟨i.1, by have h := i.2; simp_all [MDP.numhist] ⟩
+      let ii : Fin M.S := ⟨i.1, by have h := i.2; simp_all [MDP.numHist] ⟩
       ⟨Hist.init ii,  rfl⟩
   | Nat.succ t' =>
-      let sa : ℕ := i % M.SA 
-      let s : Fin M.S := ⟨sa  % M.S,  Nat.mod_lt sa M.S_ne ⟩
-      let a : Fin M.A := ⟨(sa / M.S) % M.A, Nat.mod_lt (sa/M.S) M.A_ne⟩
-      let ni : ℕ := (i - sa) / M.SA
-      let h1 : M.SA ∣ (i - sa) := Nat.dvd_sub_mod ↑i
-      let h2 : ni < M.numhist t' :=  
+      let sa : ℕ := i % M.numStateActions 
+      let s : Fin M.S := ⟨sa  % M.S,  Nat.mod_lt sa M.S_pos ⟩
+      let a : Fin M.A := ⟨(sa / M.S) % M.A, Nat.mod_lt (sa/M.S) M.A_pos⟩
+      let ni : ℕ := (i - sa) / M.numStateActions
+      let h1 : M.numStateActions ∣ (i - sa) := Nat.dvd_sub_mod ↑i
+      let h2 : ni < M.numHist t' :=  
         by have h := i.2
-           unfold MDP.numhist at h ⊢
-           have h6 : M.SA ∣ M.S*M.SA^t'.succ := 
-                  by apply Nat.dvd_mul_left_of_dvd ?_ M.S; exact Dvd.intro_left (M.SA.pow t') rfl
-           have h7 : M.S*M.SA^t' = M.S*M.SA^t'.succ / M.SA :=
-              by calc M.S*M.SA^t' = M.S*M.SA^t'* M.SA / M.SA := Eq.symm (Nat.mul_div_left (M.S*M.SA^t') M.SA_ne)
-                      _ = M.S*M.SA^t'.succ / M.SA :=  by rw [Nat.mul_assoc,←Nat.pow_succ]
+           unfold MDP.numHist at h ⊢
+           have h6 : M.numStateActions ∣ M.S*M.numStateActions^t'.succ := 
+                  by apply Nat.dvd_mul_left_of_dvd ?_ M.S; exact Dvd.intro_left (M.numStateActions.pow t') rfl
+           have h7 : M.S*M.numStateActions^t' = M.S*M.numStateActions^t'.succ / M.numStateActions :=
+              by calc M.S*M.numStateActions^t' = M.S*M.numStateActions^t'* M.numStateActions / M.numStateActions := Eq.symm (Nat.mul_div_left (M.S*M.numStateActions^t') M.numStateActions_pos)
+                      _ = M.S*M.numStateActions^t'.succ / M.numStateActions :=  by rw [Nat.mul_assoc,←Nat.pow_succ]
            subst ni 
            rw [h7]
            exact Nat.div_lt_div_of_lt_of_dvd h6 (Nat.sub_lt_of_lt h)
-      let h' := M.idx_to_hist t' ⟨ni, h2⟩
+      let h' := M.idxToHist t' ⟨ni, h2⟩
       ⟨ h'.1.foll a s , 
         by simp only [Hist.length, h'.2, Nat.succ_eq_add_one]; exact Nat.add_comm 1 t'⟩ 
 
 -- TODO(mathlib): = `by rw [Nat.sub_one_mul, Nat.sub_add_cancel (Nat.le_mul_of_pos_left n h)]`
 -- (`Nat.sub_one_mul` is core `Init/Data/Nat/Basic.lean:1189`). Verified.
 -- Also note this declares into the root `Nat` namespace from a project file.
--- TODO(naming): this declares into Mathlib's `Nat` namespace from a project file — name
--- squatting that will silently shadow or clash if Mathlib ever adds the same name. Move it
--- under the project namespace (it is inside `namespace MDPs`, so simply dropping the `Nat.`
 -- prefix suffices), or drop it in favour of the core one-liner in the `TODO(mathlib)` above.
 -- Same issue as `List.finIdxOf` in `Probability/Basic.lean`.
--- TODO(naming): if kept, `sum_one_prod_cancel` → `sub_one_mul_add_self`. The statement is
--- `(m-1) * n + n = m * n`; `sum`/`prod` are Mathlib's words for `∑`/`∏`, not `+`/`*`.
-lemma Nat.sum_one_prod_cancel (n : ℕ) {m : ℕ} (h : 0 < m) : (m-1) * n + n = m*n := 
+lemma MDPLib.Nat.sub_one_mul_add_self (n : ℕ) {m : ℕ} (h : 0 < m) : (m-1) * n + n = m*n := 
   by rw [Nat.sub_one_mul]
      apply Nat.sub_add_cancel
      exact Nat.le_mul_of_pos_left n h 
 
 /-- Compute the index of a history  -/
-def MDP.hist_to_idx (M : MDP R) (h : Hist M) : Fin (M.numhist h.length) := 
+def MDP.histToIdx (M : MDP R) (h : Hist M) : Fin (M.numHist h.length) := 
     match h with 
-    | Hist.init s => ⟨s, by simp only [numhist, Hist.length, pow_zero, mul_one, Fin.is_lt]⟩
+    | Hist.init s => ⟨s, by simp only [numHist, Hist.length, pow_zero, mul_one, Fin.is_lt]⟩
     | Hist.foll h' a s => 
-        let n' := M.hist_to_idx h'
-        let n := M.SA * ↑n' + (a * M.S + s)
-        have h : a * M.S + s < M.SA := 
-            by unfold MDP.SA
+        let n' := M.histToIdx h'
+        let n := M.numStateActions * ↑n' + (a * M.S + s)
+        have h : a * M.S + s < M.numStateActions := 
+            by unfold MDP.numStateActions
                calc a * M.S + s < a * M.S + M.S := 
                         by grw [Nat.le_sub_one_of_lt s.2]
-                           exact Nat.add_lt_add_iff_left.mpr (Nat.sub_one_lt_of_lt  M.S_ne)
+                           exact Nat.add_lt_add_iff_left.mpr (Nat.sub_one_lt_of_lt  M.S_pos)
                     _ ≤ (M.A-1) * M.S + M.S := by grw [Nat.le_sub_one_of_lt a.2]
-                    _ ≤ M.SA := 
-                        by unfold MDP.SA
-                           rw [Nat.sum_one_prod_cancel]
+                    _ ≤ M.numStateActions := 
+                        by unfold MDP.numStateActions
+                           rw [MDPLib.Nat.sub_one_mul_add_self]
                            · rw [Nat.mul_comm]
-                           · exact M.A_ne 
+                           · exact M.A_pos 
         ⟨n, 
-         by have h1 : ↑n' ≤ M.numhist h'.length - 1 := Nat.le_sub_one_of_lt n'.2
-            have h2 : a * M.S + s ≤ M.SA - 1 := Nat.le_sub_one_of_lt h 
-            unfold numhist at h1 ⊢
+         by have h1 : ↑n' ≤ M.numHist h'.length - 1 := Nat.le_sub_one_of_lt n'.2
+            have h2 : a * M.S + s ≤ M.numStateActions - 1 := Nat.le_sub_one_of_lt h 
+            unfold numHist at h1 ⊢
             unfold Hist.length
             subst n
             rw [Nat.pow_add,←Nat.mul_assoc,Nat.mul_comm,Nat.mul_assoc]
             nth_rw 3 [Nat.mul_comm]
-            have h4 : M.SA ≤ M.SA * M.SA ^ h'.length * M.S := by 
+            have h4 : M.numStateActions ≤ M.numStateActions * M.numStateActions ^ h'.length * M.S := by 
                 rw [Nat.mul_assoc]
-                apply Nat.le_mul_of_pos_right M.SA (Nat.mul_pos (Nat.pow_pos M.SA_ne) M.S_ne)
-            have h5 : 0 < M.SA * M.SA ^ h'.length * M.S  := 
-              calc 0 < M.SA := M.SA_ne
-                   _ ≤  M.SA * M.SA ^ h'.length * M.S := h4  
-            calc ↑n' * M.SA + (↑a * M.S + ↑s) ≤ (M.S * M.SA ^ h'.length - 1) * M.SA + (↑a * M.S + ↑s) := by grw [h1]
-                 _ ≤ (M.S * M.SA ^ h'.length - 1) * M.SA + (M.SA - 1) := by grw [h2]
-                 _ = M.S * M.SA ^ h'.length * M.SA - M.SA + (M.SA - 1) := by rw [Nat.sub_one_mul]
-                 _ = M.SA * M.SA ^ h'.length * M.S - M.SA + (M.SA - 1) := by qify; ring_nf -- commutativity?
-                 _ = M.SA * M.SA ^ h'.length * M.S - M.SA + M.SA - 1 := by 
-                        rw [Nat.add_sub_assoc M.SA_ne (M.SA * M.SA ^ h'.length * M.S - M.SA)]
-                 _ = M.SA * M.SA ^ h'.length * M.S + M.SA - M.SA - 1 := by rw [← Nat.sub_add_comm h4]
-                 _ = M.SA * M.SA ^ h'.length * M.S - 1 := by rw [Nat.add_sub_cancel_right]
-                 _ < M.SA * M.SA ^ h'.length * M.S := by exact Nat.sub_one_lt_of_lt h5
-                 _ = M.SA^1 * M.SA ^ h'.length * M.S := by simp 
+                apply Nat.le_mul_of_pos_right M.numStateActions (Nat.mul_pos (Nat.pow_pos M.numStateActions_pos) M.S_pos)
+            have h5 : 0 < M.numStateActions * M.numStateActions ^ h'.length * M.S  := 
+              calc 0 < M.numStateActions := M.numStateActions_pos
+                   _ ≤  M.numStateActions * M.numStateActions ^ h'.length * M.S := h4  
+            calc ↑n' * M.numStateActions + (↑a * M.S + ↑s) ≤ (M.S * M.numStateActions ^ h'.length - 1) * M.numStateActions + (↑a * M.S + ↑s) := by grw [h1]
+                 _ ≤ (M.S * M.numStateActions ^ h'.length - 1) * M.numStateActions + (M.numStateActions - 1) := by grw [h2]
+                 _ = M.S * M.numStateActions ^ h'.length * M.numStateActions - M.numStateActions + (M.numStateActions - 1) := by rw [Nat.sub_one_mul]
+                 _ = M.numStateActions * M.numStateActions ^ h'.length * M.S - M.numStateActions + (M.numStateActions - 1) := by qify; ring_nf -- commutativity?
+                 _ = M.numStateActions * M.numStateActions ^ h'.length * M.S - M.numStateActions + M.numStateActions - 1 := by 
+                        rw [Nat.add_sub_assoc M.numStateActions_pos (M.numStateActions * M.numStateActions ^ h'.length * M.S - M.numStateActions)]
+                 _ = M.numStateActions * M.numStateActions ^ h'.length * M.S + M.numStateActions - M.numStateActions - 1 := by rw [← Nat.sub_add_comm h4]
+                 _ = M.numStateActions * M.numStateActions ^ h'.length * M.S - 1 := by rw [Nat.add_sub_cancel_right]
+                 _ < M.numStateActions * M.numStateActions ^ h'.length * M.S := by exact Nat.sub_one_lt_of_lt h5
+                 _ = M.numStateActions^1 * M.numStateActions ^ h'.length * M.S := by simp 
             ⟩
 
 open Function 
 
 
 /-- A more convenient definition for constructing inverses  -/
-def MDP.hist_to_idx' (M : MDP R) (t : ℕ) (h : HistT M t) : Fin (M.numhist t) := 
-    h.property ▸ M.hist_to_idx h.val
+def MDP.histToIdx' (M : MDP R) (t : ℕ) (h : HistOfLength M t) : Fin (M.numHist t) := 
+    h.property ▸ M.histToIdx h.val
 
 /-- A more convenient definition for constructing inverses  -/
-def MDP.idx_to_hist' (M : MDP R) (t : ℕ) (i : Fin (M.numhist t)) : HistT M t := 
-    M.idx_to_hist t i
+def MDP.idxToHist' (M : MDP R) (t : ℕ) (i : Fin (M.numHist t)) : HistOfLength M t := 
+    M.idxToHist t i
 
-def MDP.hist_idx_valid (M : MDP R) := {ti : ℕ × ℕ | ti.2 < M.numhist ti.1}
+def MDP.histIdxValid (M : MDP R) := {ti : ℕ × ℕ | ti.2 < M.numHist ti.1}
 
 variable (M : MDP R) (t : ℕ) 
 
 
--- TODO(naming): `state_of_hist_len0` → `exists_init_of_length_eq_zero`, and
--- `state_of_hist_len_t` → `exists_foll_of_length_eq_succ`. Mathlib puts an existential
--- conclusion first as `exists_`, spells out `length`, and never puts digits (`len0`) or a
--- bound variable (`_t`) in a name.
-theorem state_of_hist_len0 (h : M.HistT 0) : ∃s, h.val = Hist.init s := sorry 
+theorem exists_init_of_length_eq_zero (h : M.HistOfLength 0) : ∃s, h.val = Hist.init s := sorry 
 
-theorem state_of_hist_len_t (h : M.HistT t.succ) : ∃h',∃a,∃s, h.val = Hist.foll h' a s := sorry 
+theorem exists_foll_of_length_eq_succ (h : M.HistOfLength t.succ) : ∃h',∃a,∃s, h.val = Hist.foll h' a s := sorry 
 
--- TODO(naming): `hist_idx_LeftInverse` → `leftInverse_idxToHist_histToIdx`, and
--- `hist_idx_RightInverse` → `rightInverse_idxToHist_histToIdx`. A capitalised segment inside
--- a snake_case theorem name is never Mathlib style: the predicate is camel-cased and put
--- first (`Function.leftInverse_iff_comp`), followed by the two functions in argument order.
-theorem hist_idx_LeftInverse (M : MDP R) : LeftInverse (M.idx_to_hist' t) (M.hist_to_idx' t)  := by
+theorem leftInverse_idxToHist_histToIdx (M : MDP R) : LeftInverse (M.idxToHist' t) (M.histToIdx' t)  := by
   intro h
-  unfold MDP.idx_to_hist' MDP.hist_to_idx'
+  unfold MDP.idxToHist' MDP.histToIdx'
   --simp only
   -- Show that the index is valid
-  have h_valid : ⟨h.1.length, (M.hist_to_idx h.1).val⟩ ∈ M.hist_idx_valid := by
-    unfold MDP.hist_idx_valid
+  have h_valid : ⟨h.1.length, (M.histToIdx h.1).val⟩ ∈ M.histIdxValid := by
+    unfold MDP.histIdxValid
     simp only [Set.mem_setOf_eq]
-    exact (M.hist_to_idx h.1).2
+    exact (M.histToIdx h.1).2
   simp -- TODO: remove non-terminal simps
   -- Prove by induction on the history
   induction t with --TODO: 
     | zero => 
         sorry 
-        /- unfold MDP.hist_to_idx MDP.idx_to_hist
+        /- unfold MDP.histToIdx MDP.idxToHist
         simp 
         have h : s.val < M.S * 1 := by simp; exact s.2
         simp
         sorry -/
     | succ t' => sorry 
   /-| init s =>
-    unfold hist_to_idx idx_to_hist
-    simp only [Hist.length, numhist, pow_zero, mul_one]
+    unfold histToIdx idxToHist
+    simp only [Hist.length, numHist, pow_zero, mul_one]
     have h : s.val < M.S * 1 := by simp; exact s.2
     simp [h]
   | foll h' a s ih =>
-    unfold hist_to_idx
+    unfold histToIdx
     simp only [Hist.length]
     -- The encoded index for foll h' a s
-    let n' := M.hist_to_idx h'
-    let n := M.SA * ↑n' + (a.val * M.S + s.val)
-    -- Need to show idx_to_hist decodes this correctly
-    have h_lt : n < M.numhist (h'.length + 1) := (M.hist_to_idx (Hist.foll h' a s)).2
-    unfold idx_to_hist
+    let n' := M.histToIdx h'
+    let n := M.numStateActions * ↑n' + (a.val * M.S + s.val)
+    -- Need to show idxToHist decodes this correctly
+    have h_lt : n < M.numHist (h'.length + 1) := (M.histToIdx (Hist.foll h' a s)).2
+    unfold idxToHist
     simp only [Hist.length]
     -- Show that modular arithmetic recovers a and s
-    have h_sa_mod : n % M.SA = a.val * M.S + s.val := by
+    have h_sa_mod : n % M.numStateActions = a.val * M.S + s.val := by
       unfold n
       rw [Nat.add_mod, Nat.mul_mod_right]
       simp
-      have : a.val * M.S + s.val < M.SA := by
-        unfold MDP.SA
+      have : a.val * M.S + s.val < M.numStateActions := by
+        unfold MDP.numStateActions
         calc a.val * M.S + s.val < a.val * M.S + M.S := by omega
              _ ≤ (M.A - 1) * M.S + M.S := by omega
              _ = M.A * M.S := by omega
       exact Nat.mod_eq_of_lt this
     -- Show that division recovers n'
-    have h_div : (n - n % M.SA) / M.SA = ↑n' := by
+    have h_div : (n - n % M.numStateActions) / M.numStateActions = ↑n' := by
       rw [h_sa_mod]
       exact hist_to_idx_foll_decompose M h' a s
     -- Now combine to show the full result
     simp only [n, h_sa_mod, h_div]
     congr 1
     · -- Show the recursive history is recovered
-      have : (M.idx_to_hist h'.length ⟨↑n', n'.2⟩).val = h' := by
+      have : (M.idxToHist h'.length ⟨↑n', n'.2⟩).val = h' := by
         have ih' := ih
-        unfold idx_to_hist' hist_to_idx' at ih'
+        unfold idxToHist' histToIdx' at ih'
         simp only at ih'
-        have h_valid' : (h'.length, n'.val) ∈ M.hist_idx_valid := by
-          unfold hist_idx_valid
+        have h_valid' : (h'.length, n'.val) ∈ M.histIdxValid := by
+          unfold histIdxValid
           simp only [Set.mem_setOf_eq]
           exact n'.2
         simp [h_valid'] at ih'
@@ -336,7 +296,7 @@ theorem hist_idx_LeftInverse (M : MDP R) : LeftInverse (M.idx_to_hist' t) (M.his
       rfl  
 -/
 -- this is a RightInvOn because we can possibly feed an incorrect index to the history 
-theorem hist_idx_RightInverse : RightInverse (M.idx_to_hist' t) (M.hist_to_idx' t) := sorry 
+theorem rightInverse_idxToHist_histToIdx : RightInverse (M.idxToHist' t) (M.histToIdx' t) := sorry 
 
 
 end ExplicitHistIndex
@@ -353,13 +313,10 @@ def Hist.prefix (k : ℕ) (h : Hist M) : Hist M :=
         if hp.length + 1 ≤ k then hp.foll a s
         else hp.prefix k
 
--- TODO(naming): the `2`-as-"to" family → `tupleToHist`, `histToTuple`, `stateToHist`,
--- `histToState`. Digits standing for words do not appear in Mathlib names (it writes
--- `Finset.toList`, `Nat.toDigits`), and these are data `def`s, so `lowerCamelCase`.
-def MDP.tuple2hist : Hist M × (Fin M.A) × (Fin M.S) → HistNE M
+def MDP.tupleToHist : Hist M × (Fin M.A) × (Fin M.S) → HistNonempty M
   | ⟨h, as⟩ => ⟨h.foll as.1 as.2, Nat.le.intro rfl⟩
 
-def MDP.hist2tuple : HistNE M → Hist M × (Fin M.A) × (Fin M.S) 
+def MDP.histToTuple : HistNonempty M → Hist M × (Fin M.A) × (Fin M.S) 
   | ⟨Hist.foll h a s, _ ⟩ => ⟨h, a, s⟩
 
 open Function 
@@ -367,120 +324,89 @@ open Function
 variable {M : MDP R}
 
 -- mapping between tuples and histories are injective
--- TODO(naming): the `linv_*` / `inj_*` block. Mathlib names a `Function.Injective f` lemma
--- `f_injective` (subject first, property last) and a `LeftInverse` lemma `leftInverse_g_f`:
---   `linv_hist2tuple_tuple2hist` → `leftInverse_histToTuple_tupleToHist`
---   `inj_tuple2hist_l1`          → `tupleToHist_injective`
---   `inj_tuple2hist`             → `val_comp_tupleToHist_injective`
---   `linv_hist2state_state2hist` → `leftInverse_histToState_stateToHist`
---   `inj_state2hist`             → `stateToHist_injective`
--- Note `_l1` is a disambiguator that says nothing; the two differ by the `Subtype.val`
--- composition, which is what the name should record.
-lemma linv_hist2tuple_tuple2hist : LeftInverse M.hist2tuple M.tuple2hist := fun _ ↦ rfl
-lemma inj_tuple2hist_l1 : Injective M.tuple2hist  := LeftInverse.injective linv_hist2tuple_tuple2hist
-lemma inj_tuple2hist : Injective (Subtype.val ∘ M.tuple2hist)  := Injective.comp (Subtype.val_injective) inj_tuple2hist_l1
+lemma leftInverse_histToTuple_tupleToHist : LeftInverse M.histToTuple M.tupleToHist := fun _ ↦ rfl
+lemma tupleToHist_injective : Injective M.tupleToHist  := LeftInverse.injective leftInverse_histToTuple_tupleToHist
+lemma val_comp_tupleToHist_injective : Injective (Subtype.val ∘ M.tupleToHist)  := Injective.comp (Subtype.val_injective) tupleToHist_injective
 
--- TODO(naming): `emb_tuple2hist_l1` → `tupleToHistNEEmbedding`, `emb_tuple2hist` →
--- `tupleToHistEmbedding`, and `state2hist_emb` → `stateToHistEmbedding`. Three fixes: `emb`
--- → `Embedding` spelled out, the qualifier put *after* the subject (the current file uses
--- `emb_` as a prefix here and `_emb` as a suffix below — inconsistent in the same section),
--- and `lowerCamelCase` for a data `def`.
-def emb_tuple2hist_l1 : Hist M × (Fin M.A) × (Fin M.S) ↪ HistNE M := ⟨M.tuple2hist, inj_tuple2hist_l1⟩
-def emb_tuple2hist : Hist M × (Fin M.A) × (Fin M.S) ↪ Hist M  := ⟨λ x ↦  M.tuple2hist x, inj_tuple2hist⟩
+def tupleToHistNEEmbedding : Hist M × (Fin M.A) × (Fin M.S) ↪ HistNonempty M := ⟨M.tupleToHist, tupleToHist_injective⟩
+def tupleToHistEmbedding : Hist M × (Fin M.A) × (Fin M.S) ↪ Hist M  := ⟨λ x ↦  M.tupleToHist x, val_comp_tupleToHist_injective⟩
 
 --- state
-def MDP.state2hist (M : MDP R) (s : Fin M.S) : Hist M := Hist.init s
-def MDP.hist2state (M : MDP R) : Hist M → (Fin M.S) 
+def MDP.stateToHist (M : MDP R) (s : Fin M.S) : Hist M := Hist.init s
+def MDP.histToState (M : MDP R) : Hist M → (Fin M.S) 
     | Hist.init s => s 
     | Hist.foll _ _ s => s
     
-lemma linv_hist2state_state2hist : LeftInverse M.hist2state M.state2hist := fun _ => rfl
-lemma inj_state2hist : Injective (M.state2hist) := LeftInverse.injective linv_hist2state_state2hist
+lemma leftInverse_histToState_stateToHist : LeftInverse M.histToState M.stateToHist := fun _ => rfl
+lemma stateToHist_injective : Injective (M.stateToHist) := LeftInverse.injective leftInverse_histToState_stateToHist
                      
-def state2hist_emb : (Fin M.S) ↪ Hist M := ⟨M.state2hist, inj_state2hist⟩
+def stateToHistEmbedding : (Fin M.S) ↪ Hist M := ⟨M.stateToHist, stateToHist_injective⟩
 
 /-- Checks if the first hist is the prefix of the second hist. -/
--- TODO(naming): `isprefix` → `isPrefix`. It is `Bool`-valued (data), so `lowerCamelCase`
--- applies and the word boundary must be capitalised; `IsPrefix` would be right only if it
--- were `Prop`-valued. Compare Mathlib's `List.isPrefixOf` (`Bool`) vs `List.IsPrefix` (`Prop`).
-def isprefix : Hist M → Hist M → Bool 
+def isPrefix : Hist M → Hist M → Bool 
     | Hist.init s₁, Hist.init s₂ => s₁ = s₂
-    | Hist.init s₁, Hist.foll hp _ _ => isprefix (Hist.init s₁) hp 
+    | Hist.init s₁, Hist.foll hp _ _ => isPrefix (Hist.init s₁) hp 
     | Hist.foll _ _ _, Hist.init _ => False
     | Hist.foll h₁ a₁ s₁', Hist.foll  h₂ a₂ s₂' => 
         if h₁.length > h₂.length then
             False
         else if h₁.length < h₂.length then
             let pre := Hist.foll h₁ a₁ s₁' 
-            isprefix pre h₂
+            isPrefix pre h₂
         else
-            (a₁ = a₂) ∧ (s₁' = s₂') ∧ (isprefix h₁ h₂)
+            (a₁ = a₂) ∧ (s₁' = s₂') ∧ (isPrefix h₁ h₂)
 
 /-- All histories that follow h for t decisions -/
--- TODO(naming): `Histories` → `histories` and `MDP.HistoriesHorizon` /
--- `MDP.HistoriesHorizonT` → `MDP.historiesHorizon` / `MDP.historiesHorizonT`. All three
--- return a `Finset`, i.e. data, so `UpperCamelCase` is wrong — it makes them read as types.
-def Histories (h : Hist M) : ℕ → Finset (Hist M) 
+def histories (h : Hist M) : ℕ → Finset (Hist M) 
     | Nat.zero => {h}
-    | Nat.succ t => ((Histories h t) ×ˢ M.setA ×ˢ M.setS).map emb_tuple2hist
+    | Nat.succ t => ((histories h t) ×ˢ M.setA ×ˢ M.setS).map tupleToHistEmbedding
 
-abbrev ℋ : Hist M → ℕ → Finset (Hist M) := Histories
+abbrev ℋ : Hist M → ℕ → Finset (Hist M) := histories
 
--- TODO(naming): `hist_lenth_eq_horizon` → `length_of_mem_histories`. Note the typo
--- ("lenth"), which a mechanical name derived from `Hist.length` would have prevented; the
--- statement is a property of every `h' ∈ ℋ h t`, which Mathlib writes as `_of_mem_`.
-theorem hist_lenth_eq_horizon (h : Hist M) (t : ℕ): ∀ h' ∈ (ℋ h t), h'.length = h.length + t := sorry
+theorem length_of_mem_histories (h : Hist M) (t : ℕ): ∀ h' ∈ (ℋ h t), h'.length = h.length + t := sorry
 
 @[simp]
--- TODO(naming): `hist_foll_nonempty` → `Hist.length_foll_pos`. The statement is
--- `0 < (h.foll a s).length`, which is `pos`, not `nonempty` (`Nonempty` is a distinct
--- Mathlib predicate about types). Likewise `hist_foll_len` → `Hist.length_foll`.
-theorem hist_foll_nonempty (h : Hist M) (a : M.At) (s : M.St) : (h.foll a s).length > 0 := by simp 
+theorem length_foll_pos (h : Hist M) (a : M.Action) (s : M.State) : (h.foll a s).length > 0 := by simp 
 
-theorem hist_foll_len (h : Hist M) (a : M.At) (s : M.St) : (h.foll a s).length = h.length + 1 := 
+theorem length_foll (h : Hist M) (a : M.Action) (s : M.State) : (h.foll a s).length = h.length + 1 := 
     by rewrite [Hist.length.eq_def]; exact Nat.add_comm 1 h.length
 
 /-- All histories of a given length  -/
-def MDP.HistoriesHorizon (M : MDP R) (t : ℕ) : Finset (Hist M) := 
+def MDP.historiesHorizon (M : MDP R) (t : ℕ) : Finset (Hist M) := 
   match t with
-  | Nat.zero => M.setS.map state2hist_emb 
-  | Nat.succ t => ((M.HistoriesHorizon t) ×ˢ M.setA ×ˢ M.setS).map emb_tuple2hist
+  | Nat.zero => M.setS.map stateToHistEmbedding 
+  | Nat.succ t => ((M.historiesHorizon t) ×ˢ M.setA ×ˢ M.setS).map tupleToHistEmbedding
 
 section Fintype_props 
 
--- TODO(naming): `hist_horiz_complete` → `mem_historiesHorizon`, `hist_horiz_exact` →
--- `length_eq_of_mem_historiesHorizon`, `hist_horiz_complete_t` → `mem_historiesHorizonT`.
--- `horiz` is a truncation; "complete"/"exact" describe the pair's *purpose* (that the finset
--- is neither too small nor too large) rather than either statement, and a trailing `_t`
--- is not a Mathlib disambiguator — the `T` in the definition's name is.
-theorem hist_horiz_complete (t : ℕ) (h : M.HistT t) : h.val ∈ M.HistoriesHorizon t := by
+theorem mem_historiesHorizon (t : ℕ) (h : M.HistOfLength t) : h.val ∈ M.historiesHorizon t := by
     induction t 
     case zero =>
       obtain ⟨h, ht⟩ := h
       cases h with
-        | init s => simpa [MDP.HistoriesHorizon] using ⟨s, ⟨M.inS s, rfl⟩⟩
+        | init s => simpa [MDP.historiesHorizon] using ⟨s, ⟨M.inS s, rfl⟩⟩
         | foll h s a => exfalso; simp_all 
     case succ t' ih =>
       obtain ⟨h, ht⟩ := h
-      unfold MDP.HistoriesHorizon at ⊢ 
+      unfold MDP.historiesHorizon at ⊢ 
       cases h with 
         | init s => exfalso; simp_all
         | foll h s a =>
-          rewrite [hist_foll_len] at ht 
+          rewrite [length_foll] at ht 
           have ih1 := ih ⟨h, Nat.succ_inj.mp ht⟩ 
-          simp_all [emb_tuple2hist, MDP.tuple2hist, M.inS, M.inA] 
+          simp_all [tupleToHistEmbedding, MDP.tupleToHist, M.inS, M.inA] 
 
 /-- Shows that there are no extra histories in the finset -/
-theorem hist_horiz_exact (t : ℕ) (h : Hist M) (hh : h ∈ M.HistoriesHorizon t) : h.length = t := by 
+theorem length_eq_of_mem_historiesHorizon (t : ℕ) (h : Hist M) (hh : h ∈ M.historiesHorizon t) : h.length = t := by 
   induction t generalizing h 
   case zero => 
-    unfold MDP.HistoriesHorizon state2hist_emb MDP.state2hist at hh 
+    unfold MDP.historiesHorizon stateToHistEmbedding MDP.stateToHist at hh 
     rewrite [Finset.mem_map] at hh
     obtain ⟨s, sin, sf⟩ := hh
     subst sf
     rfl
   case succ t' ih => 
-    unfold MDP.HistoriesHorizon emb_tuple2hist MDP.tuple2hist at hh 
+    unfold MDP.historiesHorizon tupleToHistEmbedding MDP.tupleToHist at hh 
     rw [Finset.mem_map] at hh
     obtain ⟨has, hasi, em⟩ := hh
     subst em
@@ -490,28 +416,27 @@ theorem hist_horiz_exact (t : ℕ) (h : Hist M) (hh : h ∈ M.HistoriesHorizon t
     rw [ih h' hasi.1]
     exact Nat.add_comm 1 t'
 
-def MDP.HistoriesHorizonT (M : MDP R) (t : ℕ) : Finset (M.HistT t) := 
-    let H := M.HistoriesHorizon t 
-    let f : {h : Hist M // h ∈ H} → M.HistT t := fun hh => ⟨hh.1, hist_horiz_exact t hh.1 hh.2⟩
+def MDP.historiesHorizonT (M : MDP R) (t : ℕ) : Finset (M.HistOfLength t) := 
+    let H := M.historiesHorizon t 
+    let f : {h : Hist M // h ∈ H} → M.HistOfLength t := fun hh => ⟨hh.1, length_eq_of_mem_historiesHorizon t hh.1 hh.2⟩
     have finj : Injective f := by unfold Injective f;  intro h₁ h₂ steq; grind only 
         -- TODO: this used to work instead of grind: rw [Subtype.ext_iff] at steq; simpa using steq 
     H.attach.map ⟨f, finj⟩
 
-theorem hist_horiz_complete_t (t : ℕ) (h : M.HistT t) : h ∈ M.HistoriesHorizonT t := by 
-    unfold MDP.HistoriesHorizonT
+theorem mem_historiesHorizonT (t : ℕ) (h : M.HistOfLength t) : h ∈ M.historiesHorizonT t := by 
+    unfold MDP.historiesHorizonT
     extract_lets H f finj 
     apply Finset.mem_map.mpr 
-    use ⟨h.1, hist_horiz_complete t h⟩
+    use ⟨h.1, mem_historiesHorizon t h⟩
     exact ⟨Finset.mem_attach _ _, rfl⟩
     
-instance (M : MDP R) (t : ℕ) : Fintype (M.HistT t) where 
-    elems := M.HistoriesHorizonT t  
-    complete := fun h => hist_horiz_complete_t t h 
+instance (M : MDP R) (t : ℕ) : Fintype (M.HistOfLength t) where 
+    elems := M.historiesHorizonT t  
+    complete := fun h => mem_historiesHorizonT t h 
 
 end Fintype_props
 
-abbrev ℋₜ : ℕ → Finset (Hist M) := M.HistoriesHorizon
+abbrev ℋₜ : ℕ → Finset (Hist M) := M.historiesHorizon
 
 end Histories
 
-end MDPs

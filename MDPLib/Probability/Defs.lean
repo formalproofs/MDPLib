@@ -340,23 +340,16 @@ theorem indicator_add_indicator_not_eq_one : (𝕀∘B) + (𝕀∘(¬ᵣ B)) = (
 
 variable {X Y: FinRV Ω R} {Xs : Fin k → FinRV Ω R}
 
--- TODO(mathlib): = `le_abs_self X`. `Ω → ℚ` is a Pi lattice ordered group, so `|X|` is
--- pointwise and defeq to `abs ∘ X`. Verified: `le_abs_self X` closes this goal as stated.
-theorem rv_le_abs : X ≤ abs ∘ X := by intro i; simp [le_abs_self (X i)]
+theorem rv_le_abs : X ≤ abs ∘ X := le_abs_self X
 
--- TODO(mathlib): = `(Finset.mul_sum _ _ _).symm`
--- (`Mathlib/Algebra/BigOperators/Ring/Finset.lean:59`) applied directly in the Pi semiring
--- `Ω → ℚ` -- no pointwise `ext` needed.
-theorem rv_prod_sum_additive  : ∑ i, Y * (Xs i) = Y * (∑ i, Xs i) :=
-    by ext ω; simp [Finset.mul_sum]
+theorem rv_prod_sum_additive  : ∑ i, Y * (Xs i) = Y * (∑ i, Xs i) := Eq.symm (Finset.mul_sum Finset.univ Xs Y)
 
 variable {g : Fin k → R}
 
 theorem comp_mul_indicatorEq (i) : (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) := 
     by ext ω; by_cases h : L ω = i <;> simp [h] 
 
-variable {β : Type}
-
+variable {β : Type}  -- general type, but different from the scalar type
 
 -- assume enumerability of Ω from here because we need a probability space
 variable [FinEnum Ω] [DecidableEq β]
@@ -449,6 +442,9 @@ end CDF
 ------------------------------ Expectation ----------------------
 
 /-!
+
+## Expectation operator
+
 Definitions and main properties of the expectation operator
 
 Main results
@@ -464,10 +460,9 @@ variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist R Ω) (X Y Z: FinRV
 /-- Standard expectation operator -/
 def expect : R := P.p ⬝ᵥ X
 
-/-- Standard expectation operator -/
+/-- Default expectation operator -/
 notation "𝔼[" X "//" P "]" => expect P X
 
---theorem exp_eq_correct : 𝔼[X // P] = ∑ v ∈ ((List.finRange P.length).map X).toFinset, v * ℙ[ X =ᵣ v // P]
 
 theorem probability_eq_expect_indicator : ℙ[B // P] = 𝔼[(𝕀 ∘ B : FinRV Ω R) // P] := by simp only [expect, probability]
 
@@ -489,15 +484,9 @@ notation "𝔼[" X "|ᵣ" L "//" P "]" => expectCondRV P X L
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y Z: FinRV Ω R} {B : FinRV Ω Bool}
 
--- TODO(mathlib): = `congrArg (expect P) h`. This is `congrArg`, nothing more.
-theorem expect_congr (h : X = Y) : 𝔼[X // P] = 𝔼[Y // P] := by 
-     unfold expect dotProduct
-     apply Fintype.sum_congr
-     simp_all
+theorem expect_congr (h : X = Y) : 𝔼[X // P] = 𝔼[Y // P] := congrArg (expect P) h
 
-
--- TODO(mathlib): `CommMonoid.mul_comm` is the unbundled field accessor; use `mul_comm X Y`.
-theorem expect_mul_comm : 𝔼[X * Y // P] = 𝔼[Y * X // P] := expect_congr (CommMonoid.mul_comm X Y)
+theorem expect_mul_comm : 𝔼[X * Y // P] = 𝔼[Y * X // P] := expect_congr (mul_comm X Y)
 
 variable {c : R} {p : Ω → R}
 
@@ -509,8 +498,7 @@ theorem expect_one : 𝔼[ 1 // P] = 1 := expect_const
 /-- Expectation is homogeneous under product -/
 theorem expect_smul : 𝔼[c • X // P] = c * 𝔼[X // P] := by rw [expect, expect, Matrix.dotProduct_smul']
 
--- TODO: rename to exp_homogenous'
-theorem expect_const_mul : 𝔼[(fun _ ↦ c) * X // P] = c * 𝔼[X // P] := by rw [const_mul_eq_smul,expect_smul]
+theorem expect_const_mul : 𝔼[(fun _ ↦ c) * X // P] = c * 𝔼[X // P] := by rw [const_mul_eq_smul, expect_smul]
 
 variable {k : ℕ} {g : Fin k → R}  {L : FinRV Ω (Fin k)}
 
@@ -520,8 +508,7 @@ theorem expect_indicatorEq (i) : 𝔼[(L =ᵢ i : FinRV Ω R) // P] = 𝔼[(𝕀
 theorem expect_sum {m : ℕ} (Xs : Fin m → FinRV Ω R) : 
     𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] := dotProduct_sum P.p Finset.univ Xs
      
--- TODO(mathlib): = `dotProduct_add P.p X Y` (`Mathlib/Data/Matrix/Mul.lean:124`).
-theorem expect_add : 𝔼[X + Y // P] = 𝔼[X // P] + 𝔼[Y // P] := by simp [expect]
+theorem expect_add : 𝔼[X + Y // P] = 𝔼[X // P] + 𝔼[Y // P] := dotProduct_add P.p X Y
 
 /-- Expectation is monotone  -/
 theorem expect_mono (h: X ≤ Y)  : 𝔼[X // P] ≤ 𝔼[Y // P] := dotProduct_le_dotProduct_of_nonneg_left h P.nonneg
@@ -555,8 +542,6 @@ section Probability_properties
 
 namespace FinRV
 
--- TODO(naming): `A` and `B` here are auto-bound implicits rather than section variables,
--- so the lemma is stated at a more general type than intended. Bind them explicitly.
 theorem indicator_mono {Ω : Type} [Nonempty Ω] {A B : FinRV Ω Bool}
     (h : ∀ ω, A ω → B ω) : (𝕀∘A : FinRV Ω R) ≤ (𝕀∘B) := by
   intro ω

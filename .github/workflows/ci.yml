@@ -77,6 +77,15 @@ jobs:
           root_file: main.tex
           working_directory: latex
 
+      # latexmk only exits with a bare code 12 on failure; the actual TeX error
+      # lives in main.log, which never reaches the job log otherwise.
+      - name: Show the LaTeX log if the paper failed to build
+        if: failure()
+        run: |
+          echo '::group::latex/main.log'
+          cat latex/main.log || echo 'no main.log was produced'
+          echo '::endgroup::'
+
       - name: Assemble the website
         run: |
           mkdir -p _site

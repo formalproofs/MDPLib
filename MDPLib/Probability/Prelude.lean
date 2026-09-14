@@ -33,13 +33,9 @@ theorem one_sub ( hp : IsProb p) : IsProb (1-p) := by
 theorem inv_one_sub_nonneg (hp : IsProb p) : 0 ≤ (1-p)⁻¹ := by
         simp_all only [IsProb, inv_nonneg, sub_nonneg]
 
--- See also `Convex.min_le_combo` / `Convex.combo_le_max` and `min_eq_left h` / `max_eq_left h` and `smul_eq_mul`
--- TODO(mathlib): confirmed 2026-09-13 -- `Convex.min_le_combo` and `Convex.combo_le_max`
--- (`Mathlib/Analysis/Convex/Segment.lean:502,506`) assume only `[Semiring 𝕜] [PartialOrder 𝕜]`,
--- strictly weaker than this library's stack, so the replacement is unconditionally available
--- (with `•` = `*` via `smul_eq_mul`). The `n`-ary versions are `Finset.inf_le_centerMass` /
--- `Finset.centerMass_le_sup`, already harvested as `exp_ge_min` / `exp_le_max` in
--- `MDPLib/Probability/Convexity.lean`.
+
+-- NOTE: could use Convex.min_le_combo, ..., but that just comlicates the argument
+
 theorem self_le_combo_of_le (hp : IsProb p) (h : x ≤ y) : x ≤ p * x + (1-p) * y := by
         have h2 := mul_le_mul_of_nonneg_left h hp.one_sub.1
         linarith

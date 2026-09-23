@@ -234,9 +234,9 @@ theorem leftInverse_idxToHist_histToIdx (M : MDP R) : LeftInverse (M.idxToHist' 
   -- Show that the index is valid
   have h_valid : ⟨h.1.length, (M.histToIdx h.1).val⟩ ∈ M.histIdxValid := by
     unfold MDP.histIdxValid
-    simp only [Set.mem_setOf_eq]
+    rw [Set.mem_ofPred_eq]
     exact (M.histToIdx h.1).2
-  simp -- TODO: remove non-terminal simps
+  simp 
   -- Prove by induction on the history
   induction t with --TODO: 
     | zero => 

@@ -15,115 +15,6 @@ variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R] [CharZero 
 
 --------------------------- Findist ---------------------------------------------------------------
 
-/-
-NOTE(mathlib): **Mathlib's measure theory is not a source of proofs for this library.**
-Audited 2026-09-13; recording the result so the question is not re-opened.
-
-Three independent obstructions, any one of which is fatal:
-
-1. Nothing in that stack is computable, so routing a definition through it would lose `#eval`
-   at `ℚ` -- the property this library exists to have.
-     `Measure`      -- `MeasureTheory/Measure/MeasureSpaceDef.lean:77`, in `noncomputable section`
-     `IsPMF`          -- `Probability/ProbabilityMassFunction/Basic.lean:44`,
-                       `{f : α → ℝ≥0∞ // HasSum f 1}` (so `tsum`, even on a `Fintype`)
-     `lintegral`    -- `MeasureTheory/Integral/Lebesgue/Basic.lean:48`, a
-                       `noncomputable irreducible_def`
-     `integral` (∫) -- `MeasureTheory/Integral/Bochner/Basic.lean:158`, `open scoped Classical in`
-   The root cause is `Real` itself (`noncomputable` `linearOrder` / `instField` / `decidableLT`,
-   `Basic/Real/Basic.lean:491,501,521`), inherited by `ℝ≥0` and then `ℝ≥0∞` -- whose
-   *multiplication* is noncomputable (`Basic/ENNReal/Basic.lean:141`). Every `Repr` in the
-   chain is `unsafe`.
-
-2. Nothing in it is generic in the scalar. Measures are `ℝ≥0∞`-valued; Bochner `∫` requires
-   `[NormedAddCommGroup E] [NormedSpace ℝ E]` and every usable lemma adds `[CompleteSpace E]`.
-   `ℚ` is none of those. There is no integral in Mathlib over an arbitrary ordered field: the
-   most general object, `setToSimpleFunc` (`MeasureTheory/Integral/FinMeasAdditive.lean:295`),
-   still works with `F →L[ℝ] F'`. So a measure-theoretic proof yields a theorem *about `ℝ`*,
-   and there is no transfer to the `R` this library is stated over.
-
-3. The statements largely are not there. `quantile`, `VaR`, `CVaR`, `valueAtRisk` and
-   `expectedShortfall` have **zero** occurrences in Mathlib, so `Probability/Quantile.lean` and
-   `Risk/VaR.lean` have no counterpart at all. Of this library's ~198 theorems only ~8
-   (`expect_sum`, `expect_mono`, `expect_smul`, `prob_compl_sums_to_one`, `LOTUS`,
-   `law_total_exp`, `law_of_total_probs`, `in_prob`) have a measure-theoretic analogue -- and
-   each is already a one- to three-line proof here. The rest are comparison-event lemmas
-   (`prob_f_*`, `prob_*_cashinvar`, `rv_f_*`) and finite image/list machinery, which measure
-   theory does not develop even for `ℝ`.
-
-What measure theory *is* good for, if ever wanted: as a **target** at `R = ℝ`. A bridge
-`Findist ℝ Ω → IsPMF Ω` (`IsPMF.ofFintype`, `Constructions.lean:204`) plus
-`IsPMF.integral_eq_sum` (`ProbabilityMassFunction/Integrals.lean:47`) would identify `𝔼` with `∫`
-and make Mathlib's deep results (`condExp`, martingales, CLT, concentration) importable. That
-belongs in its own file; it derives nothing that is already proved here.
-
-The reusable Mathlib API for finite probability is *algebraic*, not measure-theoretic, and is
-harvested in `MDPLib/Probability/Convexity.lean` via `Finset.centerMass`.
--/
-
-
-/-- Finite probability distribution over a finitely-enumerable sample space `Ω`. -/
--- NOTE(mathlib): Mathlib's `StdSimplex R Ω` (`Mathlib/Geometry/Convex/ConvexSpace/Defs.lean:56`)
--- is the same object (`weights` / `nonneg` / `total`), and `StdSimplex.nonempty` duplicates
--- `Findist.nonempty` below. We deliberately do NOT switch: `StdSimplex` is `Finsupp`-backed,
--- whereas this library is built throughout on plain functions and `⬝ᵥ`.
--- Re-audited 2026-09-13, decision unchanged, with these additions:
---  * confirmed `Finsupp`-backed -- the field is literally `weights : X →₀ R` (`Defs.lean:58`).
---  * `StdSimplex.range_toFun_comp_weights` (`Defs.lean:101`) states
---    `Set.range (·.weights) = (⋂ i, {s | 0 ≤ s i}) ∩ {s | ∑ i, s i = 1}` -- i.e. exactly this
---    structure's carrier. That is the bridge to use if we ever do want to interoperate.
---  * the *plain-function* simplex `stdSimplex : Set (ι → 𝕜)`
---    (`Mathlib/Analysis/Convex/StdSimplex.lean:39`) would have matched `Findist` directly, but
---    is DEPRECATED since 2026-08-29 in favour of the `Finsupp` one. Worth knowing before any
---    future migration: plain functions are the representation Mathlib is moving away from.
---
--- The decision is not merely a preference -- **switching is not possible without giving up
--- computability at `ℚ`**, which is this library's reason for existing. Evidence:
---
---  1. `Finsupp` is a noncomputable theory BY DECLARATION. `Mathlib/Data/Finsupp/Defs.lean:68`:
---     "This file is a `noncomputable theory` and uses classical logic throughout", with
---     `noncomputable section` at `:80`. The classical choice is welded into the *bodies*, not
---     exposed as instance arguments -- `onFinsetSupport` (`Defs.lean:231`) is
---     `haveI := Classical.decEq M; {a ∈ s | f a ≠ 0}` -- so no instance you supply can recover
---     it. Verified at `ℚ` over `Fin 3`: `Finsupp.mk`, `.support` and `Finsupp.sum` evaluate,
---     but `f + f` ("`Finsupp.instAdd` is noncomputable"), `(2:ℚ) • f`
---     ("`Finsupp.smulZeroClass`"), `Finsupp.single`, `Finsupp.onFinset` and
---     `Finsupp.equivFunOnFinite` all fail to compile. `#synth DecidableLE (Fin 3 →₀ ℚ)` also
---     fails: `Finsupp.decidableLE` (`Order.lean:245`) is gated on `[CanonicallyOrderedAdd α]`
---     (`:224`), which `ℚ` is not.
---  2. `StdSimplex` inherits this. `Mathlib/Geometry/Convex/ConvexSpace/Defs.lean:38` is
---     `@[expose] public noncomputable section`, covering `single`, `map`, `join`, `restrict`,
---     `iConvexComb`, `convexCombPair`. Even reading one coordinate,
---     `(s : StdSimplex ℚ (Fin 3)).weights 0`, is noncomputable -- `Finsupp.instFunLike` is.
---     This is the same test `IsPMF`/`Measure`/`ENNReal` failed in the block above, for the same
---     structural reason.
---  3. It would buy almost nothing anyway. `StdSimplex` is convex geometry, not probability:
---     no expectation monotonicity, no probability of an event, no indicators, no CDF, no
---     comparison events, no conditional expectation, no law of total probability, no products
---     or independence. ~190 of this library's ~198 theorems get no help. There is no `bind`
---     and no `Monad` instance either -- the module docstring calls `StdSimplex` a monad, but
---     `join`'s laws (`Defs.lean:307,311,315`) are `private`. Switching would additionally
---     *lose* the `Finset.centerMass` connection harvested in `Probability/Convexity.lean`:
---     that bridge was deprecated with "no replacement"
---     (`Mathlib/Analysis/Convex/StdSimplex.lean:458`).
---
--- Note also that "switch to `Finsupp` throughout" is the wrong granularity: only the
--- *distribution* is a candidate. `FinRV`, `MDP.r`, `DMRP.r`, value vectors and
--- `ProbabilityMatrix.P` are plain functions whose zero values carry no special meaning, and
--- over a `FinEnum Ω` we have `Ω →₀ R ≃ (Ω → R)`, so the `support` field is pure overhead --
--- zero-probability outcomes are ordinary and need no tracking. `Finsupp` earns its keep only
--- when the index is infinite; see the note on `Hist` in `MDPLib/MDP/Histories.lean`.
---
--- Maturity caveat, if this is ever revisited: `Convexity.StdSimplex` is four months old
--- (first commit 2026-05-11), still churning (18 commits since June, latest 2026-09-04 -- nine
--- days before our pin), with in-file renames already deprecated
--- (`convexCombination -> sConvexComb`, `convexComboPair -> convexCombPair`) and an open
-
--- `FIXME` at `Defs.lean:379`. Outside its own directory it has about five real dependents.
---
--- What we do instead: a one-way, proof-layer bridge in `MDPLib/Probability/StdSimplex.lean`
--- (`Findist.toStdSimplex`), which makes Mathlib's convexity/affine/compactness machinery
--- available without touching the computable core.
-
 
 structure Findist (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type where
     /-- Probability measure -/
@@ -199,18 +90,8 @@ variable {Ω : Type} [Nonempty Ω] {ρ : Type}
 
 namespace FinRV
 
--- for convenience define operations on bools
 -- WARNING: these four instances shadow Mathlib's global `Bool` algebra.
--- `Mathlib/Algebra/Ring/BooleanRing.lean:515,521` declares `Add Bool := xor` and
--- `Mul Bool := and` as part of `instance : BooleanRing Bool`, and :540 declares
--- `Bool.zero_eq_false`, which would collide by name with `zero_eq_false` below.
--- That file is NOT currently reachable from this import graph (checked: `BooleanRing` and
--- `Bool.zero_eq_false` are unknown constants here, and `#synth Add Bool` returns
--- `instAddBool`), so there is no ambiguity today -- but the moment anything pulls
--- `Mathlib.Algebra.Ring.BooleanRing` in, `+` on `Bool` becomes ambiguous between `or` and
--- `xor`, and `add_not_eq_one` / `leq_add_eq_succ` could change meaning.
--- If that happens: make these `scoped instance`s in the `FinRV` namespace, or drop them and
--- write `||` / `&&` explicitly.
+-- in `Mathlib/Algebra/Ring/BooleanRing.lean. These operations are defined differntly
 instance instMulBool : Mul Bool where mul a b := Bool.and a b
 instance instAddBool: Add Bool  where add a b := Bool.or a b
 instance instZeroBool : Zero Bool where zero := false
@@ -218,12 +99,11 @@ instance instOneBool : One Bool where one := true
 
 variable {A B : Bool}
 
+
 @[simp] theorem one_eq_true : (1:Bool) = true := rfl
--- NOTE: name-clashes with Mathlib's `Bool.zero_eq_false` -- see the WARNING above.
 @[simp] theorem zero_eq_false : (0:Bool) = false := rfl
 @[simp] theorem add_eq_or : A + B = Bool.or A B := rfl
 @[simp] theorem mul_eq_and : A * B = Bool.and A B := rfl
-
 
 /-- Negates a random variable -/
 @[simp] def not (B : FinRV Ω Bool) : FinRV Ω Bool :=
@@ -234,7 +114,7 @@ prefix:40 "¬ᵣ" => FinRV.not
 
 /-- Boolean random variable representing an quality condition -/
 @[simp] def eq [DecidableEq ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
-  (fun ω ↦ decide (Y ω = y) )
+  (fun ω ↦ decide (Y ω = y))
 
 /-- Boolean random variable representing an quality condition -/
 infix:50 "=ᵣ" => FinRV.eq
@@ -276,6 +156,8 @@ infix:50 "≥ᵣ" => FinRV.geq
 /-- Boolean random variable represening Y > y inequality -/
 infix:50 ">ᵣ" => FinRV.gt
 
+--instance instCoeFinRV_Fun : Coe (FinRV Ω ρ) (Ω → ρ) where 
+--  coe a := a
 
 /-- Equivalence when adding an element to integer comparison. -/
 theorem leq_add_eq_succ (D : FinRV Ω ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by
@@ -310,7 +192,7 @@ theorem indicator_comp_eq_indicatorEq : ∀i : Fin k, (𝕀 ∘ (L =ᵣ i) : Fin
 
 variable {B : FinRV Ω Bool}
 
-theorem indicator_eq_one_or_eq_zero : (𝕀∘B : FinRV Ω R) ω = 1 ∨ (𝕀∘B : FinRV Ω R) ω = 0 := by
+theorem indicator_eq_one_or_eq_zero {ω : Ω} : (𝕀∘B : FinRV Ω R) ω = 1 ∨ (𝕀∘B : FinRV Ω R) ω = 0 := by
     by_cases h : B ω
     · left; simp only [Function.comp_apply, h, indicator]
     · right; simp only [Function.comp_apply, h, indicator]

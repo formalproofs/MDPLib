@@ -75,11 +75,10 @@ theorem dotProduct_mul_rotate : x ⬝ᵥ (y * z) = z ⬝ᵥ (x * y) := by
 
 theorem dotProduct_mul_comm : x ⬝ᵥ (y * z) = x ⬝ᵥ (z * y) := congrArg (x ⬝ᵥ ·) (mul_comm y z)
 
-example : (c • x) i = c * x i := by rw [Pi.smul_apply, smul_eq_mul] 
+#check smul_eq_mul
+#check List.map_inj.mp rfl
 
--- TODO(naming): `X` here is an auto-bound implicit (it is not in the `variable` block), so
--- its type is inferred as a fresh universe-polymorphic Pi type. Bind it explicitly.
-theorem _root_.const_mul_eq_smul : (fun _ ↦ c) * X = c • X := rfl 
+theorem _root_.const_mul_eq_smul {X : Ω → R} : (fun _ ↦ c) * X = c • X := rfl
 
 -- TODO(mathlib): a literal alias of Mathlib's `dotProduct_smul`; consider dropping it
 -- and using the Mathlib name at call sites.

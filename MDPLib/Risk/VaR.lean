@@ -23,23 +23,22 @@ def RiskLevel (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] := { 
 --  coe := fun ⟨v,c⟩ => ⟨v, ⟨c.1, le_of_lt c.2⟩ ⟩
 
 def finVaRSet (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R) : Finset R :=
-  let 𝓧 := Finset.univ.image X
+  let 𝓧 := X.quarks
   𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
 
 theorem finVaRSet_nonempty (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R) : (finVaRSet (Ω := Ω) P X α).Nonempty := by
     apply Finset.filter_nonempty_iff.mpr
-    let xmin := (Finset.univ.image X).min' (image_univ_nonempty X)
-    use xmin
+    use X.minQuark
     constructor
-    · exact Finset.min'_mem (Finset.univ.image X) (image_univ_nonempty X)
-    · have h : ℙ[X <ᵣ xmin // P] = 0 := probability_lt_min
+    · exact minQuark_mem_quarks
+    · have h : ℙ[X <ᵣ X.minQuark // P] = 0 := probability_lt_minQuark
       rewrite [h]
       exact α.2.1 
 
 /-- Value-at-Risk of X at level α: VaR_α(X) = min { t ∈ X(Ω) | P[X ≤ t] ≥ α }.
     If we assume 0 ≤ α < 1, then the "else 0" branch is never used. -/
 def finVaR (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R) : R :=
-   let 𝓧 := Finset.univ.image X
+   let 𝓧 := X.quarks
    let 𝓢 := 𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
    have h : 𝓢.Nonempty := finVaRSet_nonempty P X α
    𝓢.max' h
@@ -53,8 +52,8 @@ theorem finVaR_spec : ℙ[X <ᵣ (finVaR P X α) // P] ≤ α.val ∧ α.val < �
       exact (Finset.mem_filter.mp  (Finset.max'_mem 𝓢 ne𝓢)).right
     · generalize h : (finVaR P X α) = t
       by_contra! hg
-      have hlt : t < (FinRV.max X) := lt_max_of_probability_leq_lt_one (lt_of_le_of_lt hg (Set.Ico.coe_lt_one α)) 
-      obtain ⟨q, ⟨hqgt, hqp, hqin⟩⟩ := exists_probability_leq_eq_probability_lt_of_lt_max P X t hlt
+      have hlt : t < (FinRV.maxQuark X) := lt_maxQuark_of_probability_leq_lt_one (lt_of_le_of_lt hg (Set.Ico.coe_lt_one α)) 
+      obtain ⟨q, ⟨hqgt, hqp, hqin⟩⟩ := exists_probability_leq_eq_probability_lt_of_lt_maxQuark P X t hlt
       have hqt : t ≥ q  := by 
         unfold finVaR at h; extract_lets 𝓧 𝓢 ne𝓢 at h;
         subst t 

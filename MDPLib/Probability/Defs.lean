@@ -5,6 +5,7 @@ import Mathlib.Data.Matrix.Mul  -- dot product definitions and results
 import Mathlib.Algebra.Notation.Pi.Defs -- operations on functions
 import Mathlib.Algebra.Module.PointwisePi -- for smul_pi
 import Mathlib.LinearAlgebra.Matrix.DotProduct -- for monotonicity
+import Mathlib.Data.Finset.Image -- for Finset.universal.image
 
 set_option linter.unusedSectionVars false
 
@@ -15,13 +16,11 @@ variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R] [CharZero 
 
 --------------------------- Findist ---------------------------------------------------------------
 
-
 structure Findist (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type where
     /-- Probability measure -/
     p : Ω → R
     sum_eq_one : 1 ⬝ᵥ p = 1
     nonneg : 0 ≤ p
-
 
 namespace Findist
 
@@ -39,9 +38,8 @@ def dirac {Ω : Type} [FinEnum Ω] (ω₀ : Ω) : Findist R Ω where
     sum_eq_one := by simp [dotProduct]
     nonneg := by intro ω; by_cases h : ω = ω₀ <;> simp [h]
 
-section General
-
 variable {Ω : Type} [FinEnum Ω]
+
 
 /-- The sample space of a probability distribution is nonempty. -/
 theorem nonempty (P : Findist R Ω) : Nonempty Ω := by
@@ -54,7 +52,6 @@ theorem nonempty (P : Findist R Ω) : Nonempty Ω := by
 theorem isEmpty_elim [IsEmpty Ω] (P : Findist R Ω) : False :=
   (not_nonempty_iff.mpr ‹_›) P.nonempty
 
-end General
 
 end Findist
 
@@ -105,6 +102,11 @@ variable {A B : Bool}
 @[simp] theorem add_eq_or : A + B = Bool.or A B := rfl
 @[simp] theorem mul_eq_and : A * B = Bool.and A B := rfl
 
+
+-- NOTE: the following definitions of inequalities and operations
+-- are neccessary because the standard operators generate Prop whereas
+-- we need to generate random variables.
+
 /-- Negates a random variable -/
 @[simp] def not (B : FinRV Ω Bool) : FinRV Ω Bool :=
   fun ω ↦ (B ω).not
@@ -134,23 +136,23 @@ infix:50 "=ᵢ" => FinRV.indicatorEq
 /-- Boolean random variable represening Y ≤ y inequality -/
 infix:50 "≤ᵣ" => FinRV.leq
 
-
 /-- Boolean random variable represening Y ≤ y inequality -/
-@[simp] def lt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
+@[simp] 
+def lt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   (fun ω ↦ Y ω < y)
 
 /-- Boolean random variable represening Y ≤ y inequality -/
 infix:50 "<ᵣ" => FinRV.lt
 
 /-- Boolean random variable represening Y ≤ y inequality -/
-@[simp] def geq [LE ρ] [DecidableLE ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
+@[simp, to_dual existing leq] def geq [LE ρ] [DecidableLE ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   (fun ω ↦ Y ω ≥ y)
 
 /-- Boolean random variable represening Y ≤ y inequality -/
 infix:50 "≥ᵣ" => FinRV.geq
 
 /-- Boolean random variable represening Y > y inequality -/
-@[simp] def gt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
+@[simp, to_dual existing lt] def gt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   fun ω ↦ Y ω > y
 
 /-- Boolean random variable represening Y > y inequality -/
@@ -160,19 +162,26 @@ infix:50 ">ᵣ" => FinRV.gt
 --  coe a := a
 
 /-- Equivalence when adding an element to integer comparison. -/
-theorem leq_add_eq_succ (D : FinRV Ω ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by
+theorem leq_add_eq_succ (D : FinRV Ω ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by 
   have exclusion {a b : ℕ} (h : a > b + 1) : (a > b) ∧ ¬(a = b + 1) := 
   ⟨ Nat.lt_of_succ_lt h, Ne.symm (Nat.ne_of_lt h) ⟩
   funext x 
-  unfold FinRV.leq FinRV.eq instHAdd Add.add Pi.instAdd
-  rw [Pi.add_apply, add_eq_or]
+  rw [FinRV.leq, instHAdd, Add.add, Pi.instAdd, Pi.add_apply, add_eq_or]
   by_cases h : D x ≤ m.succ
   · simp [h, Nat.le_or_eq_of_le_succ]
-  · simp [h, exclusion (Nat.not_le.mp h) ] 
+  · simp [h, exclusion (Nat.not_le.mp h)] 
 
 /-- Defines a preimage of an RV. This is a set with a decidable membership. -/
 def preimage (f : FinRV Ω ρ) : ρ → Set Ω :=
   fun t => { m : Ω | f m  = t}
+
+variable {β : Type} [DecidableEq β] [FinEnum Ω]
+/-! Finite set of potential atoms of X (probability may be zero) -/
+abbrev quarks  (X : FinRV Ω β) := Finset.univ.image X
+
+theorem mem_quarks {X : FinRV Ω β} (ω) : X ω ∈ X.quarks := Finset.mem_image_of_mem X (Finset.mem_univ ω)
+
+theorem quarks_nonempty {X : FinRV Ω β} : X.quarks.Nonempty := Finset.univ_nonempty.image X
 
 end FinRV
 
@@ -231,36 +240,28 @@ variable {g : Fin k → R}
 theorem comp_mul_indicatorEq (i) : (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) := 
     by ext ω; by_cases h : L ω = i <;> simp [h] 
 
-variable {β : Type}  -- general type, but different from the scalar type
+variable {β : Type}  -- general type, but different from the scalar type; could be an integer or categorical
 
 -- assume enumerability of Ω from here because we need a probability space
-variable [FinEnum Ω] [DecidableEq β]
+variable [FinEnum Ω] [LinearOrder β]
 
--- TODO(mathlib): = `Finset.univ_nonempty.image X` (`Mathlib/Data/Finset/BooleanAlgebra.lean:50`).
-theorem image_univ_nonempty (X : FinRV Ω β) : (Finset.univ.image X).Nonempty :=
-  Finset.image_nonempty.mpr Finset.univ_nonempty
+@[to_dual] -- minQuark
+def maxQuark (X : FinRV Ω β) : β := X.quarks.max' quarks_nonempty
 
--- NOTE(mathlib): already Mathlib-based (`Finset.min'`/`max'` on the image). An alternative
--- spelling is `Finset.univ.sup' Finset.univ_nonempty X`, which would make `le_max`
--- literally `Finset.le_sup' X (Finset.mem_univ ω)`
--- (`Mathlib/Data/Finset/Lattice/Fold.lean:564`), dually `Finset.inf'_le`. Cosmetic only.
-protected def min [LinearOrder β] (X : FinRV Ω β) : β :=
-  (Finset.univ.image X).min' (image_univ_nonempty X)
+variable {X : FinRV Ω β}
 
-protected def max [LinearOrder β] (X : FinRV Ω β) : β :=
-  (Finset.univ.image X).max' (image_univ_nonempty X)
+@[to_dual]
+theorem maxQuark_mem_quarks : X.maxQuark ∈ X.quarks := Finset.max'_mem _ quarks_nonempty
 
-variable {X : FinRV Ω R}
-
-theorem le_max  (ω) : X ω ≤ (FinRV.max X) := by 
-       have h : X ω ∈ (Finset.image X Finset.univ) := Finset.mem_image_of_mem X (Finset.mem_univ ω)
-       exact Finset.le_max' (Finset.image X Finset.univ) (X ω) h
+@[to_dual minQuark_le]
+theorem le_maxQuark (ω) : X ω ≤ X.maxQuark := Finset.le_max' (X.quarks) (X ω) (mem_quarks ω)
 
 end FinRV
 
 end RandomVariable
 
 ------------------------------ Probability ---------------------------
+
 namespace Findist
 open FinRV
 
@@ -280,6 +281,11 @@ def probabilityCond : R := ℙ[B * C // P] / ℙ[ C // P ]
 /-- Conditional probability of B on C -/
 notation "ℙ[" B "|" C "//" P "]" => probabilityCond P B C
 
+/-- Elements of Ω with positive probability  -/
+def support (P : Findist R Ω) : Finset Ω := Finset.univ.filter (fun ω => P.p ω > 0)
+
+/-- Values of X with positive probability -/
+def atoms (P : Findist R Ω) (X : FinRV Ω R) : Finset R := P.support.image X
 
 theorem probability_one : ℙ[1 // P] = 1 :=
     by rewrite [probability, indicator_one, dotProduct_comm]

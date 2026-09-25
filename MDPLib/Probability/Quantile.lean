@@ -132,16 +132,16 @@ variable {f : R → R}
 
 -- the reverse implications of the following results do not hold
 theorem mem_quantile_comp_of_monotone (hm : Monotone f) : q ∈ quantile P X α → (f q) ∈ quantile P (f ∘ X) α := by
-    intro h; grw [mem_quantile_iff, probability_leq_le_probability_comp_leq_of_monotone hm, probability_geq_le_probability_comp_geq_of_monotone hm] at h; exact h
+    intro h; grw [mem_quantile_iff, hm.probability_leq_le, hm.probability_geq_le] at h; exact h
 
 theorem mem_quantile_comp_iff_of_strictMono (hm : StrictMono f) : q ∈ quantile P X α ↔ (f q) ∈ quantile P (f ∘ X) α := by 
-    rw [mem_quantile_iff, mem_quantile_iff, probability_leq_eq_probability_comp_leq_of_strictMono hm, probability_geq_eq_probability_comp_geq_of_strictMono hm]
+    rw [mem_quantile_iff, mem_quantile_iff, hm.probability_leq_eq, hm.probability_geq_eq]
 
 theorem mem_quantileLower_comp_of_monotone (hm : Monotone f) : q ∈ quantileLower P X α → (f q) ∈ quantileLower P (f ∘ X) α := by
-    intro h; grw [mem_quantileLower_iff, probability_geq_le_probability_comp_geq_of_monotone hm] at h; exact h
+    intro h; grw [mem_quantileLower_iff, hm.probability_geq_le] at h; exact h
 
 theorem mem_quantileLower_comp_iff_of_strictMono (hm : StrictMono f) : q ∈ quantileLower P X α ↔ (f q) ∈ quantileLower P (f ∘ X) α := by 
-    rw [mem_quantileLower_iff, mem_quantileLower_iff, probability_geq_eq_probability_comp_geq_of_strictMono hm]
+    rw [mem_quantileLower_iff, mem_quantileLower_iff, hm.probability_geq_eq]
 
 -- set transformations
 theorem image_quantile_subset_quantile_comp_of_monotone (hm : Monotone f) : f '' quantile P X α ⊆  quantile P (f∘X) α := by

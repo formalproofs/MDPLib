@@ -409,14 +409,14 @@ variable (P : Findist R Ω) (X : FinRV Ω R) (t : R)
 theorem exists_probability_leq_eq_probability_lt_of_lt_maxQuark (h: t < X.maxQuark) : 
     ∃q > t, ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] ∧ q ∈ X.quarks := 
       ⟨X.succQuark t h, 
-        ⟨succQuark_gt X h, congrArg (probability P) (succQuark_lt_eq_le X h).symm, succQuark_mem_quark X h⟩⟩
+        ⟨succQuark_gt X h, probability_congr (succQuark_lt_eq_le X h).symm, succQuark_mem_quark X h⟩⟩
         
 
 --TODO: not clear if we need this one. Delete?
 /-- similar to `exists_probability_leq_eq_probability_lt_of_lt_maxQuark` but no precondition -/
 theorem exists_probability_leq_eq_probability_lt : ∃q > t,  ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] :=
       let ⟨q, hq⟩ := exists_leq_eq_lt X (t := t)
-      Exists.intro q ⟨hq.1, congrArg (probability P) hq.2⟩
+      Exists.intro q ⟨hq.1, probability_congr hq.2⟩
 
 
 end Rounding 
@@ -425,7 +425,7 @@ section Transformations
 
 section Monotone
 
--- TODO: Simplify the proofs below using duality
+-- TODO: Simplify the proofs below using duality and shorten names
 
 open Function 
 
@@ -433,28 +433,28 @@ variable {f : R → R} {x : R}
 
 --- LE
 
-theorem probability_leq_le_probability_comp_leq_of_monotone (hm : Monotone f) : ℙ[X ≤ᵣ x // P] ≤ ℙ[f ∘ X ≤ᵣ f x // P] := 
+theorem _root_.Monotone.probability_leq_le (hm : Monotone f) : ℙ[X ≤ᵣ x // P] ≤ ℙ[f ∘ X ≤ᵣ f x // P] := 
    probability_mono (leq_le_comp_leq_of_monotone hm)
 
-theorem probability_leq_eq_probability_comp_leq_of_strictMono (hm : StrictMono f) : ℙ[X ≤ᵣ x // P] = ℙ[f ∘ X ≤ᵣ f x // P] := 
-  congrArg (probability P) (leq_eq_comp_leq_of_strictMono hm) 
+theorem _root_.StrictMono.probability_leq_eq (hm : StrictMono f) : ℙ[X ≤ᵣ x // P] = ℙ[f ∘ X ≤ᵣ f x // P] := 
+  probability_congr (leq_eq_comp_leq_of_strictMono hm) 
 --- LT
 
-theorem probability_lt_eq_probability_comp_lt_of_strictMono (hm : StrictMono f) : ℙ[X <ᵣ x // P] = ℙ[f ∘ X <ᵣ f x // P] := 
-  congrArg (probability P) (lt_eq_comp_lt_of_strictMono hm) 
+theorem _root_.StrictMono.probability_lt_eq (hm : StrictMono f) : ℙ[X <ᵣ x // P] = ℙ[f ∘ X <ᵣ f x // P] := 
+  probability_congr (lt_eq_comp_lt_of_strictMono hm) 
 
 --- GE
 
-theorem probability_geq_le_probability_comp_geq_of_monotone (hm : Monotone f) : ℙ[X ≥ᵣ x // P] ≤ ℙ[f ∘ X ≥ᵣ f x // P] := 
+theorem _root_.Monotone.probability_geq_le (hm : Monotone f) : ℙ[X ≥ᵣ x // P] ≤ ℙ[f ∘ X ≥ᵣ f x // P] := 
    probability_mono (geq_le_comp_geq_of_monotone hm)
 
-theorem probability_geq_eq_probability_comp_geq_of_strictMono (hm : StrictMono f) : ℙ[X ≥ᵣ x // P] = ℙ[f ∘ X ≥ᵣ f x // P] := 
-  congrArg (probability P) (geq_eq_comp_geq_of_strictMono hm) 
+theorem _root_.StrictMono.probability_geq_eq (hm : StrictMono f) : ℙ[X ≥ᵣ x // P] = ℙ[f ∘ X ≥ᵣ f x // P] := 
+  probability_congr (geq_eq_comp_geq_of_strictMono hm) 
 
 --- GT
 
-theorem probability_gt_eq_probability_comp_gt_of_strictMono (hm : StrictMono f) : ℙ[X >ᵣ x // P] = ℙ[f ∘ X >ᵣ f x // P] := 
-  congrArg (probability P) (gt_eq_comp_gt_of_strictMono hm) 
+theorem _root_.StrictMono.probability_gt_eq (hm : StrictMono f) : ℙ[X >ᵣ x // P] = ℙ[f ∘ X >ᵣ f x // P] := 
+  probability_congr (gt_eq_comp_gt_of_strictMono hm) 
 
 end Monotone 
 
@@ -462,13 +462,13 @@ section CashInvariance
 
 variable (c : R) {x : R}
 
-theorem probability_leq_add_const : ℙ[X ≤ᵣ x // P] = ℙ[X + c•1 ≤ᵣ x + c // P] := congrArg (probability P) (leq_add_const c)
+theorem probability_leq_add_const : ℙ[X ≤ᵣ x // P] = ℙ[X + c•1 ≤ᵣ x + c // P] := probability_congr (leq_add_const c)
 
-theorem probability_lt_add_const : ℙ[X <ᵣ x // P] = ℙ[X + c•1 <ᵣ x + c // P] := congrArg (probability P) (lt_add_const c)
+theorem probability_lt_add_const : ℙ[X <ᵣ x // P] = ℙ[X + c•1 <ᵣ x + c // P] := probability_congr (lt_add_const c)
 
-theorem probability_geq_add_const : ℙ[X ≥ᵣ x // P] = ℙ[X + c•1 ≥ᵣ x + c // P] := congrArg (probability P) (geq_add_const c)
+theorem probability_geq_add_const : ℙ[X ≥ᵣ x // P] = ℙ[X + c•1 ≥ᵣ x + c // P] := probability_congr (geq_add_const c)
 
-theorem probability_gt_add_const : ℙ[X >ᵣ x // P] = ℙ[X + c•1 >ᵣ x + c // P] := congrArg (probability P) (gt_add_const c)
+theorem probability_gt_add_const : ℙ[X >ᵣ x // P] = ℙ[X + c•1 >ᵣ x + c // P] := probability_congr (gt_add_const c)
 
 end CashInvariance
 

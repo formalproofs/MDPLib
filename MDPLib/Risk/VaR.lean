@@ -174,7 +174,7 @@ theorem finVaR_add_const : VaR[X + c•1 // P, α] = VaR[X // P, α] + c := by
 theorem IsVaR.comp_of_strictMono (hm : StrictMono f) (hv : IsVaR P X α v) : IsVaR P (f ∘ X) α (f v) := by
   rw [isVaR_iff]
   rw [isVaR_iff] at hv
-  rw [← probability_lt_eq_probability_comp_lt_of_strictMono hm, ← probability_leq_eq_probability_comp_leq_of_strictMono hm]
+  rw [← hm.probability_lt_eq, ← hm.probability_leq_eq]
   exact hv
 
 

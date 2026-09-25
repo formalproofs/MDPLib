@@ -296,6 +296,8 @@ example {a b : R} (h : 0 ≤ a) (h2 : 0 ≤ b) : 0 ≤ a * b :=  mul_nonneg h h2
 
 variable {P : Findist R Ω} {B : FinRV Ω Bool}
 
+theorem probability_congr {A : FinRV Ω Bool} (h : A = B) : ℙ[A // P] = ℙ[B // P] := congrArg (probability P) h
+
 theorem mul_eq_zero_of_probability_eq_zero (h : ℙ[B // P] = 0) : (P.p * (𝕀∘B) = 0) := by
     exact Matrix.mul_eq_zero_of_dotProduct_eq_zero P.nonneg indicator_nonneg h
 

@@ -8,7 +8,16 @@
 \usepackage{bm}
 \usepackage{fullpage}
 
-\usepackage{thmtools}
+% For shared-counter theorems (\newtheorem{x}[theorem]{X}) cleveref needs each
+% environment to have its own counter aliased to the shared one, otherwise every
+% \cref comes out as "Theorem".  The June 2026 LaTeX kernel does that aliasing
+% itself (\newcounteralias); before that it took thmtools, whose aliasctr does the
+% same thing.  Loading both aliases the counter twice and aborts the run with
+% "Command \c@proposition already defined", so load thmtools only on kernels that
+% lack the built-in.
+\ifdefined\newcounteralias\else
+  \usepackage{thmtools}
+\fi
 \usepackage[capitalize]{cleveref}
 
 % the following package only works with LuaTeX or XeLaTeX
@@ -1596,6 +1605,8 @@ A \emph{Markov policy Bellman operator} $L_k^{\pi}\colon \mathcal{V} \to \mathca
 \end{definition}
 
 
+
+\bibliography{references}
 
 \end{document}
 

@@ -56,6 +56,18 @@ jobs:
         with:
           build-args: "MDPLib"
 
+      - name: Check computability, compile the binary and run it
+        # Four levels: the `#guard`s in MDPLibTest.lean (run via `lake env lean`, so they
+        # re-run even on a warm cache), the interpreted `test_var.json` regression suite,
+        # then native compilation of the executable, then that same suite executed by the
+        # compiled binary rather than the interpreter.
+        #
+        # The native build compiles the whole Mathlib import closure. Mathlib's build
+        # directory is deliberately not cached here (see the cache step above), so this costs
+        # several minutes on every run; the `.c` files themselves come from `lake exe cache
+        # get`, so only the C-to-object step is repeated.
+        run: ./test.sh
+
       - name: Build the API documentation
         run: lake -R build MDPLib:docs
 
@@ -64,6 +76,15 @@ jobs:
         with:
           root_file: main.tex
           working_directory: latex
+
+      # latexmk only exits with a bare code 12 on failure; the actual TeX error
+      # lives in main.log, which never reaches the job log otherwise.
+      - name: Show the LaTeX log if the paper failed to build
+        if: failure()
+        run: |
+          echo '::group::latex/main.log'
+          cat latex/main.log || echo 'no main.log was produced'
+          echo '::endgroup::'
 
       - name: Assemble the website
         run: |

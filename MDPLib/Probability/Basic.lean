@@ -6,12 +6,20 @@ import Mathlib.Data.Fintype.BigOperators
 
 import Mathlib.Data.Fin.Tuple.Sort -- for Equiv.Perm and permutation operations
 
+set_option linter.unusedSectionVars false
+
+variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
+         [CharZero R] [Archimedean R]
+
+-- Synthesize NoMinOrder to reduce exists_gt in a proof below
+attribute [to_dual existing] instNoMaxOrderOfNontrivial
+
 
 /-!
   # Basic properties for probability spaces and expectations
 
   The main results:
-  - LOTUS: The law of the unconscious statistician 
+  - expect_comp_eq_sum: The law of the unconscious statistician 
   - The law of total expectations
   - The law of total probabilities
   - Relationship between X < x and X ≤ x for discrete random variables
@@ -21,11 +29,11 @@ import Mathlib.Data.Fin.Tuple.Sort -- for Equiv.Perm and permutation operations
 section General
 open Matrix
 
-variable {Ω : Type} [Fintype Ω] {p x : Ω → ℚ}
+variable {Ω : Type} [FinEnum Ω] {p x : Ω → R}
 
 /-- If a dot product with a nonnegative vector is positive, some coordinate of the
     vector is positive. -/
-theorem nneg_dotProd_pos_ex_pos (h1 : p ≥ 0) (h : p ⬝ᵥ x > 0) : ∃ ω, x ω > 0 := by
+theorem exists_pos_of_dotProduct_pos (h1 : p ≥ 0) (h : p ⬝ᵥ x > 0) : ∃ ω, x ω > 0 := by
     by_contra! hcon
     have h2 := dotProduct_le_dotProduct_of_nonneg_left hcon h1   
     rw [dotProduct_zero'] at h2
@@ -35,21 +43,22 @@ theorem nneg_dotProd_pos_ex_pos (h1 : p ≥ 0) (h : p ⬝ᵥ x > 0) : ∃ ω, x 
 end General
 
 namespace Findist
+open FinRV
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {B : FinRV Ω Bool}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {B : FinRV Ω Bool}
 
-theorem ge_zero : 0 ≤ ℙ[B // P] := 
-    by rw [prob_eq_exp_ind]
-       calc 0 = 𝔼[0 //P] := exp_const.symm 
-            _ ≤ 𝔼[𝕀 ∘ B//P] := exp_monotone ind_nneg
+theorem probability_nonneg : 0 ≤ ℙ[B // P] := 
+    by rw [probability_eq_expect_indicator]
+       calc 0 = 𝔼[0 //P] := expect_const.symm 
+            _ ≤ 𝔼[𝕀 ∘ B//P] := expect_mono indicator_nonneg
        
 
-theorem le_one : ℙ[B // P] ≤ 1 := 
-    by rw [prob_eq_exp_ind]
-       calc 𝔼[𝕀 ∘ B//P] ≤ 𝔼[1 // P] := exp_monotone ind_le_one 
-            _ = 1 := exp_const 
+theorem probability_le_one : ℙ[B // P] ≤ 1 := 
+    by rw [probability_eq_expect_indicator]
+       calc 𝔼[𝕀 ∘ B//P] ≤ 𝔼[1 // P] := expect_mono indicator_le_one 
+            _ = 1 := expect_const 
 
-theorem in_prob (P : Findist Ω) : Prob ℙ[B // P] := ⟨ge_zero, le_one⟩
+theorem isProb_probability (P : Findist R Ω) : IsProb ℙ[B // P] := ⟨probability_nonneg, probability_le_one⟩
 
 end Findist
 
@@ -57,17 +66,19 @@ end Findist
 -------- Random variables --------------------------------------------
 
 section RandomVariables
+namespace FinRV
+open Findist
 
-variable {Ω : Type} [Nonempty Ω] {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [Nonempty Ω] {X Y : FinRV Ω R} {t t₁ t₂ : R}
 
-theorem rvle_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y ≤ᵣ t₁) ≤ 𝕀 ∘ (X ≤ᵣ t₂) := by 
+theorem indicator_leq_mono (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : (𝕀 ∘ (Y ≤ᵣ t₁) : FinRV Ω R) ≤ 𝕀 ∘ (X ≤ᵣ t₂) := by 
     intro ω   
     by_cases h3 : Y ω ≤ t₁
     · simp [FinRV.leq, 𝕀, indicator, h3, (le_trans (le_trans (h1 ω) h3) h2)] 
     · by_cases h5 : X ω ≤ t₂
       repeat simp [h3, h5, 𝕀, indicator] 
 
-theorem rvlt_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y <ᵣ t₁) ≤ 𝕀 ∘ (X <ᵣ t₂) := by 
+theorem indicator_lt_mono (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : (𝕀 ∘ (Y <ᵣ t₁) : FinRV Ω R) ≤ 𝕀 ∘ (X <ᵣ t₂) := by 
     intro ω   
     by_cases h3 : Y ω < t₁
     · have h4 : X ω < t₂ := 
@@ -78,71 +89,91 @@ theorem rvlt_monotone (h1 : X ≤ Y) (h2: t₁ ≤ t₂) : 𝕀 ∘ (Y <ᵣ t₁
     · by_cases h5 : X ω < t₂
       repeat simp [h3, h5, 𝕀, indicator] 
 
-theorem rv_monotone_sharp {t₁ t₂ : ℚ} (h : t₁ < t₂) (ω) (hω : (X ≥ᵣ t₂) ω ) : (X >ᵣ t₁) ω :=
+theorem gt_of_geq_of_lt {t₁ t₂ : R} (h : t₁ < t₂) (ω) (hω : (X ≥ᵣ t₂) ω ) : (X >ᵣ t₁) ω :=
     by simp [FinRV.gt, FinRV.geq] at hω ⊢
        order
 
-variable [FinEnum Ω] {P : Findist Ω} {A B : FinRV Ω Bool}
+variable [FinEnum Ω] {P : Findist R Ω} {A B : FinRV Ω Bool}
 
-theorem rv_le_max_one : (X ≤ᵣ (FinRV.max X)) = 1 :=
-    by ext ω; simpa using rv_omega_le_max ω
-
-theorem rv_max_in_image : (FinRV.max X) ∈ Finset.univ.image X :=
-     Finset.max'_mem (Finset.image X Finset.univ) (rv_image_nonempty X)
-
-theorem rv_omega_ge_min  (ω) : X ω ≥ (FinRV.min X) :=
-   Finset.min'_le (Finset.image X Finset.univ) (X ω) (Finset.mem_image_of_mem X (Finset.mem_univ ω))
-
-theorem rv_ge_min_one : (X ≥ᵣ (FinRV.min X)) = 1 :=
-    by ext ω; simpa using rv_omega_ge_min ω
+@[to_dual geq_minQuark]
+theorem leq_maxQuark : (X ≤ᵣ X.maxQuark) = 1 :=
+    by ext ω; simpa using le_maxQuark ω
 
 -- results for discrete probability distributions
 section Atomic 
 
-variable (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ)
+variable (P : Findist R Ω) (X : FinRV Ω R) (t : R)
 
-theorem prob_atomic_omega {b : ℚ} (h : ℙ[X =ᵣ b // P] > 0) : ∃ω, X ω = b := by 
-    obtain ⟨ω, hω⟩ : ∃ω, (𝕀 ∘ (X=ᵣb)) ω > 0 := nneg_dotProd_pos_ex_pos (P.nneg) h 
+theorem _root_.Findist.exists_eq_of_probability_pos {b : R} (h : ℙ[X =ᵣ b // P] > 0) : ∃ω, X ω = b := by 
+    obtain ⟨ω, hω⟩ : ∃ω, (𝕀 ∘ (X=ᵣb)) ω > 0 := exists_pos_of_dotProduct_pos (P.nonneg) h 
     use ω
     by_contra!
     simp_all [𝕀, indicator]
 
 
-theorem rv_le_step_lt_max (h0 : t < (FinRV.max  X)) : ∃q > t, (X ≤ᵣ t) = (X <ᵣ q) ∧ q ∈ (Finset.univ.image X) := by
-     let 𝓧 := Finset.univ.image X
-     let 𝓨 := 𝓧.filter (fun x ↦ x > t)
-     have hnonempty : 𝓨.Nonempty := Finset.filter_nonempty_iff.mpr ⟨FinRV.max X, ⟨rv_max_in_image, h0⟩⟩
-     let q := 𝓨.min' hnonempty
-     have q_ge_t : q > t := (Finset.mem_filter.mp (Finset.min'_mem 𝓨 hnonempty)).right 
-     use q
-     constructor
-     · exact q_ge_t
-     · constructor
-       · ext ω
-         rw [FinRV.leq,FinRV.lt,decide_eq_decide]
-         constructor
-         · exact fun h2 => lt_of_le_of_lt h2 q_ge_t
-         · intro h2
-           have hxω : X ω ∉ 𝓨 := by
-              by_contra! inY; exact not_lt_of_ge (Finset.min'_le 𝓨 (X ω) inY) h2
-           rw [Finset.mem_filter] at hxω
-           push Not at hxω
-           exact hxω (Finset.mem_image_of_mem X (Finset.mem_univ ω))
-       · exact Finset.mem_of_mem_filter q (Finset.min'_mem 𝓨 hnonempty)
+section QuarkSubMax
 
-theorem rv_le_step_lt (P : Findist Ω) : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
-       by cases' lt_or_ge t (FinRV.max X) with hlt hge
-          · obtain ⟨q, h⟩ := rv_le_step_lt_max  X t hlt
-            exact ⟨q, ⟨h.1, h.2.1⟩⟩
-          · have h := rv_omega_le_max (X:=X)
-            grw [hge] at h
-            let q := t + 1
-            have b : ∀ω, X ω < q := fun ω => lt_add_of_le_of_pos (h ω) rfl
-            have ab : (X ≤ᵣ t) = (X <ᵣ q) := by ext ω; simp_all [FinRV.leq, FinRV.lt]
-            exact ⟨q, ⟨lt_add_one t, ab⟩⟩
+variable {t y : R} (h : t < X.maxQuark)
 
-theorem rv_ge_step_lt_min (h0 : t > (FinRV.min X)) : ∃q < t, (X ≥ᵣ t) = (X >ᵣ q) ∧ q ∈ (Finset.univ.image X) := by
-    sorry
+/-- Computes the smallest successive potential atom greater than `t`. 
+    see also: Finset.exists_next_right -/
+@[to_dual] -- predQuark
+def succQuark (t : R) (h : t < X.maxQuark) : R := 
+     let 𝓨 := X.quarks.filter (fun x ↦ x > t)
+     let h_nonempty : 𝓨.Nonempty := Finset.filter_nonempty_iff.mpr ⟨X.maxQuark, ⟨maxQuark_mem_quarks, h⟩⟩
+     𝓨.min' h_nonempty
+
+@[to_dual predQuark_lt]
+theorem succQuark_gt : t < X.succQuark t h := (Finset.mem_filter.mp (Finset.min'_mem _ _)).right 
+
+@[to_dual] -- predQuark_mem_quark
+theorem succQuark_mem_quark : X.succQuark t h ∈ X.quarks := Finset.mem_of_mem_filter _ (Finset.min'_mem _ _)
+
+/-- `succQuark` is the smallest larger quark -/
+@[to_dual]
+theorem succQuark_nogap  (hy : y ∈ X.quarks) (hty : t < y) : X.succQuark t h ≤ y := 
+  Finset.min'_le _ y (Finset.mem_filter.mpr ⟨hy, hty⟩)
+
+/-- `succQuark` is the smallest larger quark -/
+@[to_dual]
+theorem succQuark_nogap' (hty : t < X ω) : X.succQuark t h ≤ X ω := succQuark_nogap X h (mem_quarks ω) hty 
+
+@[to_dual]
+theorem succQuark_nogap_ind (hy : y ∈ X.quarks) (hty : y < X.succQuark t h) : y ≤ t := 
+     Not.imp (not_le_of_gt hty) (succQuark_nogap X h hy) |> le_of_not_gt -- reverse the implication
+
+@[to_dual]
+theorem succQuark_nogap_ind' {ω} (hty : X ω < X.succQuark t h) : X ω ≤ t := 
+  succQuark_nogap_ind X h (mem_quarks ω) hty
+
+@[to_dual] -- predQuark_gtrv_eq_gerv
+theorem succQuark_lt_eq_le {t : R} (h : t < X.maxQuark) : (X <ᵣ X.succQuark t h) = (X ≤ᵣ t) := by
+   ext ω; rw [FinRV.leq, FinRV.lt, decide_eq_decide]
+   exact ⟨succQuark_nogap_ind' X h, (lt_of_le_of_lt · (succQuark_gt X h))⟩
+
+@[to_dual geq_eq_one_of_minQuark_ge]
+theorem leq_eq_one_of_maxQuark_le (h : X.maxQuark ≤ t) : (X ≤ᵣ t) = 1 := 
+  funext (fun ω => decide_eq_true ((le_maxQuark ω).trans h))
+
+@[to_dual gt_eq_one_of_minQuark_gt]
+theorem lt_eq_one_of_maxQuark_lt (h : X.maxQuark < t) : (X <ᵣ t) = 1 := 
+  funext (fun ω => decide_eq_true (lt_of_le_of_lt (le_maxQuark ω) h))
+
+/-- Because the distribution is discrete, there exists a value for 
+    which the distribution is the same -/
+@[to_dual exists_geq_eq_gt]
+theorem exists_leq_eq_lt : ∃q > t, (X ≤ᵣ t) = (X <ᵣ q) :=
+    if h : t < X.maxQuark then ⟨X.succQuark t h, ⟨succQuark_gt X h, (succQuark_lt_eq_le X h).symm⟩⟩ 
+    else 
+      let ⟨q, hq⟩ := exists_gt t --from NoMaxOrder 
+      have hm := le_of_not_gt h
+      ⟨q, hq, by rw [leq_eq_one_of_maxQuark_le X hm, lt_eq_one_of_maxQuark_lt X (hm.trans_lt hq)]⟩
+
+
+variable {t : ℚ}
+
+
+end QuarkSubMax
 
 end Atomic
 
@@ -151,69 +182,70 @@ section Transformations
 -- Monotone transformation of the random variable 
 
 section Monotone
--- TODO: The proofs below are quite repetitive; may be worth it to simplify them
+
+-- TODO: use @[to_dual] to reduce repetitive proofs
 
 open Function 
 
-variable {f : ℚ → ℚ} {x : ℚ}  
+variable {f : R → R} {x : R}  
 
 --- LE
 
 omit [FinEnum Ω] in 
-theorem rv_f_le_monotone (hm : Monotone f) : (X ≤ᵣ x) ≤ (f ∘ X ≤ᵣ f x) := 
+theorem leq_le_comp_leq_of_monotone (hm : Monotone f) : (X ≤ᵣ x) ≤ (f ∘ X ≤ᵣ f x) := 
     by intro ω; rw [Bool.le_iff_imp]; simpa using fun a ↦ hm a
 
 
 omit [FinEnum Ω] in 
-theorem rv_f_le_antitone (hm : Antitone f) : (X ≤ᵣ x) ≤ (f ∘ X ≥ᵣ f x) := 
+theorem leq_le_comp_geq_of_antitone (hm : Antitone f) : (X ≤ᵣ x) ≤ (f ∘ X ≥ᵣ f x) := 
     by intro ω; rw [Bool.le_iff_imp]; simpa using fun a ↦ hm a
 
 omit [FinEnum Ω] in 
-theorem rv_f_le_strictmono (hm : StrictMono f) : (X ≤ᵣ x) = (f ∘ X ≤ᵣ f x) := 
+theorem leq_eq_comp_leq_of_strictMono (hm : StrictMono f) : (X ≤ᵣ x) = (f ∘ X ≤ᵣ f x) := 
     by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.le_iff_le.symm
 
 omit [FinEnum Ω] in 
-theorem rv_f_le_strictanti (hm : StrictAnti f) : (X ≤ᵣ x) = (f ∘ X ≥ᵣ f x) := 
+theorem leq_eq_comp_geq_of_strictAnti (hm : StrictAnti f) : (X ≤ᵣ x) = (f ∘ X ≥ᵣ f x) := 
     by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.le_iff_ge.symm
 
 --- LT
 
 omit [FinEnum Ω] in 
-theorem rv_f_lt_strictmono (hm : StrictMono f) : (X <ᵣ x) = (f ∘ X <ᵣ f x) := 
+theorem lt_eq_comp_lt_of_strictMono (hm : StrictMono f) : (X <ᵣ x) = (f ∘ X <ᵣ f x) := 
     by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.lt_iff_lt.symm
 
 omit [FinEnum Ω] in 
-theorem rv_f_lt_strictanti (hm : StrictAnti f) : (X <ᵣ x) = (f ∘ X >ᵣ f x) := 
+theorem lt_eq_comp_gt_of_strictAnti (hm : StrictAnti f) : (X <ᵣ x) = (f ∘ X >ᵣ f x) := 
     by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.lt_iff_gt.symm
 
 --- GE
 
 omit [FinEnum Ω] in 
-theorem rv_f_ge_monotone (hm : Monotone f) : (X ≥ᵣ x) ≤ (f ∘ X ≥ᵣ f x) := 
+theorem geq_le_comp_geq_of_monotone (hm : Monotone f) : (X ≥ᵣ x) ≤ (f ∘ X ≥ᵣ f x) := 
     by intro ω; rw [Bool.le_iff_imp]; simpa using fun a ↦ hm a
 
 omit [FinEnum Ω] in 
-theorem rv_f_ge_antitone (hm : Antitone  f) : (X ≥ᵣ x) ≤ (f ∘ X ≤ᵣ f x) := 
+theorem geq_le_comp_leq_of_antitone (hm : Antitone  f) : (X ≥ᵣ x) ≤ (f ∘ X ≤ᵣ f x) := 
     by intro ω; rw [Bool.le_iff_imp]; simpa using fun a ↦ hm a
 
 
 omit [FinEnum Ω] in 
-theorem rv_f_ge_strictmono (hm : StrictMono f) : (X ≥ᵣ x) = (f ∘ X ≥ᵣ f x) := 
+theorem geq_eq_comp_geq_of_strictMono (hm : StrictMono f) : (X ≥ᵣ x) = (f ∘ X ≥ᵣ f x) := 
     by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.le_iff_le.symm
 
 omit [FinEnum Ω] in 
-theorem rv_f_ge_strictanti (hm : StrictAnti f) : (X ≥ᵣ x) = (f ∘ X ≤ᵣ f x) := 
+theorem geq_eq_comp_leq_of_strictAnti (hm : StrictAnti f) : (X ≥ᵣ x) = (f ∘ X ≤ᵣ f x) := 
     by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.le_iff_ge.symm
 
 --- GT
 
 omit [FinEnum Ω] in 
-theorem rv_f_gt_strictmono (hm : StrictMono f) : (X >ᵣ x) = (f ∘ X >ᵣ f x) := 
+theorem gt_eq_comp_gt_of_strictMono (hm : StrictMono f) : (X >ᵣ x) = (f ∘ X >ᵣ f x) := 
     by ext ω;  rw [Bool.eq_iff_iff]; simpa using hm.lt_iff_lt.symm
 
 
 omit [FinEnum Ω] in 
-theorem rv_f_gt_strictanti (hm : StrictAnti f) : (X >ᵣ x) = (f ∘ X <ᵣ f x) := 
+theorem gt_eq_comp_lt_of_strictAnti (hm : StrictAnti f) : (X >ᵣ x) = (f ∘ X <ᵣ f x) := 
     by ext ω; rw [Bool.eq_iff_iff]; simpa using hm.lt_iff_gt.symm
 
 
@@ -223,65 +255,67 @@ end Monotone
 
 section CashInvariance 
 
-variable (c : ℚ) {x : ℚ}
+variable (c : R) {x : R}
 
 omit [FinEnum Ω] in 
-theorem rv_le_cashinvar : (X ≤ᵣ x) = (X + c•1 ≤ᵣ x + c) := by ext ω; simp
+theorem leq_add_const : (X ≤ᵣ x) = (X + c•1 ≤ᵣ x + c) := by ext ω; simp
 
 omit [FinEnum Ω] in 
-theorem rv_lt_cashinvar : (X <ᵣ x) = (X + c•1 <ᵣ x + c) := by ext ω; simp
+theorem lt_add_const : (X <ᵣ x) = (X + c•1 <ᵣ x + c) := by ext ω; simp
 
 omit [FinEnum Ω] in 
-theorem rv_ge_cashinvar : (X ≥ᵣ x) = (X + c•1 ≥ᵣ x + c) := by ext ω; simp
+theorem geq_add_const : (X ≥ᵣ x) = (X + c•1 ≥ᵣ x + c) := by ext ω; simp
 
 omit [FinEnum Ω] in 
-theorem rv_gt_cashinvar : (X >ᵣ x) = (X + c•1 >ᵣ x + c) := by ext ω; simp
+theorem gt_add_const : (X >ᵣ x) = (X + c•1 >ᵣ x + c) := by ext ω; simp
 
 end CashInvariance
 
 section Negation 
 
 
-variable {x : ℚ}
+variable {x : R}
 
-theorem rv_le_neg_ge : (X ≤ᵣ x) = (-X ≥ᵣ -x) := by ext ω; simp
+theorem leq_eq_neg_geq_neg : (X ≤ᵣ x) = (-X ≥ᵣ -x) := by ext ω; simp
 
-theorem rv_ge_neg_le : (X ≥ᵣ x) = (-X ≤ᵣ -x) := by ext ω; simp
+theorem geq_eq_neg_leq_neg : (X ≥ᵣ x) = (-X ≤ᵣ -x) := by ext ω; simp
 
-theorem rv_lt_neg_gt : (X <ᵣ x) = (-X >ᵣ -x) := by ext ω; simp
+theorem lt_eq_neg_gt_neg : (X <ᵣ x) = (-X >ᵣ -x) := by ext ω; simp
 
-theorem rv_gt_neg_lt : (X >ᵣ x) = (-X <ᵣ -x) := by ext ω; simp
+theorem gt_eq_neg_lt_neg : (X >ᵣ x) = (-X <ᵣ -x) := by ext ω; simp
 
 end Negation 
 
 
 end Transformations
 
+end FinRV
+
 end RandomVariables
 
 ------------------------------ Probability ---------------------------
 
 section Probability 
+namespace Findist
+open FinRV
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {A B C : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {A B C : FinRV Ω Bool} {X Y : FinRV Ω R} {t t₁ t₂ : R}
 
 
-theorem prob_compl_sums_to_one : ℙ[B // P] + ℙ[¬ᵣB // P] = 1 := 
-    by rw [prob_eq_exp_ind, prob_eq_exp_ind, ←exp_additive_two, one_of_ind_bool_or_not]
-       exact exp_one 
+theorem probability_add_probability_not : ℙ[B // P] + ℙ[¬ᵣB // P] = 1 := 
+    by rw [probability_eq_expect_indicator, probability_eq_expect_indicator, ←expect_add, indicator_add_indicator_not_eq_one]
+       exact expect_one 
 
-theorem prob_compl_one_minus : ℙ[¬ᵣB // P] = 1 - ℙ[B // P] :=
-    by rw [←prob_compl_sums_to_one (P:=P) (B:=B)]; ring 
+theorem probability_not : ℙ[¬ᵣB // P] = 1 - ℙ[B // P] :=
+    by rw [←probability_add_probability_not (P:=P) (B:=B)]; ring 
 
-theorem rv_le_compl_gt : (X ≤ᵣ t) + (X >ᵣ t) = 1 := by
-  ext ω
-  unfold FinRV.leq FinRV.gt
-  simp
-  exact le_or_gt (X ω) t
+@[to_dual geq_add_lt]
+theorem _root_.FinRV.leq_add_gt : (X ≤ᵣ t) + (X >ᵣ t) = 1 := by
+  ext ω; simpa [FinRV.leq, FinRV.gt] using le_or_gt (X ω) t
 
-theorem prob_le_compl_gt : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t // P] = 1 := by
-  rw [prob_eq_exp_ind, prob_eq_exp_ind, ← exp_additive_two]
-  have h : (𝕀 ∘ (X ≤ᵣ t)) + (𝕀 ∘ (X >ᵣ t)) = (1 : FinRV Ω ℚ) := by
+theorem probability_leq_add_probability_gt : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t // P] = 1 := by
+  rw [probability_eq_expect_indicator, probability_eq_expect_indicator, ← expect_add]
+  have h : (𝕀 ∘ (X ≤ᵣ t)) + (𝕀 ∘ (X >ᵣ t)) = (1 : FinRV Ω R) := by
     ext ω
     unfold FinRV.leq FinRV.gt
     simp [𝕀, indicator]
@@ -291,19 +325,19 @@ theorem prob_le_compl_gt : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t // P] = 1 := by
     · have h3 : X ω > t := lt_of_not_ge h1
       simp [h1, h3]
   rw [h]
-  exact exp_one
+  exact expect_one
 
-theorem prob_gt_of_le : ℙ[X >ᵣ t // P] = 1 -  ℙ[X ≤ᵣ t // P] := by
-  rw [←prob_le_compl_gt (P := P) (X := X) (t := t)]
+theorem probability_gt_eq_one_sub : ℙ[X >ᵣ t // P] = 1 -  ℙ[X ≤ᵣ t // P] := by
+  rw [←probability_leq_add_probability_gt (P := P) (X := X) (t := t)]
   ring
 
-theorem prob_le_of_gt :  ℙ[X ≤ᵣ t // P] = 1 - ℙ[X >ᵣ t // P] := by
-  rw [←prob_le_compl_gt (P := P) (X := X) (t := t)]
+theorem probability_leq_eq_one_sub :  ℙ[X ≤ᵣ t // P] = 1 - ℙ[X >ᵣ t // P] := by
+  rw [←probability_leq_add_probability_gt (P := P) (X := X) (t := t)]
   ring
 
-theorem prob_lt_compl_ge : ℙ[X <ᵣ t // P] + ℙ[X ≥ᵣ t // P] = 1 := by
-  rw [prob_eq_exp_ind, prob_eq_exp_ind, ← exp_additive_two]
-  have h : (𝕀 ∘ (X <ᵣ t)) + (𝕀 ∘ (X ≥ᵣ t)) = (1 : FinRV Ω ℚ) := by
+theorem probability_lt_add_probability_geq : ℙ[X <ᵣ t // P] + ℙ[X ≥ᵣ t // P] = 1 := by
+  rw [probability_eq_expect_indicator, probability_eq_expect_indicator, ← expect_add]
+  have h : (𝕀 ∘ (X <ᵣ t)) + (𝕀 ∘ (X ≥ᵣ t)) = (1 : FinRV Ω R) := by
     ext ω
     unfold FinRV.lt FinRV.geq
     simp [𝕀, indicator]
@@ -313,74 +347,76 @@ theorem prob_lt_compl_ge : ℙ[X <ᵣ t // P] + ℙ[X ≥ᵣ t // P] = 1 := by
     · have h3 : X ω ≥ t := le_of_not_gt h1
       simp [h1, h3]
   rw [h]
-  exact exp_one
+  exact expect_one
 
-theorem prob_ge_of_lt : ℙ[X ≥ᵣ t // P] = 1 -  ℙ[X <ᵣ t // P] := by
-  rw [← prob_lt_compl_ge (P := P) (X := X) (t := t)]; ring
+theorem probability_geq_eq_one_sub : ℙ[X ≥ᵣ t // P] = 1 -  ℙ[X <ᵣ t // P] := by
+  rw [← probability_lt_add_probability_geq (P := P) (X := X) (t := t)]; ring
 
-theorem prob_lt_of_ge :  ℙ[X <ᵣ t // P] = 1 - ℙ[X ≥ᵣ t // P] := by
-  rw [← prob_lt_compl_ge (P := P) (X := X) (t := t)]; ring
+theorem probability_lt_eq_one_sub :  ℙ[X <ᵣ t // P] = 1 - ℙ[X ≥ᵣ t // P] := by
+  rw [← probability_lt_add_probability_geq (P := P) (X := X) (t := t)]; ring
 
-theorem prob_bool_monotone : A ≤ B → ℙ[A // P] ≤ ℙ[B // P] := fun h => exp_monotone (ind_monotone h)
+theorem probability_mono : A ≤ B → ℙ[A // P] ≤ ℙ[B // P] := fun h => expect_mono (indicator_mono h)
 
-theorem prob_le_monotone : X ≤ Y → t₁ ≤ t₂ → ℙ[Y ≤ᵣ t₁ // P] ≤ ℙ[X ≤ᵣ t₂ // P] := by 
+theorem probability_leq_mono : X ≤ Y → t₁ ≤ t₂ → ℙ[Y ≤ᵣ t₁ // P] ≤ ℙ[X ≤ᵣ t₂ // P] := by 
   intro hxy ht 
-  exact exp_monotone (rvle_monotone hxy ht)
+  exact expect_mono (indicator_leq_mono hxy ht)
 
-theorem prob_lt_monotone : X ≤ Y → t₁ ≤ t₂ → ℙ[Y <ᵣ t₁ // P] ≤ ℙ[X <ᵣ t₂ // P] := by 
+theorem probability_lt_mono : X ≤ Y → t₁ ≤ t₂ → ℙ[Y <ᵣ t₁ // P] ≤ ℙ[X <ᵣ t₂ // P] := by 
   intro hxy ht
-  exact exp_monotone (rvlt_monotone hxy ht)
+  exact expect_mono (indicator_lt_mono hxy ht)
 
-theorem prob_ge_antitone : X ≤ Y → t₁ ≤ t₂ → ℙ[Y ≥ᵣ t₁ // P] ≥ ℙ[X ≥ᵣ t₂ // P] := by 
+theorem probability_geq_anti : X ≤ Y → t₁ ≤ t₂ → ℙ[Y ≥ᵣ t₁ // P] ≥ ℙ[X ≥ᵣ t₂ // P] := by 
   intro hxy ht 
-  rewrite [prob_ge_of_lt,prob_ge_of_lt] 
-  have := prob_lt_monotone (P := P) hxy ht 
+  rewrite [probability_geq_eq_one_sub,probability_geq_eq_one_sub] 
+  have := probability_lt_mono (P := P) hxy ht 
   linarith 
 
-theorem prob_gt_antitone : X ≤ Y → t₁ ≤ t₂ → ℙ[Y >ᵣ t₁ // P] ≥ ℙ[X >ᵣ t₂ // P] := by 
+theorem probability_gt_anti : X ≤ Y → t₁ ≤ t₂ → ℙ[Y >ᵣ t₁ // P] ≥ ℙ[X >ᵣ t₂ // P] := by 
   intro hxy ht 
-  rewrite [prob_gt_of_le,prob_gt_of_le] 
-  have := prob_le_monotone (P := P) hxy ht 
+  rewrite [probability_gt_eq_one_sub,probability_gt_eq_one_sub] 
+  have := probability_leq_mono (P := P) hxy ht 
   linarith 
 
-theorem prob_lt_le_monotone {q : ℚ} (h : q > t) : ℙ[X <ᵣ q // P] ≥ ℙ[X ≤ᵣ t // P] := by 
+theorem probability_leq_le_probability_lt {q : R} (h : q > t) : ℙ[X <ᵣ q // P] ≥ ℙ[X ≤ᵣ t // P] := by 
      unfold probability 
      apply Finset.sum_le_sum
      intro ω hω
-     have h2 : (𝕀 ∘ (X ≤ᵣ t)) ω ≤ (𝕀 ∘ (X <ᵣ q)) ω :=
+     have h2 : (𝕀 ∘ (X ≤ᵣ t) : FinRV Ω R) ω ≤ (𝕀 ∘ (X <ᵣ q) : FinRV Ω R) ω :=
        by by_cases h3 : X ω ≤ t
           · have h4 : X ω < q := lt_of_le_of_lt h3 h
             simp [FinRV.leq, FinRV.lt, 𝕀, indicator, Function.comp, h3, h4]
           · simp [𝕀, indicator, FinRV.leq, FinRV.lt, Function.comp, h3]
             by_cases h5 : X ω < q <;> simp [h5] 
-     exact mul_le_mul_of_nonneg_left h2 (P.nneg ω)
+     exact mul_le_mul_of_nonneg_left h2 (P.nonneg ω)
 
-theorem prob_le_eq_one : ℙ[X ≤ᵣ (FinRV.max X) // P] = 1 := by rw [rv_le_max_one]; exact prob_one_of_true P
+@[to_dual probability_geq_minQuark]
+theorem probability_leq_maxQuark : ℙ[X ≤ᵣ X.maxQuark // P] = 1 := by rw [leq_maxQuark]; exact probability_one P
 
-theorem prob_ge_eq_one : ℙ[X ≥ᵣ (FinRV.min X) // P] = 1 := by rw [rv_ge_min_one]; exact prob_one_of_true P
+theorem probability_lt_minQuark : ℙ[X <ᵣ X.minQuark // P] = 0 := by
+    rw [probability_lt_eq_one_sub, probability_geq_minQuark]; exact sub_self 1
 
-theorem prob_lt_min_eq_zero : ℙ[X <ᵣ (FinRV.min X) // P] = 0 := by
-    rw [prob_lt_of_ge, prob_ge_eq_one]; exact sub_self 1
-
-theorem prob_le_max_of_le_1 {t : ℚ} (h : ℙ[X ≤ᵣ t // P] < 1) : t < FinRV.max X := by 
+theorem lt_maxQuark_of_probability_leq_lt_one {t : R} (h : ℙ[X ≤ᵣ t // P] < 1) : t < X.maxQuark := by 
        by_contra! hcontra
-       have h1 := prob_le_monotone (P := P) (le_refl X) hcontra
-       rw [prob_le_eq_one] at h1
+       have h1 := probability_leq_mono (P := P) (le_refl X) hcontra
+       rw [probability_leq_maxQuark] at h1
        exact not_le_of_gt h h1
 
 section Rounding ---results for discrete probability distributions
 
-variable (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ)
+variable (P : Findist R Ω) (X : FinRV Ω R) (t : R)
 
-theorem prob_le_step_lt_max (h: t < (FinRV.max X)) : 
-    ∃q > t, ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] ∧ q ∈ (Finset.univ.image X) := sorry
-          --let ⟨q, hq⟩ := rv_le_step_lt_max P t h
-          --Exists.intro q ⟨hq.1, ⟨congrArg (probability P) hq.2.1, hq.2.2 ⟩⟩
+--TODO: not clear if we need this one. Delete?
+theorem exists_probability_leq_eq_probability_lt_of_lt_maxQuark (h: t < X.maxQuark) : 
+    ∃q > t, ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] ∧ q ∈ X.quarks := 
+      ⟨X.succQuark t h, 
+        ⟨succQuark_gt X h, probability_congr (succQuark_lt_eq_le X h).symm, succQuark_mem_quark X h⟩⟩
+        
 
-/-- similar to `prob_le_step_lt_max` but no precondition -/
-theorem prob_le_step_lt : ∃q > t,  ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] :=
-      let ⟨q, hq⟩ := rv_le_step_lt X t P
-      Exists.intro q ⟨hq.1, congrArg (probability P) hq.2⟩
+--TODO: not clear if we need this one. Delete?
+/-- similar to `exists_probability_leq_eq_probability_lt_of_lt_maxQuark` but no precondition -/
+theorem exists_probability_leq_eq_probability_lt : ∃q > t,  ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] :=
+      let ⟨q, hq⟩ := exists_leq_eq_lt X (t := t)
+      Exists.intro q ⟨hq.1, probability_congr hq.2⟩
 
 
 end Rounding 
@@ -389,116 +425,124 @@ section Transformations
 
 section Monotone
 
--- TODO: The proofs below are quite repetitive; may be worth it to simplify them
+-- TODO: Simplify the proofs below using duality and shorten names
 
 open Function 
 
-variable {f : ℚ → ℚ} {x : ℚ}  
+variable {f : R → R} {x : R}  
 
 --- LE
 
-theorem prob_f_le_monotone (hm : Monotone f) : ℙ[X ≤ᵣ x // P] ≤ ℙ[f ∘ X ≤ᵣ f x // P] := 
-   prob_bool_monotone (rv_f_le_monotone hm)
+theorem _root_.Monotone.probability_leq_le (hm : Monotone f) : ℙ[X ≤ᵣ x // P] ≤ ℙ[f ∘ X ≤ᵣ f x // P] := 
+   probability_mono (leq_le_comp_leq_of_monotone hm)
 
-theorem prob_f_le_strictmono (hm : StrictMono f) : ℙ[X ≤ᵣ x // P] = ℙ[f ∘ X ≤ᵣ f x // P] := 
-  congrArg (probability P) (rv_f_le_strictmono hm) 
+theorem _root_.StrictMono.probability_leq_eq (hm : StrictMono f) : ℙ[X ≤ᵣ x // P] = ℙ[f ∘ X ≤ᵣ f x // P] := 
+  probability_congr (leq_eq_comp_leq_of_strictMono hm) 
 --- LT
 
-theorem prob_f_lt_strictmono (hm : StrictMono f) : ℙ[X <ᵣ x // P] = ℙ[f ∘ X <ᵣ f x // P] := 
-  congrArg (probability P) (rv_f_lt_strictmono hm) 
+theorem _root_.StrictMono.probability_lt_eq (hm : StrictMono f) : ℙ[X <ᵣ x // P] = ℙ[f ∘ X <ᵣ f x // P] := 
+  probability_congr (lt_eq_comp_lt_of_strictMono hm) 
 
 --- GE
 
-theorem prob_f_ge_monotone (hm : Monotone f) : ℙ[X ≥ᵣ x // P] ≤ ℙ[f ∘ X ≥ᵣ f x // P] := 
-   prob_bool_monotone (rv_f_ge_monotone hm)
+theorem _root_.Monotone.probability_geq_le (hm : Monotone f) : ℙ[X ≥ᵣ x // P] ≤ ℙ[f ∘ X ≥ᵣ f x // P] := 
+   probability_mono (geq_le_comp_geq_of_monotone hm)
 
-theorem prob_f_ge_strictmono (hm : StrictMono f) : ℙ[X ≥ᵣ x // P] = ℙ[f ∘ X ≥ᵣ f x // P] := 
-  congrArg (probability P) (rv_f_ge_strictmono hm) 
+theorem _root_.StrictMono.probability_geq_eq (hm : StrictMono f) : ℙ[X ≥ᵣ x // P] = ℙ[f ∘ X ≥ᵣ f x // P] := 
+  probability_congr (geq_eq_comp_geq_of_strictMono hm) 
 
 --- GT
 
-theorem prob_f_gt_strictmono (hm : StrictMono f) : ℙ[X >ᵣ x // P] = ℙ[f ∘ X >ᵣ f x // P] := 
-  congrArg (probability P) (rv_f_gt_strictmono hm) 
+theorem _root_.StrictMono.probability_gt_eq (hm : StrictMono f) : ℙ[X >ᵣ x // P] = ℙ[f ∘ X >ᵣ f x // P] := 
+  probability_congr (gt_eq_comp_gt_of_strictMono hm) 
 
 end Monotone 
 
 section CashInvariance 
 
-variable (c : ℚ) {x : ℚ}
+variable (c : R) {x : R}
 
-theorem prob_le_cashinvar : ℙ[X ≤ᵣ x // P] = ℙ[X + c•1 ≤ᵣ x + c // P] := congrArg (probability P) (rv_le_cashinvar c)
+theorem probability_leq_add_const : ℙ[X ≤ᵣ x // P] = ℙ[X + c•1 ≤ᵣ x + c // P] := probability_congr (leq_add_const c)
 
-theorem prob_lt_cashinvar : ℙ[X <ᵣ x // P] = ℙ[X + c•1 <ᵣ x + c // P] := congrArg (probability P) (rv_lt_cashinvar c)
+theorem probability_lt_add_const : ℙ[X <ᵣ x // P] = ℙ[X + c•1 <ᵣ x + c // P] := probability_congr (lt_add_const c)
 
-theorem prob_ge_cashinvar : ℙ[X ≥ᵣ x // P] = ℙ[X + c•1 ≥ᵣ x + c // P] := congrArg (probability P) (rv_ge_cashinvar c)
+theorem probability_geq_add_const : ℙ[X ≥ᵣ x // P] = ℙ[X + c•1 ≥ᵣ x + c // P] := probability_congr (geq_add_const c)
 
-theorem prob_gt_cashinvar : ℙ[X >ᵣ x // P] = ℙ[X + c•1 >ᵣ x + c // P] := congrArg (probability P) (rv_gt_cashinvar c)
+theorem probability_gt_add_const : ℙ[X >ᵣ x // P] = ℙ[X + c•1 >ᵣ x + c // P] := probability_congr (gt_add_const c)
 
 end CashInvariance
 
 section Negation 
 
-variable {x : ℚ}
+variable {x : R}
 
-theorem prob_le_neg_ge :  ℙ[X ≤ᵣ x // P] = ℙ[-X ≥ᵣ -x // P] := by rw [rv_le_neg_ge]
+theorem probability_leq_eq_neg_geq_neg :  ℙ[X ≤ᵣ x // P] = ℙ[-X ≥ᵣ -x // P] := by rw [leq_eq_neg_geq_neg]
 
-theorem prob_ge_neg_le :  ℙ[X ≥ᵣ x // P] = ℙ[-X ≤ᵣ -x // P] := by rw [rv_ge_neg_le]
+theorem probability_geq_eq_neg_leq_neg :  ℙ[X ≥ᵣ x // P] = ℙ[-X ≤ᵣ -x // P] := by rw [geq_eq_neg_leq_neg]
 
-theorem prob_lt_neg_gt : ℙ[X <ᵣ x //P] = ℙ[-X >ᵣ -x // P] := by rw [rv_lt_neg_gt]
+theorem probability_lt_eq_neg_gt_neg : ℙ[X <ᵣ x //P] = ℙ[-X >ᵣ -x // P] := by rw [lt_eq_neg_gt_neg]
 
-theorem prob_gt_neg_lt : ℙ[X >ᵣ x //P] = ℙ[-X <ᵣ -x // P] := by rw [rv_gt_neg_lt]
+theorem probability_gt_eq_neg_lt_neg : ℙ[X >ᵣ x //P] = ℙ[-X <ᵣ -x // P] := by rw [gt_eq_neg_lt_neg]
 
 end Negation 
 
 end Transformations
+
+end Findist
 
 end Probability 
 
 ------------------------------ CDF ---------------------------
 
 section CDF
+namespace Findist
+open FinRV
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y : FinRV Ω R} {t t₁ t₂ : R}
 
 /-- shows CDF is non-decreasing -/
-theorem cdf_nondecreasing : t₁ ≤ t₂ → cdf P X t₁ ≤ cdf P X t₂ := by
+theorem cdf_mono : t₁ ≤ t₂ → cdf P X t₁ ≤ cdf P X t₂ := by
   intro ht; unfold cdf
-  apply prob_le_monotone (le_refl X) ht
+  apply probability_leq_mono (le_refl X) ht
 
 /-- Shows CDF is monotone in random variable  -/
-theorem cdf_monotone_xy : X ≤ Y → cdf P X t ≥ cdf P Y t := by
+theorem cdf_anti_of_le : X ≤ Y → cdf P X t ≥ cdf P Y t := by
   intro h; unfold cdf
-  apply prob_le_monotone h (le_refl t)
+  apply probability_leq_mono h (le_refl t)
+
+end Findist
 
 end CDF
 
 ------------------------------ Expectation ---------------------------
 
 section Expectation 
+namespace Findist
+open FinRV
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω}
-variable {k : ℕ} {X : FinRV Ω ℚ} {B : FinRV Ω Bool} {L : FinRV Ω (Fin k)}
-variable (g : Fin k → ℚ)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω}
+variable {k : ℕ} {X : FinRV Ω R} {B : FinRV Ω Bool} {L : FinRV Ω (Fin k)}
+variable (g : Fin k → R)
 
-/-- LOTUS: The law of the unconscious statistician (or similar) -/
-theorem LOTUS : 𝔼[g ∘ L // P ] = ∑ i, ℙ[L =ᵣ i // P] * (g i) :=
-  by rewrite [exp_decompose (X := g ∘ L) (L := L) ]
+/-- expect_comp_eq_sum: The law of the unconscious statistician (or similar) -/
+theorem expect_comp_eq_sum : 𝔼[g ∘ L // P ] = ∑ i, ℙ[L =ᵣ i // P] * (g i) :=
+  by rewrite [expect_eq_sum_mul_indicatorEq (X := g ∘ L) (L := L) ]
      apply Fintype.sum_congr
      intro i
-     rewrite [←indi_eq_indr, ←exp_cond_eq_def (X := g ∘ L) ]
+     rewrite [←indicator_comp_eq_indicatorEq, ←expectCond_mul_probability (X := g ∘ L) ]
      by_cases! h : ℙ[L =ᵣ i // P] = 0 
      · rw [h];  simp 
-     · rw [exp_cond_const i h ]
+     · rw [expectCond_comp i h ]
        ring
 
-theorem law_total_exp : 𝔼[𝔼[X |ᵣ L // P] // P] = 𝔼[X // P] :=
+theorem expect_expectCondRV : 𝔼[𝔼[X |ᵣ L // P] // P] = 𝔼[X // P] :=
   let g i := 𝔼[X | L =ᵣ i // P]
   calc
-    𝔼[𝔼[X |ᵣ L // P] // P ] = ∑ i , ℙ[ L =ᵣ i // P] * 𝔼[ X | L =ᵣ i // P ] := LOTUS g
+    𝔼[𝔼[X |ᵣ L // P] // P ] = ∑ i , ℙ[ L =ᵣ i // P] * 𝔼[ X | L =ᵣ i // P ] := expect_comp_eq_sum g
     _ =  ∑ i , 𝔼[ X | L =ᵣ i // P ] * ℙ[ L =ᵣ i // P] := by apply Fintype.sum_congr; intro i; ring 
-    _ =  ∑ i : Fin k, 𝔼[X * (𝕀 ∘ (L =ᵣ i)) // P] := by apply Fintype.sum_congr; exact fun a  ↦ exp_cond_eq_def
-    _ =  ∑ i : Fin k, 𝔼[X * (L =ᵢ i) // P] := by apply Fintype.sum_congr; intro i; apply exp_congr; rw[indi_eq_indr] 
-    _ = 𝔼[X // P]  := by rw [←exp_decompose]
+    _ =  ∑ i : Fin k, 𝔼[X * (𝕀 ∘ (L =ᵣ i)) // P] := by apply Fintype.sum_congr; exact fun a  ↦ expectCond_mul_probability
+    _ =  ∑ i : Fin k, 𝔼[X * (L =ᵢ i) // P] := by apply Fintype.sum_congr; intro i; apply expect_congr; rw[indicator_comp_eq_indicatorEq] 
+    _ = 𝔼[X // P]  := by rw [←expect_eq_sum_mul_indicatorEq]
 
 
 section RV_Unique_Values
@@ -507,16 +551,16 @@ variable  {τ:Type} [DecidableEq τ]
 
 /-- The distinct values of a random variable, as a deduplicated list built from the
     enumeration of the sample space. -/
-def FinRV.imageList (X : FinRV Ω τ) : List τ := List.dedup ((FinEnum.toList Ω).map X)
+def _root_.FinRV.imageList (X : FinRV Ω τ) : List τ := List.dedup ((FinEnum.toList Ω).map X)
 
-/-- The image finset of `X` equals the `toFinset` of its `imageList`. -/
-theorem univ_image_eq_imageList_toFinset (X : FinRV Ω τ) : Finset.univ.image X = X.imageList.toFinset := by
+/-- The quarks of `X` equal the `toFinset` of its `imageList`. -/
+theorem _root_.FinRV.quarks_eq_imageList_toFinset (X : FinRV Ω τ) : X.quarks = X.imageList.toFinset := by
     ext y
     simp [FinRV.imageList]
 
-theorem sum_finset_eq_sum_image (f : ℚ → ℚ) :
-    (∑ y ∈ (Finset.univ.image X), f y) = ((X.imageList).map f).sum := by
-      rw [univ_image_eq_imageList_toFinset]
+theorem _root_.FinRV.sum_image_univ_eq_sum_imageList (f : R → R) :
+    (∑ y ∈ X.quarks, f y) = ((X.imageList).map f).sum := by
+      rw [quarks_eq_imageList_toFinset]
       exact List.sum_toFinset f (List.nodup_dedup _)
 
 
@@ -524,55 +568,55 @@ section Generic
 
 variable {X : FinRV Ω τ}
 
-theorem finrv_image_superset (ω : Ω) : X ω ∈ X.imageList := by
+theorem _root_.FinRV.apply_mem_imageList (ω : Ω) : X ω ∈ X.imageList := by
     simp only [FinRV.imageList, List.mem_dedup, List.mem_map]
     exact ⟨ω, FinEnum.mem_toList ω, rfl⟩
 
-theorem finrv_image_superset_exists (ω) : ∃ i : Fin X.imageList.length, X ω = X.imageList[i] := 
-  List.exists_mem_iff_get.mp ⟨X ω, ⟨finrv_image_superset ω, rfl⟩⟩
+theorem _root_.FinRV.exists_getElem_imageList (ω) : ∃ i : Fin X.imageList.length, X ω = X.imageList[i] := 
+  List.exists_mem_iff_get.mp ⟨X ω, ⟨apply_mem_imageList ω, rfl⟩⟩
   
-theorem finrv_image_nodup : X.imageList.Nodup := List.nodup_dedup _
+theorem _root_.FinRV.imageList_nodup : X.imageList.Nodup := List.nodup_dedup _
 
-def List.finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : Fin L.length := 
+def _root_.MDPLib.List.finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : Fin L.length := 
     ⟨L.idxOf a, List.idxOf_lt_length_of_mem h⟩
 
 @[simp]
-theorem List.getElem_finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : L[L.finIdxOf a h] = a := 
-    getElem_idxOf (idxOf_lt_length_of_mem h) 
+theorem _root_.MDPLib.List.getElem_finIdxOf (L : List τ) (a : τ) (h : a ∈ L) : L[MDPLib.List.finIdxOf L a h] = a := 
+    List.getElem_idxOf (List.idxOf_lt_length_of_mem h) 
 
-def FinRV.imageIdxOf (X : FinRV Ω τ) (ω : Ω) : Fin (X.imageList.length) := 
-    X.imageList.finIdxOf (X ω) (finrv_image_superset ω)
+def _root_.FinRV.imageIdxOf (X : FinRV Ω τ) (ω : Ω) : Fin (X.imageList.length) := 
+    MDPLib.List.finIdxOf X.imageList (X ω) (apply_mem_imageList ω)
 
 @[simp]
-theorem finrv_image_inverse (ω : Ω) : X.imageList[X.imageIdxOf ω] = X ω := 
-  List.getElem_finIdxOf X.imageList (X ω) (finrv_image_superset ω)
+theorem _root_.FinRV.getElem_imageIdxOf (ω : Ω) : X.imageList[X.imageIdxOf ω] = X ω := 
+  MDPLib.List.getElem_finIdxOf X.imageList (X ω) (apply_mem_imageList ω)
 
-theorem finrv_image_unique {ω i} (h: X ω = X.imageList[i]) : X.imageIdxOf ω = i := by 
-  have h1 : X.imageList.Nodup := finrv_image_nodup 
-  rewrite [← finrv_image_inverse ω (X := X)] at h 
+theorem _root_.FinRV.imageIdxOf_eq_of_eq_getElem {ω i} (h: X ω = X.imageList[i]) : X.imageIdxOf ω = i := by 
+  have h1 : X.imageList.Nodup := imageList_nodup 
+  rewrite [← getElem_imageIdxOf ω (X := X)] at h 
   exact (List.Nodup.get_inj_iff h1).mp h
   
-theorem finrv_image_exact {ω i} : X ω = X.imageList[i] ↔ X.imageIdxOf ω = i := 
-  ⟨finrv_image_unique, fun h => by rw[←h]; exact Eq.symm (finrv_image_inverse ω)⟩
+theorem _root_.FinRV.eq_getElem_iff_imageIdxOf_eq {ω i} : X ω = X.imageList[i] ↔ X.imageIdxOf ω = i := 
+  ⟨imageIdxOf_eq_of_eq_getElem, fun h => by rw[←h]; exact Eq.symm (getElem_imageIdxOf ω)⟩
 
 
 end Generic    
 
-theorem sum_eq_sum_image (f : ℚ → ℚ) : 
-    ∑ y ∈ (Finset.univ.image X), f y = ∑ i : Fin X.imageList.length, f (X.imageList[i]) := by 
-      rw [sum_finset_eq_sum_image, ← List.ofFn_getElem_eq_map, List.sum_ofFn]; rfl
+theorem _root_.FinRV.sum_image_univ_eq_sum_fin (f : R → R) : 
+    ∑ y ∈ X.quarks, f y = ∑ i : Fin X.imageList.length, f (X.imageList[i]) := by 
+      rw [sum_image_univ_eq_sum_imageList, ← List.ofFn_getElem_eq_map, List.sum_ofFn]; rfl
       
 
 /-- Shows that our definition of expectation is correct -/ 
-theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (ℙ[ X =ᵣ y // P] * y) := by
-    -- Reduce to LOTUS: L ω is the index of X ω in X.imageList and g maps an
+theorem expect_eq_sum_probability_mul : 𝔼[ X // P] = ∑ y ∈ X.quarks, (ℙ[ X =ᵣ y // P] * y) := by
+    -- Reduce to expect_comp_eq_sum: L ω is the index of X ω in X.imageList and g maps an
     -- index back to its value, so that g ∘ L = X.
     let L ω := X.imageIdxOf ω
-    have hgL : (fun i => X.imageList[i]) ∘ L = X := funext finrv_image_inverse
-    conv_lhs => rw [← hgL, LOTUS (P := P) (L := L)]
-    rw [sum_eq_sum_image]
+    have hgL : (fun i => X.imageList[i]) ∘ L = X := funext getElem_imageIdxOf
+    conv_lhs => rw [← hgL, expect_comp_eq_sum (P := P) (L := L)]
+    rw [sum_image_univ_eq_sum_fin]
     refine Fintype.sum_congr _ _ fun i => ?_
-    rw [show (X =ᵣ X.imageList[i]) = (L =ᵣ i) by ext ω; simpa [L, FinRV.eq] using finrv_image_exact]
+    rw [show (X =ᵣ X.imageList[i]) = (L =ᵣ i) by ext ω; simpa [L, FinRV.eq] using eq_getElem_iff_imageIdxOf_eq]
 
 
 -- theorem expect_def_correct2 : 𝔼[ X // P] = ∑ y ∈ X.imageList, ℙ[ X =ᵣ y // P] * y := by  sorry
@@ -580,63 +624,74 @@ theorem expect_def_correct : 𝔼[ X // P] = ∑ y ∈ (Finset.univ.image X), (�
 
 end RV_Unique_Values 
 
+end Findist
+
 end Expectation 
 
 section Probability 
+namespace Findist
+open FinRV
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
+variable {P : Findist R Ω} {B : FinRV Ω Bool}
 
 /-- The law of total probabilities -/
-theorem law_of_total_probs : ℙ[B // P] =  ∑ i, ℙ[B * (L =ᵣ i) // P]  := by 
-    rewrite [prob_eq_exp_ind, rv_decompose (𝕀∘B) L, exp_additive]
+theorem probability_eq_sum : ℙ[B // P] =  ∑ i, ℙ[B * (L =ᵣ i) // P]  := by 
+    rewrite [probability_eq_expect_indicator, eq_sum_mul_indicatorEq (𝕀∘B : FinRV Ω R) L, expect_sum]
     apply Fintype.sum_congr
     intro i 
-    rewrite [prob_eq_exp_ind] 
-    apply exp_congr
+    rewrite [probability_eq_expect_indicator] 
+    apply expect_congr
     ext ω
     by_cases h1 : L ω = i 
     repeat by_cases h2 : B ω; repeat simp [h1, h2, 𝕀, indicator ]
+
+end Findist
 
 end Probability 
 
 ---- Prababilities and permutations 
 
 section Probability_Permutation
+namespace Findist
+open FinRV
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω ℚ} {t : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {A B : FinRV Ω Bool} {X Y : FinRV Ω R} {t : R}
 
-def Findist.perm (P : Findist Ω) (σ : Equiv.Perm (Ω)) : Findist Ω where 
+def comp (P : Findist R Ω) (σ : Equiv.Perm (Ω)) : Findist R Ω where 
   p :=  P.p ∘ σ
-  prob := by 
-    have h1 : 1 = (1 : Ω → ℚ) ∘ σ := rfl 
+  sum_eq_one := by 
+    have h1 : 1 = (1 : Ω → R) ∘ σ := rfl 
     rw [h1, comp_equiv_dotProduct_comp_equiv 1 P.p σ]
-    exact P.prob
-  nneg := fun ω => P.nneg (σ ω)
+    exact P.sum_eq_one
+  nonneg := fun ω => P.nonneg (σ ω)
 
 variable (σ : Equiv.Perm (Ω))
 
-theorem exp_eq_perm : 𝔼[X ∘ σ // P.perm σ] = 𝔼[X // P] := by
-  unfold expect Findist.perm 
+theorem expect_comp_perm : 𝔼[X ∘ σ // P.comp σ] = 𝔼[X // P] := by
+  unfold expect Findist.comp 
   exact (comp_equiv_dotProduct_comp_equiv P.1 X σ)
 
-theorem prob_eq_perm : ℙ[A ∘ σ // P.perm σ] = ℙ[A // P] := by 
-  have h1 : (𝕀 ∘ A ∘ σ) = (𝕀 ∘ A) ∘ σ := by rfl 
-  rw [prob_eq_exp_ind, h1, exp_eq_perm, ←prob_eq_exp_ind] 
+theorem probability_comp_perm : ℙ[A ∘ σ // P.comp σ] = ℙ[A // P] := by 
+  have h1 : (𝕀 ∘ A ∘ σ : FinRV Ω R) = (𝕀 ∘ A) ∘ σ := by rfl 
+  rw [probability_eq_expect_indicator, h1, expect_comp_perm, ←probability_eq_expect_indicator] 
   
-theorem rv_le_perm : (X ∘ σ ≤ᵣ t) = (X ≤ᵣ t) ∘ σ := by unfold FinRV.leq; grind only 
+theorem _root_.FinRV.leq_comp_perm : (X ∘ σ ≤ᵣ t) = (X ≤ᵣ t) ∘ σ := by unfold FinRV.leq; grind only 
 
-theorem rv_lt_perm : (X ∘ σ <ᵣ t) = (X <ᵣ t) ∘ σ := by unfold FinRV.lt; grind only 
+theorem _root_.FinRV.lt_comp_perm : (X ∘ σ <ᵣ t) = (X <ᵣ t) ∘ σ := by unfold FinRV.lt; grind only 
 
-theorem rv_ge_perm : (X ∘ σ ≥ᵣ t) = (X ≥ᵣ t) ∘ σ := by unfold FinRV.geq; grind only 
+theorem _root_.FinRV.geq_comp_perm : (X ∘ σ ≥ᵣ t) = (X ≥ᵣ t) ∘ σ := by unfold FinRV.geq; grind only 
 
-theorem rv_gt_perm : (X ∘ σ >ᵣ t) = (X >ᵣ t) ∘ σ := by unfold FinRV.gt; grind only 
+theorem _root_.FinRV.gt_comp_perm : (X ∘ σ >ᵣ t) = (X >ᵣ t) ∘ σ := by unfold FinRV.gt; grind only 
 
-theorem prob_le_eq_perm : ℙ[X ∘ σ ≤ᵣ t // P.perm σ] = ℙ[X ≤ᵣ t // P] := by rw [rv_le_perm, prob_eq_perm]
+theorem probability_leq_comp_perm : ℙ[X ∘ σ ≤ᵣ t // P.comp σ] = ℙ[X ≤ᵣ t // P] := by rw [leq_comp_perm, probability_comp_perm]
 
-theorem prob_lt_eq_perm : ℙ[X ∘ σ <ᵣ t // P.perm σ] = ℙ[X <ᵣ t // P] := by rw [rv_lt_perm, prob_eq_perm]
+theorem probability_lt_comp_perm : ℙ[X ∘ σ <ᵣ t // P.comp σ] = ℙ[X <ᵣ t // P] := by rw [lt_comp_perm, probability_comp_perm]
 
-theorem prob_ge_eq_perm : ℙ[X ∘ σ ≥ᵣ t // P.perm σ] = ℙ[X ≥ᵣ t // P] := by rw [rv_ge_perm, prob_eq_perm]
+theorem probability_geq_comp_perm : ℙ[X ∘ σ ≥ᵣ t // P.comp σ] = ℙ[X ≥ᵣ t // P] := by rw [geq_comp_perm, probability_comp_perm]
 
-theorem prob_gt_eq_perm : ℙ[X ∘ σ >ᵣ t // P.perm σ] = ℙ[X >ᵣ t // P] := by rw [rv_gt_perm, prob_eq_perm]
+theorem probability_gt_comp_perm : ℙ[X ∘ σ >ᵣ t // P.comp σ] = ℙ[X >ᵣ t // P] := by rw [gt_comp_perm, probability_comp_perm]
+
+end Findist
 
 end Probability_Permutation 

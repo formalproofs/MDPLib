@@ -1,18 +1,30 @@
 import MDPLib.Probability.Basic
-import Mathlib.Data.EReal.Basic
 import Mathlib.Data.Set.Operations
 import Mathlib.Data.Fin.VecNotation
 
+set_option linter.unusedSectionVars false
+
+variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
+         [CharZero R] [Archimedean R]
 
 
 
-namespace Statistic 
+
+
+-- TODO(naming): Mathlib states order lemmas in the `≤` / `<` direction and derives the `≥`
+-- / `>` forms via `ge_iff_le`. Most statements in this file (`IsQuantile`, `probability_geq_of_mem_quantile`,
+-- `mem_quantileLower_iff`, ...) are written with `≥`, which keeps them from matching Mathlib's
+-- order lemmas by `rw`/`simp` and forces the `suffices ... from this` workarounds below.
+-- Flagged once here rather than per declaration.
+namespace Statistic
+open Findist FinRV
+
 
 section Definition 
 
 --def UnitI := {α : ℚ // 0 ≤ α ∧ α ≤ 1}
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist Ω) (X Y : FinRV Ω ℚ) (α : ℚ) (q v : ℚ)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist R Ω) (X Y : FinRV Ω R) (α : R) (q v : R)
 
 /-- Proof the `q` is an `α`-quantile of `X` --/
 def IsQuantile  : Prop := ℙ[X ≤ᵣ q // P ] ≥ α ∧ ℙ[X ≥ᵣ q // P] ≥ 1 - α
@@ -21,80 +33,82 @@ def IsQuantile  : Prop := ℙ[X ≤ᵣ q // P ] ≥ α ∧ ℙ[X ≥ᵣ q // P] 
 def IsQuantileLower : Prop := ℙ[X ≥ᵣ q // P] ≥ 1 - α
 
 /-- Set of quantiles at a level `α`  --/
-def Quantile : Set ℚ := {q | IsQuantile P X α q}
+def quantile : Set R := {q | IsQuantile P X α q}
 
 /-- Set of lower bounds on a quantile at `α` -/
-def QuantileLower : Set ℚ := {q | IsQuantileLower P X α q}
+def quantileLower : Set R := {q | IsQuantileLower P X α q}
 
 /-- Value `q` is maximum quantile at `α` of `X` and probability `P`  -/
-def IsQuantMax : Prop := IsGreatest (Quantile P X α) q
+def IsGreatestQuantile : Prop := IsGreatest (quantile P X α) q
 
 /-- Value `q` is minimum quantile at `α` of `X` and probability `P`  -/
-def IsQuantMin : Prop := IsLeast (Quantile P X α) q
+def IsLeastQuantile : Prop := IsLeast (quantile P X α) q
 
 end Definition
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y : FinRV Ω ℚ} {α : ℚ} {q v : ℚ}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y : FinRV Ω R} {α : R} {q v : R}
 
-theorem qset_lb : q ∈ Quantile P X α → ℙ[X ≤ᵣ q // P ] ≥ α := by simp_all [Quantile, IsQuantile]
+theorem le_probability_leq_of_mem_quantile : q ∈ quantile P X α → ℙ[X ≤ᵣ q // P ] ≥ α := by simp_all [quantile, IsQuantile]
 
-theorem qset_ub : q ∈ Quantile P X α → ℙ[X ≥ᵣ q // P] ≥ 1 - α := by simp_all [Quantile, IsQuantile]
+theorem probability_geq_of_mem_quantile : q ∈ quantile P X α → ℙ[X ≥ᵣ q // P] ≥ 1 - α := by simp_all [quantile, IsQuantile]
 
-theorem qset_def : q ∈ Quantile P X α ↔ ℙ[X ≤ᵣ q // P] ≥ α ∧ ℙ[X ≥ᵣ q // P] ≥ 1 - α := by simp_all [Quantile, IsQuantile]
+theorem mem_quantile_iff : q ∈ quantile P X α ↔ ℙ[X ≤ᵣ q // P] ≥ α ∧ ℙ[X ≥ᵣ q // P] ≥ 1 - α := by simp_all [quantile, IsQuantile]
 
-theorem qset_not_def : q ∉ Quantile P X α ↔ ℙ[ X ≤ᵣ q // P ] < α ∨ ℙ[ X ≥ᵣ q // P] < 1 - α := by
-    constructor; repeat intro h2; grind [qset_def]
+theorem notMem_quantile_iff : q ∉ quantile P X α ↔ ℙ[ X ≤ᵣ q // P ] < α ∨ ℙ[ X ≥ᵣ q // P] < 1 - α := by
+    constructor; repeat intro h2; grind [mem_quantile_iff]
 
-theorem qsetlower_def : q ∈ QuantileLower P X α ↔ ℙ[X ≥ᵣ q // P] ≥ 1 - α := by simp_all [QuantileLower, IsQuantileLower]
+theorem mem_quantileLower_iff : q ∈ quantileLower P X α ↔ ℙ[X ≥ᵣ q // P] ≥ 1 - α := by simp_all [quantileLower, IsQuantileLower]
 
-theorem qsetlower_def_lt : q ∈ QuantileLower P X α ↔ ℙ[X <ᵣ q // P] ≤ α :=
+theorem mem_quantileLower_iff_probability_lt : q ∈ quantileLower P X α ↔ ℙ[X <ᵣ q // P] ≤ α :=
     by constructor
-       · intro h; have := qsetlower_def.mp h; rw [prob_lt_of_ge]; linarith
-       · intro h; rw [prob_lt_of_ge] at h;
+       · intro h; have := mem_quantileLower_iff.mp h; rw [probability_lt_eq_one_sub]; linarith
+       · intro h; rw [probability_lt_eq_one_sub] at h;
          suffices  ℙ[X≥ᵣq // P] ≥ 1-α from this
          linarith
 
-theorem qset_ub_lt : q ∈ Quantile P X α → ℙ[ X <ᵣ q // P] ≤ α :=
+theorem probability_lt_of_mem_quantile : q ∈ quantile P X α → ℙ[ X <ᵣ q // P] ≤ α :=
   by intro h
-     have := qset_ub h
-     rewrite [prob_ge_of_lt] at this
+     have := probability_geq_of_mem_quantile h
+     rewrite [probability_geq_eq_one_sub] at this
      linarith
 
-theorem qset_of_cond : ℙ[ X ≤ᵣ q // P ] ≥ α ∧ ℙ[ X ≥ᵣ q // P] ≥ 1 - α → q ∈ Quantile P X α :=
-    by intro h; simp_all [Quantile, IsQuantile]
+-- TODO(mathlib): this is `mem_quantile_iff.mpr`; consider dropping it.
+theorem mem_quantile_of_probability_geq : ℙ[ X ≤ᵣ q // P ] ≥ α ∧ ℙ[ X ≥ᵣ q // P] ≥ 1 - α → q ∈ quantile P X α :=
+    by intro h; simp_all [quantile, IsQuantile]
 
-theorem qset_of_cond_lt : ℙ[X ≤ᵣ q // P] ≥ α ∧ ℙ[ X <ᵣ q // P] ≤ α → q ∈ Quantile P X α :=
+theorem mem_quantile_of_probability_lt : ℙ[X ≤ᵣ q // P] ≥ α ∧ ℙ[ X <ᵣ q // P] ≤ α → q ∈ quantile P X α :=
     by intro h1
-       have h2 : ℙ[ X ≥ᵣ q // P] ≥ 1 - α := by rw [prob_ge_of_lt]; linarith
-       exact qset_of_cond ⟨h1.1, h2⟩
+       have h2 : ℙ[ X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_geq_eq_one_sub]; linarith
+       exact mem_quantile_of_probability_geq ⟨h1.1, h2⟩
 
-theorem qsetlower_of_cond : ℙ[ X ≥ᵣ q // P] ≥ 1 - α → q ∈ QuantileLower P X α :=
-    by intro h; simp_all [QuantileLower, IsQuantileLower]
+-- TODO(mathlib): this is `mem_quantileLower_iff.mpr`; consider dropping it.
+theorem mem_quantileLower_of_probability_geq : ℙ[ X ≥ᵣ q // P] ≥ 1 - α → q ∈ quantileLower P X α :=
+    by intro h; simp_all [quantileLower, IsQuantileLower]
 
-theorem qsetlower_of_cond_lt : ℙ[ X <ᵣ q // P] ≤ α → q ∈ QuantileLower P X α :=
+theorem mem_quantileLower_of_probability_lt : ℙ[ X <ᵣ q // P] ≤ α → q ∈ quantileLower P X α :=
     by intro h1
-       have h2 : ℙ[X ≥ᵣ q // P] ≥ 1 - α := by rw [prob_ge_of_lt]; linarith
-       exact qsetlower_of_cond  h2
+       have h2 : ℙ[X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_geq_eq_one_sub]; linarith
+       exact mem_quantileLower_of_probability_geq  h2
 
-theorem quantile_implies_quantilelower : IsQuantile P X α v → IsQuantileLower P X α v :=
+theorem IsQuantile.isQuantileLower : IsQuantile P X α v → IsQuantileLower P X α v :=
     by simp[IsQuantile, IsQuantileLower]
 
-theorem quantile_subset_quantilelower : Quantile P X α ⊆ QuantileLower P X α := fun _ => quantile_implies_quantilelower
+theorem quantile_subset_quantileLower : quantile P X α ⊆ quantileLower P X α := fun _ => IsQuantile.isQuantileLower
 
-theorem quantile_le_monotone : X ≤ Y → IsCofinalFor (QuantileLower P X α) (IsQuantileLower P Y α) := by
+theorem isCofinalFor_quantileLower_of_le : X ≤ Y → IsCofinalFor (quantileLower P X α) (IsQuantileLower P Y α) := by
   intro hle q₁ hvar₁
   have hq₁ := le_refl q₁
-  exact ⟨q₁, ⟨le_trans hvar₁ (prob_ge_antitone hle hq₁), hq₁⟩⟩
+  exact ⟨q₁, ⟨le_trans hvar₁ (probability_geq_anti hle hq₁), hq₁⟩⟩
 
 section Negation 
 
-theorem isquant_neg : (IsQuantile P X α q) ↔ (IsQuantile P (-X) (1-α) (-q)) := by 
-  rw [IsQuantile, IsQuantile, prob_ge_neg_le,prob_le_neg_ge]
+theorem isQuantile_neg_iff : (IsQuantile P X α q) ↔ (IsQuantile P (-X) (1-α) (-q)) := by 
+  rw [IsQuantile, IsQuantile, probability_geq_eq_neg_leq_neg,probability_leq_eq_neg_geq_neg]
   have hα : 1-(1-α) = α := by ring 
   rewrite [hα]
   constructor <;> exact fun a => a.symm
   
-theorem quantile_neg : q ∈ Quantile P X α ↔ (-q) ∈ Quantile P (-X) (1-α) := isquant_neg
+theorem mem_quantile_neg_iff : q ∈ quantile P X α ↔ (-q) ∈ quantile P (-X) (1-α) := isQuantile_neg_iff
 
 
 
@@ -114,65 +128,65 @@ end UpperLowerBounds
 
 section Transformations
 
-variable {f : ℚ → ℚ}
+variable {f : R → R}
 
 -- the reverse implications of the following results do not hold
-theorem quantile_f_monotone (hm : Monotone f) : q ∈ Quantile P X α → (f q) ∈ Quantile P (f ∘ X) α := by
-    intro h; grw [qset_def, prob_f_le_monotone hm, prob_f_ge_monotone hm] at h; exact h
+theorem mem_quantile_comp_of_monotone (hm : Monotone f) : q ∈ quantile P X α → (f q) ∈ quantile P (f ∘ X) α := by
+    intro h; grw [mem_quantile_iff, hm.probability_leq_le, hm.probability_geq_le] at h; exact h
 
-theorem quantile_f_strictmono (hm : StrictMono f) : q ∈ Quantile P X α ↔ (f q) ∈ Quantile P (f ∘ X) α := by 
-    rw [qset_def, qset_def, prob_f_le_strictmono hm, prob_f_ge_strictmono hm]
+theorem mem_quantile_comp_iff_of_strictMono (hm : StrictMono f) : q ∈ quantile P X α ↔ (f q) ∈ quantile P (f ∘ X) α := by 
+    rw [mem_quantile_iff, mem_quantile_iff, hm.probability_leq_eq, hm.probability_geq_eq]
 
-theorem quantilelower_f_monotone (hm : Monotone f) : q ∈ QuantileLower P X α → (f q) ∈ QuantileLower P (f ∘ X) α := by
-    intro h; grw [qsetlower_def, prob_f_ge_monotone hm] at h; exact h
+theorem mem_quantileLower_comp_of_monotone (hm : Monotone f) : q ∈ quantileLower P X α → (f q) ∈ quantileLower P (f ∘ X) α := by
+    intro h; grw [mem_quantileLower_iff, hm.probability_geq_le] at h; exact h
 
-theorem quantilelower_f_strictmono (hm : StrictMono f) : q ∈ QuantileLower P X α ↔ (f q) ∈ QuantileLower P (f ∘ X) α := by 
-    rw [qsetlower_def, qsetlower_def, prob_f_ge_strictmono hm]
+theorem mem_quantileLower_comp_iff_of_strictMono (hm : StrictMono f) : q ∈ quantileLower P X α ↔ (f q) ∈ quantileLower P (f ∘ X) α := by 
+    rw [mem_quantileLower_iff, mem_quantileLower_iff, hm.probability_geq_eq]
 
 -- set transformations
-theorem quantile_f_monotone_set (hm : Monotone f) : f '' Quantile P X α ⊆  Quantile P (f∘X) α := by
+theorem image_quantile_subset_quantile_comp_of_monotone (hm : Monotone f) : f '' quantile P X α ⊆  quantile P (f∘X) α := by
     intro q ⟨x, hx⟩ 
     rw [←hx.2] 
-    exact quantile_f_monotone hm hx.1 
+    exact mem_quantile_comp_of_monotone hm hx.1 
 
-theorem quantilelower_f_monotone_set (hm : Monotone f) : f '' QuantileLower P X α ⊆  QuantileLower P (f∘X) α := by
+theorem image_quantileLower_subset_quantileLower_comp_of_monotone (hm : Monotone f) : f '' quantileLower P X α ⊆  quantileLower P (f∘X) α := by
     intro q ⟨x, hx⟩ 
     rw [←hx.2] 
-    exact quantilelower_f_monotone hm hx.1 
+    exact mem_quantileLower_comp_of_monotone hm hx.1 
 
 -- this property only holds for a discrete random variable 
-theorem quantile_f_cofinal (hm : Monotone f) : IsCofinalFor (Quantile P (f∘X) α) (f '' Quantile P X α) := by 
+theorem isCofinalFor_quantile_comp_image_of_monotone (hm : Monotone f) : IsCofinalFor (quantile P (f∘X) α) (f '' quantile P X α) := by 
     unfold IsCofinalFor
     intro a ha 
     use a 
-    rewrite [qset_def] at ha 
+    rewrite [mem_quantile_iff] at ha 
     constructor
-    swap; exact Rat.le_refl
-    refine (Set.mem_image f (Quantile P X α) a).mpr ?_
+    swap; exact le_rfl
+    refine (Set.mem_image f (quantile P X α) a).mpr ?_
     sorry 
 
 -- this property only holds for a discrete random variable 
-theorem quantile_f_coinitial (hm : Monotone f) : IsCoinitialFor (Quantile P (f∘X) α) (f '' Quantile P X α) := by 
+theorem isCoinitialFor_quantile_comp_image_of_monotone (hm : Monotone f) : IsCoinitialFor (quantile P (f∘X) α) (f '' quantile P X α) := by 
     sorry 
 
 end Transformations
 
-variable {c : ℚ}
+variable {c : R}
 
-theorem quantilelower_cashinv : q ∈ QuantileLower P X α ↔ (q+c) ∈ QuantileLower P (X+c•1) α := by
+theorem mem_quantileLower_add_const_iff : q ∈ quantileLower P X α ↔ (q+c) ∈ quantileLower P (X+c•1) α := by
   constructor
-  · intro h; rw [qsetlower_def, prob_ge_cashinvar c] at h; exact h
-  · intro h; rw [qsetlower_def, prob_ge_cashinvar c]; exact h
+  · intro h; rw [mem_quantileLower_iff, probability_geq_add_const c] at h; exact h
+  · intro h; rw [mem_quantileLower_iff, probability_geq_add_const c]; exact h
 
 /-- Adding a constant to a random variable shifts the quantile -/
-theorem quantilelower_cash_image : QuantileLower P (X+c•1) α = (fun x ↦ x+c) '' QuantileLower P X α := by
+theorem quantileLower_add_const_eq_image : quantileLower P (X+c•1) α = (fun x ↦ x+c) '' quantileLower P X α := by
   apply Set.eq_of_subset_of_subset
   · unfold Set.image
     intro qc hqc
     use qc-c
     constructor
     · generalize hqcq : qc - c = q
-      rw [quantilelower_cashinv (c:=c)]
+      rw [mem_quantileLower_add_const_iff (c:=c)]
       have hqcq2 : qc = q + c := by rw[←hqcq]; ring
       rw [hqcq2] at hqc
       exact hqc
@@ -180,7 +194,7 @@ theorem quantilelower_cash_image : QuantileLower P (X+c•1) α = (fun x ↦ x+c
   · unfold Set.image
     intro q hq
     obtain ⟨a, ha⟩ := hq
-    rw [quantilelower_cashinv (c:=c)] at ha
+    rw [mem_quantileLower_add_const_iff (c:=c)] at ha
     rw [←ha.2]
     exact ha.1
 

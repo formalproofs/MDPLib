@@ -5,6 +5,12 @@ defaultTargets = ["mdplib"]
 [[lean_lib]]
 name = "MDPLib"
 
+# Computability guards for the main definitions at ℚ; `#guard`s and plain `def`s run at
+# elaboration time, so `lake build MDPLibTest` is the whole test. Kept out of `MDPLib` so it
+# does not appear in the published API docs.
+[[lean_lib]]
+name = "MDPLibTest"
+
 [[lean_exe]]
 name = "mdplib"
 root = "Main"

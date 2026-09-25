@@ -5,57 +5,53 @@ import Mathlib.Data.Matrix.Mul  -- dot product definitions and results
 import Mathlib.Algebra.Notation.Pi.Defs -- operations on functions
 import Mathlib.Algebra.Module.PointwisePi -- for smul_pi
 import Mathlib.LinearAlgebra.Matrix.DotProduct -- for monotonicity
+import Mathlib.Data.Finset.Image -- for Finset.universal.image
+
+set_option linter.unusedSectionVars false
+
+-- The scalar type: any linear ordered field (see `MDPLib/Probability/Prelude.lean`).
+-- the particular targets are: ℚ for computability and ℝ for proofs
+variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R] [CharZero R] [Archimedean R]
 
 
 --------------------------- Findist ---------------------------------------------------------------
 
-
--- TODO: do we even need to assume that Ω is finitely enumerable when defining the probability space?
-
-/-- Finite probability distribution over a finitely-enumerable sample space `Ω`. -/
--- NOTE(mathlib): Mathlib's `StdSimplex ℚ Ω` (`Mathlib/Geometry/Convex/ConvexSpace/Defs.lean:56`)
--- is the same object (`weights` / `nonneg` / `total`), and `StdSimplex.nonempty` duplicates
--- `Findist.nonempty` below. We deliberately do NOT switch: `StdSimplex` is `Finsupp`-backed,
--- whereas this library is built throughout on plain functions and `⬝ᵥ`.
-structure Findist (Ω : Type) [FinEnum Ω] : Type where
+structure Findist (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type where
     /-- Probability measure -/
-    p : Ω → ℚ
-    prob : 1 ⬝ᵥ p = 1
-    nneg : 0 ≤ p
-
+    p : Ω → R
+    sum_eq_one : 1 ⬝ᵥ p = 1
+    nonneg : 0 ≤ p
 
 namespace Findist
 
 
 /-- Finite probability distribution  -/
-abbrev Delta (Ω : Type) [FinEnum Ω] : Type := Findist Ω
+abbrev Delta (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type := Findist R Ω
 
 /-- Finite probability distribution  -/
-abbrev Δ (Ω : Type) [FinEnum Ω] : Type := Delta Ω
+abbrev Δ (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] (Ω : Type) [FinEnum Ω] : Type := Delta R Ω
 
 /-- Dirac (point mass) distribution concentrated at `ω₀`. -/
 -- NOTE(mathlib): `p` here is `Pi.single ω₀ 1`; cf. `StdSimplex.single` / `single_mem_stdSimplex`.
-def dirac {Ω : Type} [FinEnum Ω] (ω₀ : Ω) : Findist Ω where
+def dirac {Ω : Type} [FinEnum Ω] (ω₀ : Ω) : Findist R Ω where
     p    := fun ω => if ω = ω₀ then 1 else 0
-    prob := by simp [dotProduct]
-    nneg := by intro ω; by_cases h : ω = ω₀ <;> simp [h]
-
-section General
+    sum_eq_one := by simp [dotProduct]
+    nonneg := by intro ω; by_cases h : ω = ω₀ <;> simp [h]
 
 variable {Ω : Type} [FinEnum Ω]
 
+
 /-- The sample space of a probability distribution is nonempty. -/
-theorem nonempty (P : Findist Ω) : Nonempty Ω := by
+theorem nonempty (P : Findist R Ω) : Nonempty Ω := by
   by_contra h
   rw [not_nonempty_iff] at h
-  have := P.prob
+  have := P.sum_eq_one
   simp_all only [Matrix.dotProduct_of_isEmpty, zero_ne_one]
 
 /-- A distribution over an empty sample space is impossible. -/
-theorem nonempty' [IsEmpty Ω] (P : Findist Ω) : False :=
+theorem isEmpty_elim [IsEmpty Ω] (P : Findist R Ω) : False :=
   (not_nonempty_iff.mpr ‹_›) P.nonempty
 
-end General
 
 end Findist
 
@@ -72,7 +68,7 @@ using the standard notation:
 
 
 - L =ᵣ i is a boolean indicator random variable
-- L =ᵢ i is a ℚ indicator random variable
+- L =ᵢ i is an `R`-valued indicator random variable
 - L ≤ᵣ i is a bool indicator random variable
 
 Main results
@@ -91,31 +87,25 @@ variable {Ω : Type} [Nonempty Ω] {ρ : Type}
 
 namespace FinRV
 
--- for convenience define operations on bools
 -- WARNING: these four instances shadow Mathlib's global `Bool` algebra.
--- `Mathlib/Algebra/Ring/BooleanRing.lean:515,521` declares `Add Bool := xor` and
--- `Mul Bool := and` as part of `instance : BooleanRing Bool`, and :540 declares
--- `Bool.zero_eq_false`, which would collide by name with `zero_eq_false` below.
--- That file is NOT currently reachable from this import graph (checked: `BooleanRing` and
--- `Bool.zero_eq_false` are unknown constants here, and `#synth Add Bool` returns
--- `instBoolAdd`), so there is no ambiguity today -- but the moment anything pulls
--- `Mathlib.Algebra.Ring.BooleanRing` in, `+` on `Bool` becomes ambiguous between `or` and
--- `xor`, and `one_of_bool_or_not` / `le_of_le_eq` could change meaning.
--- If that happens: make these `scoped instance`s in the `FinRV` namespace, or drop them and
--- write `||` / `&&` explicitly.
-instance instBoolMul : Mul Bool where mul a b := Bool.and a b
-instance instBoolAdd: Add Bool  where add a b := Bool.or a b
-instance instBoolZero : Zero Bool where zero := false
-instance instBoolOne : One Bool where one := true
+-- in `Mathlib/Algebra/Ring/BooleanRing.lean. These operations are defined differntly
+instance instMulBool : Mul Bool where mul a b := Bool.and a b
+instance instAddBool: Add Bool  where add a b := Bool.or a b
+instance instZeroBool : Zero Bool where zero := false
+instance instOneBool : One Bool where one := true
 
 variable {A B : Bool}
 
-@[simp] theorem one_eq_true : (1:Bool) = true := rfl
--- NOTE: name-clashes with Mathlib's `Bool.zero_eq_false` -- see the WARNING above.
-@[simp] theorem zero_eq_false : (0:Bool) = false := rfl
-@[simp] theorem bool_sum_or : A + B = Bool.or A B := rfl
-@[simp] theorem bool_prod_and : A * B = Bool.and A B := rfl
 
+@[simp] theorem one_eq_true : (1:Bool) = true := rfl
+@[simp] theorem zero_eq_false : (0:Bool) = false := rfl
+@[simp] theorem add_eq_or : A + B = Bool.or A B := rfl
+@[simp] theorem mul_eq_and : A * B = Bool.and A B := rfl
+
+
+-- NOTE: the following definitions of inequalities and operations
+-- are neccessary because the standard operators generate Prop whereas
+-- we need to generate random variables.
 
 /-- Negates a random variable -/
 @[simp] def not (B : FinRV Ω Bool) : FinRV Ω Bool :=
@@ -126,17 +116,18 @@ prefix:40 "¬ᵣ" => FinRV.not
 
 /-- Boolean random variable representing an quality condition -/
 @[simp] def eq [DecidableEq ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
-  (fun ω ↦ decide (Y ω = y) )
+  (fun ω ↦ decide (Y ω = y))
 
 /-- Boolean random variable representing an quality condition -/
 infix:50 "=ᵣ" => FinRV.eq
 
 /-- 0/1 random variable representing an quality condition -/
-@[simp] def eqi [DecidableEq ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω ℚ :=
+@[simp] def indicatorEq {R : Type} [Zero R] [One R] [DecidableEq ρ] (Y : FinRV Ω ρ) (y : ρ) :
+    FinRV Ω R :=
   (fun ω ↦ if Y ω = y then 1 else 0)
 
 /-- 0/1 random variable representing an quality condition -/
-infix:50 "=ᵢ" => FinRV.eqi
+infix:50 "=ᵢ" => FinRV.indicatorEq
 
 /-- Boolean random variable represening Y ≤ y inequality -/
 @[simp] def leq [LE ρ] [DecidableLE ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
@@ -145,172 +136,181 @@ infix:50 "=ᵢ" => FinRV.eqi
 /-- Boolean random variable represening Y ≤ y inequality -/
 infix:50 "≤ᵣ" => FinRV.leq
 
-
 /-- Boolean random variable represening Y ≤ y inequality -/
-@[simp] def lt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
+@[simp] 
+def lt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   (fun ω ↦ Y ω < y)
 
 /-- Boolean random variable represening Y ≤ y inequality -/
 infix:50 "<ᵣ" => FinRV.lt
 
 /-- Boolean random variable represening Y ≤ y inequality -/
-@[simp] def geq [LE ρ] [DecidableLE ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
+@[simp, to_dual existing leq] 
+def geq [LE ρ] [DecidableLE ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   (fun ω ↦ Y ω ≥ y)
 
 /-- Boolean random variable represening Y ≤ y inequality -/
 infix:50 "≥ᵣ" => FinRV.geq
 
 /-- Boolean random variable represening Y > y inequality -/
-@[simp] def gt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
+@[simp, to_dual existing lt] def gt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   fun ω ↦ Y ω > y
 
 /-- Boolean random variable represening Y > y inequality -/
 infix:50 ">ᵣ" => FinRV.gt
 
+--instance instCoeFinRV_Fun : Coe (FinRV Ω ρ) (Ω → ρ) where 
+--  coe a := a
 
 /-- Equivalence when adding an element to integer comparison. -/
-theorem le_of_le_eq (D : FinRV Ω ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by
+theorem leq_add_eq_succ (D : FinRV Ω ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by 
   have exclusion {a b : ℕ} (h : a > b + 1) : (a > b) ∧ ¬(a = b + 1) := 
   ⟨ Nat.lt_of_succ_lt h, Ne.symm (Nat.ne_of_lt h) ⟩
   funext x 
-  unfold FinRV.leq FinRV.eq instHAdd Add.add Pi.instAdd
-  rw [Pi.add_apply, bool_sum_or]
+  rw [FinRV.leq, instHAdd, Add.add, Pi.instAdd, Pi.add_apply, add_eq_or]
   by_cases h : D x ≤ m.succ
   · simp [h, Nat.le_or_eq_of_le_succ]
-  · simp [h, exclusion (Nat.not_le.mp h) ] 
+  · simp [h, exclusion (Nat.not_le.mp h)] 
 
 /-- Defines a preimage of an RV. This is a set with a decidable membership. -/
 def preimage (f : FinRV Ω ρ) : ρ → Set Ω :=
   fun t => { m : Ω | f m  = t}
 
+variable {β : Type} [DecidableEq β] [FinEnum Ω]
+/-! Finite set of potential atoms of X (probability may be zero) -/
+abbrev quarks  (X : FinRV Ω β) := Finset.univ.image X
+
+theorem mem_quarks {X : FinRV Ω β} (ω) : X ω ∈ X.quarks := Finset.mem_image_of_mem X (Finset.mem_univ ω)
+
+theorem quarks_nonempty {X : FinRV Ω β} : X.quarks.Nonempty := Finset.univ_nonempty.image X
+
 end FinRV
 
-/-- Boolean indicator function -/
-def indicator  [OfNat ℚ 0] [OfNat ℚ 1] (cond : Bool) : ℚ := cond.rec 0 1
+namespace FinRV
 
 /-- Boolean indicator function -/
-abbrev 𝕀 [OfNat ℚ 0] [OfNat ℚ 1] : Bool → ℚ := indicator
+def indicator {R : Type} [Zero R] [One R] (cond : Bool) : R := cond.rec 0 1
+
+/-- Boolean indicator function -/
+abbrev 𝕀 {R : Type} [Zero R] [One R] : Bool → R := indicator
 
 
 variable {k : ℕ} {L : FinRV Ω (Fin k)}
 
-theorem indi_eq_indr : ∀i : Fin k, (𝕀 ∘ (L =ᵣ i)) = (L =ᵢ i) := by
-  intro i; unfold FinRV.eq FinRV.eqi 𝕀 indicator; ext ω; by_cases h: L ω = i; repeat simp [h]
+theorem indicator_comp_eq_indicatorEq : ∀i : Fin k, (𝕀 ∘ (L =ᵣ i) : FinRV Ω R) = (L =ᵢ i) := by
+  intro i; unfold FinRV.eq FinRV.indicatorEq 𝕀 indicator; ext ω; by_cases h: L ω = i; repeat simp [h]
 
 variable {B : FinRV Ω Bool}
 
-theorem ind_zero_one : (𝕀∘B) ω = 1 ∨ (𝕀∘B) ω = 0 := by
+theorem indicator_eq_one_or_eq_zero {ω : Ω} : (𝕀∘B : FinRV Ω R) ω = 1 ∨ (𝕀∘B : FinRV Ω R) ω = 0 := by
     by_cases h : B ω
     · left; simp only [Function.comp_apply, h, indicator]
     · right; simp only [Function.comp_apply, h, indicator]
 
 /-- Indicator is 0 or 1 -/
-theorem ind_nneg : (0 : FinRV Ω ℚ) ≤ 𝕀∘B := by
+theorem indicator_nonneg : (0 : FinRV Ω R) ≤ 𝕀∘B := by
     intro ω; unfold 𝕀 indicator; by_cases h : B ω; repeat simp [h]
 
-theorem ind_le_one : 𝕀∘B ≤ (1 : FinRV Ω ℚ) :=
+theorem indicator_le_one : (𝕀∘B : FinRV Ω R) ≤ 1 :=
     by unfold 𝕀 indicator; intro ω; by_cases h : B ω; repeat simp [h]
 
-variable {c : ℚ} {X : FinRV Ω ℚ}
+variable {c : R} {X : FinRV Ω R}
 
 omit [Nonempty Ω] in
-theorem rv_const_fun_to_one : (fun _ ↦ c : FinRV Ω ℚ)  = c • 1 := by ext; simp;
+theorem const_eq_smul_one : (fun _ ↦ c : FinRV Ω R)  = c • 1 := by ext; simp;
 
-theorem rv_decompose (X : FinRV Ω ℚ) (L : FinRV Ω (Fin k)) : X = ∑ i, X * (L =ᵢ i) := by ext ω; simp
+theorem eq_sum_mul_indicatorEq (X : FinRV Ω R) (L : FinRV Ω (Fin k)) : X = ∑ i, X * (L =ᵢ i) := by ext ω; simp
 
 omit [Nonempty Ω] in
-theorem one_of_true : 𝕀 ∘ (1 : Ω → Bool) = (1 : Ω → ℚ) := by ext; simp [𝕀, indicator]
+theorem indicator_one : 𝕀 ∘ (1 : Ω → Bool) = (1 : Ω → R) := by ext; simp [𝕀, indicator]
 
-theorem one_of_bool_or_not : B + (¬ᵣ B) = (1 : FinRV Ω Bool) := by ext ω; unfold FinRV.not; simp
+theorem add_not_eq_one : B + (¬ᵣ B) = (1 : FinRV Ω Bool) := by ext ω; unfold FinRV.not; simp
 
-theorem one_of_ind_bool_or_not : (𝕀∘B) + (𝕀∘(¬ᵣ B)) = (1 : FinRV Ω ℚ) :=
-    by ext ω; unfold FinRV.not 𝕀 indicator not
+theorem indicator_add_indicator_not_eq_one : (𝕀∘B) + (𝕀∘(¬ᵣ B)) = (1 : FinRV Ω R) :=
+    by ext ω; unfold FinRV.not 𝕀 indicator Bool.not
        by_cases h : B ω <;> simp [h]
 
-variable {X Y: FinRV Ω ℚ} {Xs : Fin k → FinRV Ω ℚ}
+variable {X Y: FinRV Ω R} {Xs : Fin k → FinRV Ω R}
 
--- TODO(mathlib): = `le_abs_self X`. `Ω → ℚ` is a Pi lattice ordered group, so `|X|` is
--- pointwise and defeq to `abs ∘ X`. Verified: `le_abs_self X` closes this goal as stated.
-theorem rv_le_abs : X ≤ abs ∘ X := by intro i; simp [le_abs_self (X i)]
+theorem rv_le_abs : X ≤ abs ∘ X := le_abs_self X
 
--- TODO(mathlib): = `(Finset.mul_sum _ _ _).symm`
--- (`Mathlib/Algebra/BigOperators/Ring/Finset.lean:59`) applied directly in the Pi semiring
--- `Ω → ℚ` -- no pointwise `ext` needed.
-theorem rv_prod_sum_additive  : ∑ i, Y * (Xs i) = Y * (∑ i, Xs i) :=
-    by ext ω; simp [Finset.mul_sum]
+theorem rv_prod_sum_additive  : ∑ i, Y * (Xs i) = Y * (∑ i, Xs i) := Eq.symm (Finset.mul_sum Finset.univ Xs Y)
 
-variable {g : Fin k → ℚ}
+variable {g : Fin k → R}
 
-theorem rv_prod_const (i) : (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) := 
+theorem comp_mul_indicatorEq (i) : (g ∘ L) * (L =ᵢ i) = (g i) • (L =ᵢ i) := 
     by ext ω; by_cases h : L ω = i <;> simp [h] 
 
-variable {β : Type}
-
+variable {β : Type}  -- general type, but different from the scalar type; could be an integer or categorical
 
 -- assume enumerability of Ω from here because we need a probability space
-variable [FinEnum Ω] [DecidableEq β]
+variable [FinEnum Ω] [LinearOrder β]
 
--- TODO(mathlib): = `Finset.univ_nonempty.image X` (`Mathlib/Data/Finset/BooleanAlgebra.lean:50`).
-theorem rv_image_nonempty (X : FinRV Ω β) : (Finset.univ.image X).Nonempty :=
-  Finset.image_nonempty.mpr Finset.univ_nonempty
+@[to_dual] -- minQuark
+def maxQuark (X : FinRV Ω β) : β := X.quarks.max' quarks_nonempty
 
--- NOTE(mathlib): already Mathlib-based (`Finset.min'`/`max'` on the image). An alternative
--- spelling is `Finset.univ.sup' Finset.univ_nonempty X`, which would make `rv_omega_le_max`
--- literally `Finset.le_sup' X (Finset.mem_univ ω)`
--- (`Mathlib/Data/Finset/Lattice/Fold.lean:564`), dually `Finset.inf'_le`. Cosmetic only.
-def FinRV.min [LinearOrder β] (X : FinRV Ω β) : β :=
-  (Finset.univ.image X).min' (rv_image_nonempty X)
+variable {X : FinRV Ω β}
 
-def FinRV.max [LinearOrder β] (X : FinRV Ω β) : β :=
-  (Finset.univ.image X).max' (rv_image_nonempty X)
+@[to_dual]
+theorem maxQuark_mem_quarks : X.maxQuark ∈ X.quarks := Finset.max'_mem _ quarks_nonempty
 
-variable {X : FinRV Ω ℚ}
+@[to_dual minQuark_le]
+theorem le_maxQuark (ω) : X ω ≤ X.maxQuark := Finset.le_max' (X.quarks) (X ω) (mem_quarks ω)
 
-theorem rv_omega_le_max  (ω) : X ω ≤ (FinRV.max X) := by 
-       have h : X ω ∈ (Finset.image X Finset.univ) := Finset.mem_image_of_mem X (Finset.mem_univ ω)
-       exact Finset.le_max' (Finset.image X Finset.univ) (X ω) h
+end FinRV
 
 end RandomVariable
 
 ------------------------------ Probability ---------------------------
+
+namespace Findist
+open FinRV
+
 section Probability 
 
-variable {Ω : Type} [Nonempty Ω] [FinEnum Ω] (P : Findist Ω) (B C : FinRV Ω Bool)
+variable {Ω : Type} [Nonempty Ω] [FinEnum Ω] (P : Findist R Ω) (B C : FinRV Ω Bool)
 
 /-- Probability of B -/
-def probability : ℚ :=  P.p ⬝ᵥ (𝕀 ∘ B)
+def probability : R :=  P.p ⬝ᵥ (𝕀 ∘ B)
 
 /-- Probability of B -/
 notation "ℙ[" B "//" P "]" => probability P B
 
 /-- Conditional probability of B on C -/
-def probability_cnd : ℚ := ℙ[B * C // P] / ℙ[ C // P ]
+def probabilityCond : R := ℙ[B * C // P] / ℙ[ C // P ]
 
 /-- Conditional probability of B on C -/
-notation "ℙ[" B "|" C "//" P "]" => probability_cnd P B C
+notation "ℙ[" B "|" C "//" P "]" => probabilityCond P B C
 
+/-- Elements of Ω with positive probability  -/
+def support (P : Findist R Ω) : Finset Ω := Finset.univ.filter (fun ω => P.p ω > 0)
 
-theorem prob_one_of_true : ℙ[1 // P] = 1 :=
-    by rewrite [probability, one_of_true, dotProduct_comm]
-       exact P.prob
+/-- Values of X with positive probability -/
+def atoms (P : Findist R Ω) (X : FinRV Ω R) : Finset R := P.support.image X
 
-example {a b : ℚ} (h : 0 ≤ a) (h2 : 0 ≤ b) : 0 ≤ a * b :=  Rat.mul_nonneg h h2
+theorem probability_one : ℙ[1 // P] = 1 :=
+    by rewrite [probability, indicator_one, dotProduct_comm]
+       exact P.sum_eq_one
 
-variable {P : Findist Ω} {B : FinRV Ω Bool}
+example {a b : R} (h : 0 ≤ a) (h2 : 0 ≤ b) : 0 ≤ a * b :=  mul_nonneg h h2
 
-theorem prod_zero_of_prob_zero (h : ℙ[B // P] = 0) : (P.p * (𝕀∘B) = 0) := by
-    exact prod_eq_zero_of_nneg_dp_zero P.nneg ind_nneg h
+variable {P : Findist R Ω} {B : FinRV Ω Bool}
 
------------------------------- PMF ---------------------------
+theorem probability_congr {A : FinRV Ω Bool} (h : A = B) : ℙ[A // P] = ℙ[B // P] := congrArg (probability P) h
 
-/-- Proof that p is a the PMF of X on probability space P -/
-def PMF {K : ℕ} (pmf : Fin K → ℚ) (P : Findist Ω) (L : FinRV Ω (Fin K)) :=
+theorem mul_eq_zero_of_probability_eq_zero (h : ℙ[B // P] = 0) : (P.p * (𝕀∘B) = 0) := by
+    exact Matrix.mul_eq_zero_of_dotProduct_eq_zero P.nonneg indicator_nonneg h
+
+------------------------------ IsPMF ---------------------------
+
+/-- Proof that p is a the IsPMF of X on probability space P -/
+def IsPMF {K : ℕ} (pmf : Fin K → R) (P : Findist R Ω) (L : FinRV Ω (Fin K)) :=
     ∀ k : Fin K, pmf k = ℙ[ L =ᵣ k // P]
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {k : ℕ}  {L : FinRV Ω (Fin k)}
-variable {pmf : Fin k → ℚ} {P : Findist Ω}
+variable {pmf : Fin k → R} {P : Findist R Ω}
 
-theorem pmf_rv_k_ge_1 (h : PMF pmf P L)  : 0 < k :=
+theorem IsPMF.pos (h : IsPMF pmf P L)  : 0 < k :=
   match k with  
   | Nat.zero => Fin.pos <| L P.nonempty.some
   | Nat.succ k₂ => Nat.zero_lt_succ k₂
@@ -323,9 +323,9 @@ section CDF
 
 variable {Ω : Type} [FinEnum Ω] [Nonempty Ω]
 
-def cdf (P : Findist Ω) (X : FinRV Ω ℚ) (t : ℚ) : ℚ := ℙ[X ≤ᵣ t // P]
+def cdf (P : Findist R Ω) (X : FinRV Ω R) (t : R) : R := ℙ[X ≤ᵣ t // P]
 
-variable {P : Findist Ω} {X Y : FinRV Ω ℚ} {t t₁ t₂ : ℚ}
+variable {P : Findist R Ω} {X Y : FinRV Ω R} {t t₁ t₂ : R}
 
 
 end CDF
@@ -333,6 +333,9 @@ end CDF
 ------------------------------ Expectation ----------------------
 
 /-!
+
+## Expectation operator
+
 Definitions and main properties of the expectation operator
 
 Main results
@@ -343,104 +346,102 @@ Main results
 
 section Expectation_properties
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist Ω) (X Y Z: FinRV Ω ℚ) (B : FinRV Ω Bool)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist R Ω) (X Y Z: FinRV Ω R) (B : FinRV Ω Bool)
 
 /-- Standard expectation operator -/
-def expect : ℚ := P.p ⬝ᵥ X
+def expect : R := P.p ⬝ᵥ X
 
-/-- Standard expectation operator -/
+/-- Default expectation operator -/
 notation "𝔼[" X "//" P "]" => expect P X
 
---theorem exp_eq_correct : 𝔼[X // P] = ∑ v ∈ ((List.finRange P.length).map X).toFinset, v * ℙ[ X =ᵣ v // P]
 
-theorem prob_eq_exp_ind : ℙ[B // P] = 𝔼[𝕀 ∘ B // P] := by simp only [expect, probability]
-
-/-- Conditional expectation operator -/
-def expect_cnd : ℚ := 𝔼[ X * (𝕀 ∘ B) // P] / ℙ[ B // P]
+theorem probability_eq_expect_indicator : ℙ[B // P] = 𝔼[(𝕀 ∘ B : FinRV Ω R) // P] := by simp only [expect, probability]
 
 /-- Conditional expectation operator -/
-notation "𝔼[" X "|" B "//" P "]" => expect_cnd P X B
+def expectCond : R := 𝔼[ X * (𝕀 ∘ B) // P] / ℙ[ B // P]
+
+/-- Conditional expectation operator -/
+notation "𝔼[" X "|" B "//" P "]" => expectCond P X B
 
 variable {k : ℕ} (L : FinRV Ω (Fin k))
 
 /-- Expectation conditioned on a random variable. It creates a random variable -/
-def expect_cnd_rv : Ω → ℚ := fun i ↦ 𝔼[ X | L =ᵣ (L i) // P ]
+def expectCondRV : Ω → R := fun i ↦ 𝔼[ X | L =ᵣ (L i) // P ]
 
 /-- Expectation conditioned on a random variable. It creates a random variable -/
-notation "𝔼[" X "|ᵣ" L "//" P "]" => expect_cnd_rv P X L
+notation "𝔼[" X "|ᵣ" L "//" P "]" => expectCondRV P X L
 
 --- some basic properties
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist Ω} {X Y Z: FinRV Ω ℚ} {B : FinRV Ω Bool}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y Z: FinRV Ω R} {B : FinRV Ω Bool}
 
--- TODO(mathlib): = `congrArg (expect P) h`. This is `congrArg`, nothing more.
-theorem exp_congr (h : X = Y) : 𝔼[X // P] = 𝔼[Y // P] := by 
-     unfold expect dotProduct
-     apply Fintype.sum_congr
-     simp_all
+theorem expect_congr (h : X = Y) : 𝔼[X // P] = 𝔼[Y // P] := congrArg (expect P) h
 
+theorem expect_mul_comm : 𝔼[X * Y // P] = 𝔼[Y * X // P] := expect_congr (mul_comm X Y)
 
--- TODO(mathlib): `CommMonoid.mul_comm` is the unbundled field accessor; use `mul_comm X Y`.
-theorem exp_mul_comm : 𝔼[X * Y // P] = 𝔼[Y * X // P] := exp_congr (CommMonoid.mul_comm X Y)
+variable {c : R} {p : Ω → R}
 
-variable {c : ℚ} {p : Ω → ℚ}
+theorem expect_const : 𝔼[(fun _ ↦ c) // P] = c := by 
+  rw [const_eq_smul_one,expect, dotProduct_smul,smul_eq_mul,dotProduct_comm,P.sum_eq_one,mul_one]
 
-theorem exp_const : 𝔼[(fun _ ↦ c) // P] = c := by 
-  rw [rv_const_fun_to_one,expect, dotProduct_smul,smul_eq_mul,dotProduct_comm,P.prob,Rat.mul_one]
-
-theorem exp_one : 𝔼[ 1 // P] = 1 := exp_const
+theorem expect_one : 𝔼[ 1 // P] = 1 := expect_const
        
 /-- Expectation is homogeneous under product -/
-theorem exp_homogenous : 𝔼[c • X // P] = c * 𝔼[X // P] := by rw [expect, expect, dotProd_smul_homogeneous]
+theorem expect_smul : 𝔼[c • X // P] = c * 𝔼[X // P] := by rw [expect, expect, Matrix.dotProduct_smul']
 
--- TODO: rename to exp_homogenous'
-theorem exp_prod_const_fun : 𝔼[(fun _ ↦ c) * X // P] = c * 𝔼[X // P] := by rw [funmul_eq_smul,exp_homogenous]
+theorem expect_const_mul : 𝔼[(fun _ ↦ c) * X // P] = c * 𝔼[X // P] := by rw [const_mul_eq_smul, expect_smul]
 
-variable {k : ℕ} {g : Fin k → ℚ}  {L : FinRV Ω (Fin k)}
+variable {k : ℕ} {g : Fin k → R}  {L : FinRV Ω (Fin k)}
 
-theorem exp_indi_eq_exp_indr (i) : 𝔼[L =ᵢ i // P] = 𝔼[𝕀 ∘ (L =ᵣ i) // P] := by rw [indi_eq_indr]
+theorem expect_indicatorEq (i) : 𝔼[(L =ᵢ i : FinRV Ω R) // P] = 𝔼[(𝕀 ∘ (L =ᵣ i) : FinRV Ω R) // P] := by rw [indicator_comp_eq_indicatorEq]
 
 /-- Additivity of expectation --/
-theorem exp_additive {m : ℕ} (Xs : Fin m → FinRV Ω ℚ) : 
+theorem expect_sum {m : ℕ} (Xs : Fin m → FinRV Ω R) : 
     𝔼[∑ i : Fin m, Xs i // P] = ∑ i : Fin m, 𝔼[Xs i // P] := dotProduct_sum P.p Finset.univ Xs
      
--- TODO(mathlib): = `dotProduct_add P.p X Y` (`Mathlib/Data/Matrix/Mul.lean:124`).
-theorem exp_additive_two : 𝔼[X + Y // P] = 𝔼[X // P] + 𝔼[Y // P] := by simp [expect]
+theorem expect_add : 𝔼[X + Y // P] = 𝔼[X // P] + 𝔼[Y // P] := dotProduct_add P.p X Y
 
 /-- Expectation is monotone  -/
-theorem exp_monotone (h: X ≤ Y)  : 𝔼[X // P] ≤ 𝔼[Y // P] := dotProduct_le_dotProduct_of_nonneg_left h P.nneg
+theorem expect_mono (h: X ≤ Y)  : 𝔼[X // P] ≤ 𝔼[Y // P] := dotProduct_le_dotProduct_of_nonneg_left h P.nonneg
 
 ---- ** conditional expectation -----
 
 
-theorem exp_decompose : 𝔼[X // P] = ∑ i, 𝔼[X * (L =ᵢ i) // P] := by 
-    nth_rewrite 1 [rv_decompose X L]
-    rw [exp_additive]
+theorem expect_eq_sum_mul_indicatorEq : 𝔼[X // P] = ∑ i, 𝔼[X * (L =ᵢ i) // P] := by 
+    nth_rewrite 1 [eq_sum_mul_indicatorEq X L]
+    rw [expect_sum]
 
 /-- Expectation of a conditional constant. Only when probability is positive.  -/
-theorem exp_cond_const (i) (h : ℙ[L =ᵣ i //   P] ≠ 0) : 𝔼[g ∘ L | L =ᵣ i // P] = g i := by 
-    unfold expect_cnd
-    rw [indi_eq_indr, rv_prod_const i, exp_homogenous, ←indi_eq_indr, ←prob_eq_exp_ind]
+theorem expectCond_comp (i) (h : ℙ[L =ᵣ i //   P] ≠ 0) : 𝔼[g ∘ L | L =ᵣ i // P] = g i := by 
+    unfold expectCond
+    rw [indicator_comp_eq_indicatorEq, comp_mul_indicatorEq i, expect_smul, ←indicator_comp_eq_indicatorEq, ←probability_eq_expect_indicator]
     simp [h, ne_eq, not_false_eq_true]
 
-theorem exp_cond_eq_def  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B) // P] :=
-  by unfold expect_cnd 
+theorem expectCond_mul_probability  : 𝔼[X | B // P] * ℙ[B // P] = 𝔼[X * (𝕀 ∘ B) // P] :=
+  by unfold expectCond 
      by_cases h: ℙ[B//P] = 0
-     · rw [h, Rat.mul_zero, expect,dotProd_hadProd_comm, dotProd_hadProd_rotate, prod_zero_of_prob_zero h]
+     · rw [h, mul_zero, expect,Matrix.dotProduct_mul_comm, Matrix.dotProduct_mul_rotate, mul_eq_zero_of_probability_eq_zero h]
        exact (dotProduct_zero X).symm 
      · simp_all 
 
 end Expectation_properties
 
+end Findist
+
 -- Derived properties from the properties of expectation
 section Probability_properties
 
-theorem ind_monotone (h : ∀ ω, A ω → B ω) : (𝕀∘A) ≤ (𝕀∘B) := by
+namespace FinRV
+
+theorem indicator_mono {Ω : Type} [Nonempty Ω] {A B : FinRV Ω Bool}
+    (h : ∀ ω, A ω → B ω) : (𝕀∘A : FinRV Ω R) ≤ (𝕀∘B) := by
   intro ω
   specialize h ω
   by_cases h1 : A ω
   · simp_all [indicator] 
   · by_cases h2 : B ω
     repeat simp_all [indicator]
+
+end FinRV
 
 end Probability_properties 

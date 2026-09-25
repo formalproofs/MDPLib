@@ -145,7 +145,8 @@ def lt [LT ρ] [DecidableLT ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
 infix:50 "<ᵣ" => FinRV.lt
 
 /-- Boolean random variable represening Y ≤ y inequality -/
-@[simp, to_dual existing leq] def geq [LE ρ] [DecidableLE ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
+@[simp, to_dual existing leq] 
+def geq [LE ρ] [DecidableLE ρ] (Y : FinRV Ω ρ) (y : ρ) : FinRV Ω Bool :=
   (fun ω ↦ Y ω ≥ y)
 
 /-- Boolean random variable represening Y ≤ y inequality -/

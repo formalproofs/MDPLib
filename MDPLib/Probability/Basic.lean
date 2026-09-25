@@ -11,6 +11,8 @@ set_option linter.unusedSectionVars false
 variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
          [CharZero R] [Archimedean R]
 
+-- Synthesize NoMinOrder to reduce exists_gt in a proof below
+attribute [to_dual existing] instNoMaxOrderOfNontrivial
 
 
 /-!
@@ -108,6 +110,11 @@ theorem _root_.Findist.exists_eq_of_probability_pos {b : R} (h : ℙ[X =ᵣ b //
     by_contra!
     simp_all [𝕀, indicator]
 
+
+section QuarkSubMax
+
+variable {t y : R} (h : t < X.maxQuark)
+
 /-- Computes the smallest successive potential atom greater than `t`. 
     see also: Finset.exists_next_right -/
 @[to_dual] -- predQuark
@@ -117,43 +124,56 @@ def succQuark (t : R) (h : t < X.maxQuark) : R :=
      𝓨.min' h_nonempty
 
 @[to_dual predQuark_lt]
-theorem succQuark_gt {t : R} (h : t < X.maxQuark) : t < X.succQuark t h := by
-    unfold succQuark; extract_lets 𝓨 h_nonempty
-    exact (Finset.mem_filter.mp (Finset.min'_mem 𝓨 h_nonempty)).right 
+theorem succQuark_gt : t < X.succQuark t h := (Finset.mem_filter.mp (Finset.min'_mem _ _)).right 
 
-@[to_dual] -- predQuark_is_quark
-theorem succQuark_is_quark {t : R} (h : t < X.maxQuark) : X.succQuark t h ∈ X.quarks := by
-    unfold succQuark; extract_lets 𝓨 h_nonempty
-    exact Finset.mem_of_mem_filter (𝓨.min' h_nonempty) (Finset.min'_mem 𝓨 h_nonempty)
+@[to_dual] -- predQuark_mem_quark
+theorem succQuark_mem_quark : X.succQuark t h ∈ X.quarks := Finset.mem_of_mem_filter _ (Finset.min'_mem _ _)
 
-@[to_dual le_predQuark]
-theorem succQuark_le {t : R} (h : t < X.maxQuark) {y : R} (hy : y ∈ X.quarks) (hty : t < y) :
-    X.succQuark t h ≤ y :=
-    Finset.min'_le _ y (Finset.mem_filter.mpr ⟨hy, hty⟩)
+/-- `succQuark` is the smallest larger quark -/
+@[to_dual]
+theorem succQuark_nogap  (hy : y ∈ X.quarks) (hty : t < y) : X.succQuark t h ≤ y := 
+  Finset.min'_le _ y (Finset.mem_filter.mpr ⟨hy, hty⟩)
+
+/-- `succQuark` is the smallest larger quark -/
+@[to_dual]
+theorem succQuark_nogap' (hty : t < X ω) : X.succQuark t h ≤ X ω := succQuark_nogap X h (mem_quarks ω) hty 
+
+@[to_dual]
+theorem succQuark_nogap_ind (hy : y ∈ X.quarks) (hty : y < X.succQuark t h) : y ≤ t := 
+     Not.imp (not_le_of_gt hty) (succQuark_nogap X h hy) |> le_of_not_gt -- reverse the implication
+
+@[to_dual]
+theorem succQuark_nogap_ind' {ω} (hty : X ω < X.succQuark t h) : X ω ≤ t := 
+  succQuark_nogap_ind X h (mem_quarks ω) hty
 
 @[to_dual] -- predQuark_gtrv_eq_gerv
-theorem succQuark_ltrv_eq_lerv {t : R} (h : t < X.maxQuark) : (X <ᵣ X.succQuark t h) = (X ≤ᵣ t) := by
-   ext ω
-   simp only [FinRV.leq, FinRV.lt, decide_eq_decide]
-   constructor
-   · intro h2; by_contra! h3; exact not_le_of_gt h2 (succQuark_le X h (mem_quarks ω) h3)
-   · exact fun h2 => lt_of_le_of_lt h2 (succQuark_gt X h)
+theorem succQuark_lt_eq_le {t : R} (h : t < X.maxQuark) : (X <ᵣ X.succQuark t h) = (X ≤ᵣ t) := by
+   ext ω; rw [FinRV.leq, FinRV.lt, decide_eq_decide]
+   exact ⟨succQuark_nogap_ind' X h, (lt_of_le_of_lt · (succQuark_gt X h))⟩
 
-@[to_dual exists_geq_eq_gt_of_minQuark_lt]
-theorem exists_leq_eq_lt_of_lt_maxQuark (h0 : t < X.maxQuark) :
-    ∃q > t, (X ≤ᵣ t) = (X <ᵣ q) ∧ q ∈ X.quarks :=
-    ⟨X.succQuark t h0, succQuark_gt X h0, (succQuark_ltrv_eq_lerv X h0).symm, succQuark_is_quark X h0⟩
+@[to_dual geq_eq_one_of_minQuark_ge]
+theorem leq_eq_one_of_maxQuark_le (h : X.maxQuark ≤ t) : (X ≤ᵣ t) = 1 := 
+  funext (fun ω => decide_eq_true ((le_maxQuark ω).trans h))
 
-theorem exists_leq_eq_lt : ∃q > t,  (X ≤ᵣ t) = (X <ᵣ q) :=
-       by cases' lt_or_ge t X.maxQuark with hlt hge
-          · obtain ⟨q, h⟩ := exists_leq_eq_lt_of_lt_maxQuark  X t hlt
-            exact ⟨q, ⟨h.1, h.2.1⟩⟩
-          · have h := le_maxQuark (X:=X)
-            grw [hge] at h
-            let q := t + 1
-            have b : ∀ω, X ω < q := fun ω => lt_add_of_le_of_pos (h ω) zero_lt_one
-            have ab : (X ≤ᵣ t) = (X <ᵣ q) := by ext ω; simp_all [FinRV.leq, FinRV.lt]
-            exact ⟨q, ⟨lt_add_one t, ab⟩⟩
+@[to_dual gt_eq_one_of_minQuark_gt]
+theorem lt_eq_one_of_maxQuark_lt (h : X.maxQuark < t) : (X <ᵣ t) = 1 := 
+  funext (fun ω => decide_eq_true (lt_of_le_of_lt (le_maxQuark ω) h))
+
+/-- Because the distribution is discrete, there exists a value for 
+    which the distribution is the same -/
+@[to_dual exists_geq_eq_gt]
+theorem exists_leq_eq_lt : ∃q > t, (X ≤ᵣ t) = (X <ᵣ q) :=
+    if h : t < X.maxQuark then ⟨X.succQuark t h, ⟨succQuark_gt X h, (succQuark_lt_eq_le X h).symm⟩⟩ 
+    else 
+      let ⟨q, hq⟩ := exists_gt t --from NoMaxOrder 
+      have hm := le_of_not_gt h
+      ⟨q, hq, by rw [leq_eq_one_of_maxQuark_le X hm, lt_eq_one_of_maxQuark_lt X (hm.trans_lt hq)]⟩
+
+
+variable {t : ℚ}
+
+
+end QuarkSubMax
 
 end Atomic
 
@@ -162,7 +182,8 @@ section Transformations
 -- Monotone transformation of the random variable 
 
 section Monotone
--- TODO: The proofs below are quite repetitive; may be worth it to simplify them
+
+-- TODO: use @[to_dual] to reduce repetitive proofs
 
 open Function 
 
@@ -288,11 +309,9 @@ theorem probability_add_probability_not : ℙ[B // P] + ℙ[¬ᵣB // P] = 1 :=
 theorem probability_not : ℙ[¬ᵣB // P] = 1 - ℙ[B // P] :=
     by rw [←probability_add_probability_not (P:=P) (B:=B)]; ring 
 
+@[to_dual geq_add_lt]
 theorem _root_.FinRV.leq_add_gt : (X ≤ᵣ t) + (X >ᵣ t) = 1 := by
-  ext ω
-  unfold FinRV.leq FinRV.gt
-  simp
-  exact le_or_gt (X ω) t
+  ext ω; simpa [FinRV.leq, FinRV.gt] using le_or_gt (X ω) t
 
 theorem probability_leq_add_probability_gt : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t // P] = 1 := by
   rw [probability_eq_expect_indicator, probability_eq_expect_indicator, ← expect_add]
@@ -386,14 +405,17 @@ section Rounding ---results for discrete probability distributions
 
 variable (P : Findist R Ω) (X : FinRV Ω R) (t : R)
 
-theorem exists_probability_leq_eq_probability_lt_of_lt_maxQuark (h: t < (X.maxQuark)) : 
-    ∃q > t, ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] ∧ q ∈ X.quarks :=
-    let ⟨q, hq⟩ := exists_leq_eq_lt_of_lt_maxQuark X t h
-    ⟨q, hq.1, congrArg (probability P) hq.2.1, hq.2.2⟩
+--TODO: not clear if we need this one. Delete?
+theorem exists_probability_leq_eq_probability_lt_of_lt_maxQuark (h: t < X.maxQuark) : 
+    ∃q > t, ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] ∧ q ∈ X.quarks := 
+      ⟨X.succQuark t h, 
+        ⟨succQuark_gt X h, congrArg (probability P) (succQuark_lt_eq_le X h).symm, succQuark_mem_quark X h⟩⟩
+        
 
+--TODO: not clear if we need this one. Delete?
 /-- similar to `exists_probability_leq_eq_probability_lt_of_lt_maxQuark` but no precondition -/
 theorem exists_probability_leq_eq_probability_lt : ∃q > t,  ℙ[X ≤ᵣ t // P] = ℙ[X <ᵣ q // P] :=
-      let ⟨q, hq⟩ := exists_leq_eq_lt X t
+      let ⟨q, hq⟩ := exists_leq_eq_lt X (t := t)
       Exists.intro q ⟨hq.1, congrArg (probability P) hq.2⟩
 
 
@@ -403,7 +425,7 @@ section Transformations
 
 section Monotone
 
--- TODO: The proofs below are quite repetitive; may be worth it to simplify them
+-- TODO: Simplify the proofs below using duality
 
 open Function 
 

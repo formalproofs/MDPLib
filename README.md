@@ -26,15 +26,12 @@ instantiate at `ℝ` for the standard theory, where the definitions remain well-
 `VaR[X // P, α]` cannot be `#eval`'d over `ℝ`).
 
 
-### Relationship to Mathlib's measure theory-based probability
+### Relationship to Mathlib's probability
 
-Mathlib's measure-theoretic probability (`Measure`, `PMF`, `∫`, `∫⁻`) is **not** used, and
-cannot be: it is uniformly `noncomputable` and valued in `ℝ≥0∞` or an `ℝ`-normed space, so it
-neither evaluates at `ℚ` nor says anything about a general scalar `R`. Mathlib also has no
-quantiles, VaR or CVaR at all. What *is* reused is the scalar-generic algebraic API —
-`Finset.centerMass`, which is weighted expectation over exactly this library's class stack, and
-the order/convexity results built on it. See the audit note at the top of
-[`MDPLib/Probability/Defs.lean`](MDPLib/Probability/Defs.lean) for the details and citations.
+Mathlib's measure-theoretic probability (`Measure`, `PMF`, `∫`) is not used: it is
+`noncomputable` and valued in `ℝ≥0∞` or `ℝ`, so it can neither be evaluated at `ℚ` nor stated
+over a general `R`, and it has no quantiles or VaR. Mathlib's scalar-generic convexity API
+(`Finset.centerMass`, `StdSimplex`) is reused instead.
 
 
 Legend: ✅ proof complete &nbsp;·&nbsp; 🚧 statement final, proof still depends on a `sorry`
@@ -64,7 +61,7 @@ Legend: ✅ proof complete &nbsp;·&nbsp; 🚧 statement final, proof still depe
 | | Result | Lean name |
 |---|---|---|
 | ✅ | `𝔼[X // P]` is Mathlib's `Finset.centerMass` at weights summing to one | [`Findist.expect_eq_centerMass`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Convexity.html#Findist.expect_eq_centerMass) |
-| ✅ | `min X ≤ 𝔼[X] ≤ max X` | [`Findist.expect_ge_min`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Convexity.html#Findist.expect_ge_min), [`Findist.expect_le_max`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Convexity.html#Findist.expect_le_max) |
+| ✅ | `minQuark X ≤ 𝔼[X] ≤ maxQuark X` | [`Findist.expect_ge_minQuark`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Convexity.html#Findist.expect_ge_minQuark), [`Findist.expect_le_maxQuark`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Convexity.html#Findist.expect_le_maxQuark) |
 | ✅ | Jensen's inequality for an arbitrary convex / concave function | [`Findist.expect_convexOn_le`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Convexity.html#Findist.expect_convexOn_le), [`Findist.expect_concaveOn_ge`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Convexity.html#Findist.expect_concaveOn_ge) |
 
 ### Bridge to Mathlib's standard simplex
@@ -96,17 +93,7 @@ Legend: ✅ proof complete &nbsp;·&nbsp; 🚧 statement final, proof still depe
 | ✅ | Expectation equals the sum over the (finite) image of `X` | [`Findist.expect_eq_sum_probability_mul`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#Findist.expect_eq_sum_probability_mul), [`FinRV.sum_image_univ_eq_sum_fin`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#FinRV.sum_image_univ_eq_sum_fin) |
 | ✅ | Duplicate-free list of the values of a random variable, with index/value inverses | [`FinRV.imageList`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#FinRV.imageList), [`FinRV.imageIdxOf`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#FinRV.imageIdxOf), [`FinRV.getElem_imageIdxOf`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#FinRV.getElem_imageIdxOf), [`FinRV.imageList_nodup`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#FinRV.imageList_nodup) |
 | ✅ | Invariance of probability and expectation under a permutation of the sample space | [`Findist.comp`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#Findist.comp), [`Findist.probability_comp_perm`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#Findist.probability_comp_perm), [`Findist.expect_comp_perm`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#Findist.expect_comp_perm) |
-| 🚧 | A `≤` event can be replaced by a strict `<` event at a larger threshold | [`Findist.exists_probability_leq_eq_probability_lt_of_lt_max`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#Findist.exists_probability_leq_eq_probability_lt_of_lt_max) |
-
-### Probability: matrices and Markov reward processes
-
-[`MDPLib/Probability/Matrix.lean`](MDPLib/Probability/Matrix.lean)
-
-| | Result | Lean name |
-|---|---|---|
-| ✅ | Row-stochastic transition matrix | [`Matrix.ProbabilityMatrix`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Matrix.html#Matrix.ProbabilityMatrix) |
-| ✅ | A distribution pushed through a transition matrix is again a distribution | [`Matrix.nonneg_vecMul`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Matrix.html#Matrix.nonneg_vecMul), [`Matrix.vecMul_dotProduct_one`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Matrix.html#Matrix.vecMul_dotProduct_one) |
-| ✅ | Discounted Markov reward process and its Bellman backup `𝔹[v // Proc] = r + γ · P v` | [`Matrix.DiscountedMRP`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Matrix.html#Matrix.DiscountedMRP), [`Matrix.bellmanBackup`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Matrix.html#Matrix.bellmanBackup) |
+| ✅ | A `≤` event can be replaced by a strict `<` event at a larger threshold | [`Findist.exists_probability_leq_eq_probability_lt`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#Findist.exists_probability_leq_eq_probability_lt), [`Findist.exists_probability_leq_eq_probability_lt_of_lt_maxQuark`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Probability/Basic.html#Findist.exists_probability_leq_eq_probability_lt_of_lt_maxQuark) |
 
 ### Quantiles
 
@@ -134,17 +121,14 @@ Legend: ✅ proof complete &nbsp;·&nbsp; 🚧 statement final, proof still depe
 | ✅ | Characterization `IsVaR v ↔ ℙ[X < v] ≤ α < ℙ[X ≤ v]` | [`Risk.isVaR_iff`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.isVaR_iff) |
 | ✅ | Computable VaR `VaR[X // P, α]` as a max over the finite candidate set, which is nonempty | [`Risk.finVaR`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.finVaR), [`Risk.finVaRSet`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.finVaRSet), [`Risk.finVaRSet_nonempty`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.finVaRSet_nonempty) |
 | ✅ | VaR is monotone: `X ≤ Y` implies `VaR[X] ≤ VaR[Y]` | [`Risk.IsVaR.le_of_le`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.IsVaR.le_of_le) |
-| 🚧 | **Correctness of the computable VaR:** `IsVaR P X α (VaR[X // P, α])` | [`Risk.isVaR_finVaR`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.isVaR_finVaR) |
-| 🚧 | The two definitions (greatest quantile / greatest lower quantile) agree | [`Risk.isVaRQuantile_iff_isVaR`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.isVaRQuantile_iff_isVaR) |
-| 🚧 | The quantile set is nonempty | [`Risk.quantile_nonempty`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.quantile_nonempty) |
+| ✅ | **Correctness of the computable VaR:** `IsVaR P X α (VaR[X // P, α])` | [`Risk.isVaR_finVaR`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.isVaR_finVaR) |
+| ✅ | The two definitions (greatest quantile / greatest lower quantile) agree | [`Risk.isVaRQuantile_iff_isVaR`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.isVaRQuantile_iff_isVaR) |
+| ✅ | The quantile set is nonempty | [`Risk.quantile_nonempty`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.quantile_nonempty) |
 | ✅ | Translation (cash) invariance for the `Risk.IsVaR` predicate | [`Risk.IsVaR.add_const`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.IsVaR.add_const) |
-| 🚧 | … and for the computable VaR: `VaR[X + c] = VaR[X] + c` | [`Risk.finVaR_add_const`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.finVaR_add_const) |
+| ✅ | … and for the computable VaR: `VaR[X + c] = VaR[X] + c` | [`Risk.finVaR_add_const`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.finVaR_add_const) |
 | ✅ | Strictly monotone transformations for the `Risk.IsVaR` predicate | [`Risk.IsVaR.comp_of_strictMono`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.IsVaR.comp_of_strictMono) |
-| 🚧 | … and for the computable VaR: `VaR[f∘X] = f(VaR[X])` | [`Risk.finVaR_comp_of_strictMono`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.finVaR_comp_of_strictMono) |
-| 🚧 | Positive homogeneity: `VaR[c·X] = c·VaR[X]` for `c > 0` | [`Risk.finVaR_const_mul`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.finVaR_const_mul) |
-
-The 🚧 entries above are all complete modulo the single missing lemma
-`Findist.exists_probability_leq_eq_probability_lt_of_lt_max`.
+| ✅ | … and for the computable VaR: `VaR[f∘X] = f(VaR[X])` | [`Risk.finVaR_comp_of_strictMono`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.finVaR_comp_of_strictMono) |
+| ✅ | Positive homogeneity: `VaR[c·X] = c·VaR[X]` for `c > 0` | [`Risk.finVaR_const_mul`](https://formalproofs.github.io/MDPLib/docs/MDPLib/Risk/VaR.html#Risk.finVaR_const_mul) |
 
 [`Main.lean`](Main.lean) contains an executable that reads distributions from a JSON
 file, computes VaR with `computeVaR`, and checks it against reference values

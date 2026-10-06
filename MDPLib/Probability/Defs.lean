@@ -6,6 +6,7 @@ import Mathlib.Algebra.Notation.Pi.Defs -- operations on functions
 import Mathlib.Algebra.Module.PointwisePi -- for smul_pi
 import Mathlib.LinearAlgebra.Matrix.DotProduct -- for monotonicity
 import Mathlib.Data.Finset.Image -- for Finset.universal.image
+import Mathlib.Algebra.Ring.BooleanRing -- `0`, `1` on Bool
 
 set_option linter.unusedSectionVars false
 
@@ -87,20 +88,15 @@ variable {Ω : Type} [Nonempty Ω] {ρ : Type}
 
 namespace FinRV
 
--- WARNING: these four instances shadow Mathlib's global `Bool` algebra.
--- in `Mathlib/Algebra/Ring/BooleanRing.lean. These operations are defined differntly
-instance instMulBool : Mul Bool where mul a b := Bool.and a b
-instance instAddBool: Add Bool  where add a b := Bool.or a b
-instance instZeroBool : Zero Bool where zero := false
-instance instOneBool : One Bool where one := true
-
+-- Boolean random variables use Mathlib's lattice operations: `B ⊔ C` is the union (`or`),
+-- `B ⊓ C` the intersection (`and`), and `¬ᵣ B` the complement. `0`/`1` are `false`/`true`
+-- from Mathlib's `BooleanRing Bool`; do not use its `+`, which is `xor`.
 variable {A B : Bool}
-
 
 @[simp] theorem one_eq_true : (1:Bool) = true := rfl
 @[simp] theorem zero_eq_false : (0:Bool) = false := rfl
-@[simp] theorem add_eq_or : A + B = Bool.or A B := rfl
-@[simp] theorem mul_eq_and : A * B = Bool.and A B := rfl
+@[simp] theorem sup_eq_or : A ⊔ B = (A || B) := rfl
+@[simp] theorem inf_eq_and : A ⊓ B = (A && B) := rfl
 
 
 -- NOTE: the following definitions of inequalities and operations
@@ -163,14 +159,10 @@ infix:50 ">ᵣ" => FinRV.gt
 --  coe a := a
 
 /-- Equivalence when adding an element to integer comparison. -/
-theorem leq_add_eq_succ (D : FinRV Ω ℕ) (m : ℕ) : ((D ≤ᵣ m) + (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by 
-  have exclusion {a b : ℕ} (h : a > b + 1) : (a > b) ∧ ¬(a = b + 1) := 
-  ⟨ Nat.lt_of_succ_lt h, Ne.symm (Nat.ne_of_lt h) ⟩
-  funext x 
-  rw [FinRV.leq, instHAdd, Add.add, Pi.instAdd, Pi.add_apply, add_eq_or]
-  by_cases h : D x ≤ m.succ
-  · simp [h, Nat.le_or_eq_of_le_succ]
-  · simp [h, exclusion (Nat.not_le.mp h)] 
+theorem leq_sup_eq_succ (D : FinRV Ω ℕ) (m : ℕ) : ((D ≤ᵣ m) ⊔ (D =ᵣ m.succ)) = (D ≤ᵣ m.succ) := by
+  funext x
+  simp only [Pi.sup_apply, FinRV.leq, FinRV.eq, sup_eq_or]
+  by_cases h₁ : D x ≤ m <;> by_cases h₂ : D x = m + 1 <;> simp [h₁, h₂] <;> omega
 
 /-- Defines a preimage of an RV. This is a set with a decidable membership. -/
 def preimage (f : FinRV Ω ρ) : ρ → Set Ω :=
@@ -224,7 +216,7 @@ theorem eq_sum_mul_indicatorEq (X : FinRV Ω R) (L : FinRV Ω (Fin k)) : X = ∑
 omit [Nonempty Ω] in
 theorem indicator_one : 𝕀 ∘ (1 : Ω → Bool) = (1 : Ω → R) := by ext; simp [𝕀, indicator]
 
-theorem add_not_eq_one : B + (¬ᵣ B) = (1 : FinRV Ω Bool) := by ext ω; unfold FinRV.not; simp
+theorem sup_not_eq_one : B ⊔ (¬ᵣ B) = (1 : FinRV Ω Bool) := by ext ω; unfold FinRV.not; simp
 
 theorem indicator_add_indicator_not_eq_one : (𝕀∘B) + (𝕀∘(¬ᵣ B)) = (1 : FinRV Ω R) :=
     by ext ω; unfold FinRV.not 𝕀 indicator Bool.not
@@ -277,7 +269,7 @@ def probability : R :=  P.p ⬝ᵥ (𝕀 ∘ B)
 notation "ℙ[" B "//" P "]" => probability P B
 
 /-- Conditional probability of B on C -/
-def probabilityCond : R := ℙ[B * C // P] / ℙ[ C // P ]
+def probabilityCond : R := ℙ[B ⊓ C // P] / ℙ[ C // P ]
 
 /-- Conditional probability of B on C -/
 notation "ℙ[" B "|" C "//" P "]" => probabilityCond P B C

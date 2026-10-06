@@ -8,9 +8,6 @@ variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
          [CharZero R] [Archimedean R]
 
 
-
-
-
 -- TODO(naming): Mathlib states order lemmas in the `≤` / `<` direction and derives the `≥`
 -- / `>` forms via `ge_iff_le`. Most statements in this file (`IsQuantile`, `probability_geq_of_mem_quantile`,
 -- `mem_quantileLower_iff`, ...) are written with `≥`, which keeps them from matching Mathlib's
@@ -66,28 +63,25 @@ theorem mem_quantileLower_iff_probability_lt : q ∈ quantileLower P X α ↔ �
          suffices  ℙ[X≥ᵣq // P] ≥ 1-α from this
          linarith
 
-theorem probability_lt_of_mem_quantile : q ∈ quantile P X α → ℙ[ X <ᵣ q // P] ≤ α :=
-  by intro h
-     have := probability_geq_of_mem_quantile h
-     rewrite [probability_geq_eq_one_sub] at this
+theorem probability_lt_of_mem_quantile (h : q ∈ quantile P X α) : ℙ[ X <ᵣ q // P] ≤ α :=
+  by have h1 := probability_geq_of_mem_quantile h
+     rewrite [probability_ge_eq_one_sub] at h1
      linarith
 
 -- TODO(mathlib): this is `mem_quantile_iff.mpr`; consider dropping it.
-theorem mem_quantile_of_probability_geq : ℙ[ X ≤ᵣ q // P ] ≥ α ∧ ℙ[ X ≥ᵣ q // P] ≥ 1 - α → q ∈ quantile P X α :=
-    by intro h; simp_all [quantile, IsQuantile]
+theorem mem_quantile_of_probability_geq (h1 : ℙ[X ≤ᵣ q // P] ≥ α) (h2 : ℙ[X ≥ᵣ q // P] ≥ 1 - α) : q ∈ quantile P X α :=
+    by simp_all [quantile, IsQuantile]
 
-theorem mem_quantile_of_probability_lt : ℙ[X ≤ᵣ q // P] ≥ α ∧ ℙ[ X <ᵣ q // P] ≤ α → q ∈ quantile P X α :=
-    by intro h1
-       have h2 : ℙ[ X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_geq_eq_one_sub]; linarith
-       exact mem_quantile_of_probability_geq ⟨h1.1, h2⟩
+theorem mem_quantile_of_probability_lt (h1 : ℙ[X ≤ᵣ q // P] ≥ α) (h2 : ℙ[X <ᵣ q // P] ≤ α) : q ∈ quantile P X α :=
+    by have h3 : ℙ[ X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_ge_eq_one_sub]; linarith
+       exact mem_quantile_of_probability_geq h1 h3
 
 -- TODO(mathlib): this is `mem_quantileLower_iff.mpr`; consider dropping it.
-theorem mem_quantileLower_of_probability_geq : ℙ[ X ≥ᵣ q // P] ≥ 1 - α → q ∈ quantileLower P X α :=
-    by intro h; simp_all [quantileLower, IsQuantileLower]
+theorem mem_quantileLower_of_probability_geq (h : ℙ[ X ≥ᵣ q // P] ≥ 1 - α) : q ∈ quantileLower P X α :=
+    by simp_all [quantileLower, IsQuantileLower]
 
-theorem mem_quantileLower_of_probability_lt : ℙ[ X <ᵣ q // P] ≤ α → q ∈ quantileLower P X α :=
-    by intro h1
-       have h2 : ℙ[X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_geq_eq_one_sub]; linarith
+theorem mem_quantileLower_of_probability_lt (h1 : ℙ[ X <ᵣ q // P] ≤ α) : q ∈ quantileLower P X α :=
+    by have h2 : ℙ[X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_ge_eq_one_sub]; linarith
        exact mem_quantileLower_of_probability_geq  h2
 
 theorem IsQuantile.isQuantileLower : IsQuantile P X α v → IsQuantileLower P X α v :=
@@ -95,10 +89,10 @@ theorem IsQuantile.isQuantileLower : IsQuantile P X α v → IsQuantileLower P X
 
 theorem quantile_subset_quantileLower : quantile P X α ⊆ quantileLower P X α := fun _ => IsQuantile.isQuantileLower
 
-theorem isCofinalFor_quantileLower_of_le : X ≤ Y → IsCofinalFor (quantileLower P X α) (IsQuantileLower P Y α) := by
-  intro hle q₁ hvar₁
+theorem isCofinalFor_quantileLower_of_le (hle : X ≤ Y) : IsCofinalFor (quantileLower P X α) (IsQuantileLower P Y α) := by
+  intro q₁ hvar₁
   have hq₁ := le_refl q₁
-  exact ⟨q₁, ⟨le_trans hvar₁ (probability_geq_anti hle hq₁), hq₁⟩⟩
+  exact ⟨q₁, hvar₁.trans (probability_ge_anti hle hq₁), hq₁⟩
 
 section Negation 
 
@@ -132,16 +126,16 @@ variable {f : R → R}
 
 -- the reverse implications of the following results do not hold
 theorem mem_quantile_comp_of_monotone (hm : Monotone f) : q ∈ quantile P X α → (f q) ∈ quantile P (f ∘ X) α := by
-    intro h; grw [mem_quantile_iff, hm.probability_leq_le, hm.probability_geq_le] at h; exact h
+    intro h; grw [mem_quantile_iff, hm.probability_le, hm.probability_geq] at h; exact h
 
 theorem mem_quantile_comp_iff_of_strictMono (hm : StrictMono f) : q ∈ quantile P X α ↔ (f q) ∈ quantile P (f ∘ X) α := by 
-    rw [mem_quantile_iff, mem_quantile_iff, hm.probability_leq_eq, hm.probability_geq_eq]
+    rw [mem_quantile_iff, mem_quantile_iff, hm.probability_le, hm.probability_ge]
 
 theorem mem_quantileLower_comp_of_monotone (hm : Monotone f) : q ∈ quantileLower P X α → (f q) ∈ quantileLower P (f ∘ X) α := by
-    intro h; grw [mem_quantileLower_iff, hm.probability_geq_le] at h; exact h
+    intro h; grw [mem_quantileLower_iff, hm.probability_geq] at h; exact h
 
 theorem mem_quantileLower_comp_iff_of_strictMono (hm : StrictMono f) : q ∈ quantileLower P X α ↔ (f q) ∈ quantileLower P (f ∘ X) α := by 
-    rw [mem_quantileLower_iff, mem_quantileLower_iff, hm.probability_geq_eq]
+    rw [mem_quantileLower_iff, mem_quantileLower_iff, hm.probability_ge]
 
 -- set transformations
 theorem image_quantile_subset_quantile_comp_of_monotone (hm : Monotone f) : f '' quantile P X α ⊆  quantile P (f∘X) α := by

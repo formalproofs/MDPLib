@@ -79,7 +79,7 @@ theorem isVaR_iff : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α.val
      · intro h
        constructor
        · have h1 : 1 - ℙ[X<ᵣv//P] ≥ 1 - α.val := by 
-            simp_all [IsVaR,IsGreatest,quantileLower,IsQuantileLower,probability_geq_eq_one_sub]
+            simp_all [IsVaR,IsGreatest,quantileLower,IsQuantileLower,probability_ge_eq_one_sub]
          linarith
        · by_contra! hc
          obtain ⟨q,hq⟩ := exists_probability_leq_eq_probability_lt P X v
@@ -134,7 +134,7 @@ theorem isCofinalFor_quantileLower_quantile : IsCofinalFor (quantileLower P X α
         constructor
         · exact hq₂
         · by_contra! ine
-          exact ge_trans (probability_leq_mono (le_refl X) (le_of_lt ine)) (le_probability_leq_of_mem_quantile hq₂) |> not_le_of_gt h2l
+          exact ge_trans (probability_le_mono (le_refl X) (le_of_lt ine)) (le_probability_leq_of_mem_quantile hq₂) |> not_le_of_gt h2l
       · exfalso; exact not_le_of_gt h2r h
 
 theorem isCofinalFor_quantile_quantileLower : IsCofinalFor (quantile P X α.val) (quantileLower P X α.val) :=
@@ -174,7 +174,7 @@ theorem finVaR_add_const : VaR[X + c•1 // P, α] = VaR[X // P, α] + c := by
 theorem IsVaR.comp_of_strictMono (hm : StrictMono f) (hv : IsVaR P X α v) : IsVaR P (f ∘ X) α (f v) := by
   rw [isVaR_iff]
   rw [isVaR_iff] at hv
-  rw [← hm.probability_lt_eq, ← hm.probability_leq_eq]
+  rw [← hm.probability_lt, ← hm.probability_le]
   exact hv
 
 

@@ -54,9 +54,7 @@ theorem probability_nonneg : 0 ≤ ℙ[B // P] :=
        
 
 theorem probability_le_one : ℙ[B // P] ≤ 1 := 
-    by rw [probability_eq_expect_indicator]
-       calc 𝔼[𝕀 ∘ B//P] ≤ 𝔼[1 // P] := expect_mono indicator_le_one 
-            _ = 1 := expect_const 
+    by grw [probability_eq_expect_indicator, expect_mono indicator_le_one, expect_one]
 
 theorem isProb_probability (P : Findist R Ω) : IsProb ℙ[B // P] := ⟨probability_nonneg, probability_le_one⟩
 
@@ -309,12 +307,13 @@ theorem probability_add_probability_not : ℙ[B // P] + ℙ[¬ᵣB // P] = 1 :=
 theorem probability_not : ℙ[¬ᵣB // P] = 1 - ℙ[B // P] :=
     by rw [←probability_add_probability_not (P:=P) (B:=B)]; ring 
 
-@[to_dual geq_add_lt]
-theorem _root_.FinRV.leq_add_gt : (X ≤ᵣ t) + (X >ᵣ t) = 1 := by
+@[to_dual geq_sup_lt]
+theorem _root_.FinRV.leq_sup_gt : (X ≤ᵣ t) ⊔ (X >ᵣ t) = 1 := by
   ext ω; simpa [FinRV.leq, FinRV.gt] using le_or_gt (X ω) t
 
-theorem probability_leq_add_probability_gt : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t // P] = 1 := by
-  rw [probability_eq_expect_indicator, probability_eq_expect_indicator, ← expect_add]
+@[to_dual probability_ge_lt_one]
+theorem probability_le_gt_one : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t // P] = 1 := by
+  rw [probability_eq_expect_indicator, probability_eq_expect_indicator, ←expect_add]
   have h : (𝕀 ∘ (X ≤ᵣ t)) + (𝕀 ∘ (X >ᵣ t)) = (1 : FinRV Ω R) := by
     ext ω
     unfold FinRV.leq FinRV.gt
@@ -327,37 +326,26 @@ theorem probability_leq_add_probability_gt : ℙ[X ≤ᵣ t // P] + ℙ[X >ᵣ t
   rw [h]
   exact expect_one
 
+theorem probability_lt_ge_one : ℙ[X <ᵣ t // P] + ℙ[X ≥ᵣ t // P] = 1 := 
+  (add_comm _ _).trans probability_ge_lt_one
+
 theorem probability_gt_eq_one_sub : ℙ[X >ᵣ t // P] = 1 -  ℙ[X ≤ᵣ t // P] := by
-  rw [←probability_leq_add_probability_gt (P := P) (X := X) (t := t)]
+  rw [←probability_le_gt_one (P := P) (X := X) (t := t)]
   ring
 
-theorem probability_leq_eq_one_sub :  ℙ[X ≤ᵣ t // P] = 1 - ℙ[X >ᵣ t // P] := by
-  rw [←probability_leq_add_probability_gt (P := P) (X := X) (t := t)]
+theorem probability_le_eq_one_sub :  ℙ[X ≤ᵣ t // P] = 1 - ℙ[X >ᵣ t // P] := by
+  rw [←probability_le_gt_one (P := P) (X := X) (t := t)]
   ring
 
-theorem probability_lt_add_probability_geq : ℙ[X <ᵣ t // P] + ℙ[X ≥ᵣ t // P] = 1 := by
-  rw [probability_eq_expect_indicator, probability_eq_expect_indicator, ← expect_add]
-  have h : (𝕀 ∘ (X <ᵣ t)) + (𝕀 ∘ (X ≥ᵣ t)) = (1 : FinRV Ω R) := by
-    ext ω
-    unfold FinRV.lt FinRV.geq
-    simp [𝕀, indicator]
-    by_cases h1 : X ω < t
-    · have h2 : ¬ (X ω ≥ t) := not_le_of_gt h1
-      simp [h1, h2]
-    · have h3 : X ω ≥ t := le_of_not_gt h1
-      simp [h1, h3]
-  rw [h]
-  exact expect_one
-
-theorem probability_geq_eq_one_sub : ℙ[X ≥ᵣ t // P] = 1 -  ℙ[X <ᵣ t // P] := by
-  rw [← probability_lt_add_probability_geq (P := P) (X := X) (t := t)]; ring
+theorem probability_ge_eq_one_sub : ℙ[X ≥ᵣ t // P] = 1 -  ℙ[X <ᵣ t // P] := by
+  rw [← probability_lt_ge_one (P := P) (X := X) (t := t)]; ring
 
 theorem probability_lt_eq_one_sub :  ℙ[X <ᵣ t // P] = 1 - ℙ[X ≥ᵣ t // P] := by
-  rw [← probability_lt_add_probability_geq (P := P) (X := X) (t := t)]; ring
+  rw [← probability_lt_ge_one (P := P) (X := X) (t := t)]; ring
 
 theorem probability_mono : A ≤ B → ℙ[A // P] ≤ ℙ[B // P] := fun h => expect_mono (indicator_mono h)
 
-theorem probability_leq_mono : X ≤ Y → t₁ ≤ t₂ → ℙ[Y ≤ᵣ t₁ // P] ≤ ℙ[X ≤ᵣ t₂ // P] := by 
+theorem probability_le_mono : X ≤ Y → t₁ ≤ t₂ → ℙ[Y ≤ᵣ t₁ // P] ≤ ℙ[X ≤ᵣ t₂ // P] := by 
   intro hxy ht 
   exact expect_mono (indicator_leq_mono hxy ht)
 
@@ -365,16 +353,16 @@ theorem probability_lt_mono : X ≤ Y → t₁ ≤ t₂ → ℙ[Y <ᵣ t₁ // P
   intro hxy ht
   exact expect_mono (indicator_lt_mono hxy ht)
 
-theorem probability_geq_anti : X ≤ Y → t₁ ≤ t₂ → ℙ[Y ≥ᵣ t₁ // P] ≥ ℙ[X ≥ᵣ t₂ // P] := by 
+theorem probability_ge_anti : X ≤ Y → t₁ ≤ t₂ → ℙ[Y ≥ᵣ t₁ // P] ≥ ℙ[X ≥ᵣ t₂ // P] := by 
   intro hxy ht 
-  rewrite [probability_geq_eq_one_sub,probability_geq_eq_one_sub] 
+  rewrite [probability_ge_eq_one_sub,probability_ge_eq_one_sub] 
   have := probability_lt_mono (P := P) hxy ht 
   linarith 
 
 theorem probability_gt_anti : X ≤ Y → t₁ ≤ t₂ → ℙ[Y >ᵣ t₁ // P] ≥ ℙ[X >ᵣ t₂ // P] := by 
   intro hxy ht 
   rewrite [probability_gt_eq_one_sub,probability_gt_eq_one_sub] 
-  have := probability_leq_mono (P := P) hxy ht 
+  have := probability_le_mono (P := P) hxy ht 
   linarith 
 
 theorem probability_leq_le_probability_lt {q : R} (h : q > t) : ℙ[X <ᵣ q // P] ≥ ℙ[X ≤ᵣ t // P] := by 
@@ -397,7 +385,7 @@ theorem probability_lt_minQuark : ℙ[X <ᵣ X.minQuark // P] = 0 := by
 
 theorem lt_maxQuark_of_probability_leq_lt_one {t : R} (h : ℙ[X ≤ᵣ t // P] < 1) : t < X.maxQuark := by 
        by_contra! hcontra
-       have h1 := probability_leq_mono (P := P) (le_refl X) hcontra
+       have h1 := probability_le_mono (P := P) (le_refl X) hcontra
        rw [probability_leq_maxQuark] at h1
        exact not_le_of_gt h h1
 
@@ -432,28 +420,26 @@ open Function
 variable {f : R → R} {x : R}  
 
 --- LE
-
-theorem _root_.Monotone.probability_leq_le (hm : Monotone f) : ℙ[X ≤ᵣ x // P] ≤ ℙ[f ∘ X ≤ᵣ f x // P] := 
+theorem _root_.Monotone.probability_le (hm : Monotone f) : ℙ[X ≤ᵣ x // P] ≤ ℙ[f ∘ X ≤ᵣ f x // P] := 
    probability_mono (leq_le_comp_leq_of_monotone hm)
 
-theorem _root_.StrictMono.probability_leq_eq (hm : StrictMono f) : ℙ[X ≤ᵣ x // P] = ℙ[f ∘ X ≤ᵣ f x // P] := 
+theorem _root_.StrictMono.probability_le (hm : StrictMono f) : ℙ[X ≤ᵣ x // P] = ℙ[f ∘ X ≤ᵣ f x // P] := 
   probability_congr (leq_eq_comp_leq_of_strictMono hm) 
---- LT
-
-theorem _root_.StrictMono.probability_lt_eq (hm : StrictMono f) : ℙ[X <ᵣ x // P] = ℙ[f ∘ X <ᵣ f x // P] := 
+  
+--- LT: no equivalent of leq for Monotonicity
+theorem _root_.StrictMono.probability_lt (hm : StrictMono f) : ℙ[X <ᵣ x // P] = ℙ[f ∘ X <ᵣ f x // P] := 
   probability_congr (lt_eq_comp_lt_of_strictMono hm) 
 
 --- GE
-
-theorem _root_.Monotone.probability_geq_le (hm : Monotone f) : ℙ[X ≥ᵣ x // P] ≤ ℙ[f ∘ X ≥ᵣ f x // P] := 
+theorem _root_.Monotone.probability_geq (hm : Monotone f) : ℙ[X ≥ᵣ x // P] ≤ ℙ[f ∘ X ≥ᵣ f x // P] := 
    probability_mono (geq_le_comp_geq_of_monotone hm)
 
-theorem _root_.StrictMono.probability_geq_eq (hm : StrictMono f) : ℙ[X ≥ᵣ x // P] = ℙ[f ∘ X ≥ᵣ f x // P] := 
+theorem _root_.StrictMono.probability_ge (hm : StrictMono f) : ℙ[X ≥ᵣ x // P] = ℙ[f ∘ X ≥ᵣ f x // P] := 
   probability_congr (geq_eq_comp_geq_of_strictMono hm) 
 
 --- GT
 
-theorem _root_.StrictMono.probability_gt_eq (hm : StrictMono f) : ℙ[X >ᵣ x // P] = ℙ[f ∘ X >ᵣ f x // P] := 
+theorem _root_.StrictMono.probability_gt (hm : StrictMono f) : ℙ[X >ᵣ x // P] = ℙ[f ∘ X >ᵣ f x // P] := 
   probability_congr (gt_eq_comp_gt_of_strictMono hm) 
 
 end Monotone 
@@ -503,12 +489,12 @@ variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y : FinRV 
 /-- shows CDF is non-decreasing -/
 theorem cdf_mono : t₁ ≤ t₂ → cdf P X t₁ ≤ cdf P X t₂ := by
   intro ht; unfold cdf
-  apply probability_leq_mono (le_refl X) ht
+  apply probability_le_mono (le_refl X) ht
 
 /-- Shows CDF is monotone in random variable  -/
 theorem cdf_anti_of_le : X ≤ Y → cdf P X t ≥ cdf P Y t := by
   intro h; unfold cdf
-  apply probability_leq_mono h (le_refl t)
+  apply probability_le_mono h (le_refl t)
 
 end Findist
 
@@ -636,7 +622,7 @@ variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {k : ℕ}  {L : FinRV Ω (Fin k)
 variable {P : Findist R Ω} {B : FinRV Ω Bool}
 
 /-- The law of total probabilities -/
-theorem probability_eq_sum : ℙ[B // P] =  ∑ i, ℙ[B * (L =ᵣ i) // P]  := by 
+theorem probability_eq_sum : ℙ[B // P] =  ∑ i, ℙ[B ⊓ (L =ᵣ i) // P]  := by 
     rewrite [probability_eq_expect_indicator, eq_sum_mul_indicatorEq (𝕀∘B : FinRV Ω R) L, expect_sum]
     apply Fintype.sum_congr
     intro i 

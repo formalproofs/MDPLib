@@ -4,11 +4,8 @@ import Mathlib.Data.Fin.VecNotation
 
 set_option linter.unusedSectionVars false
 
-variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
-         [CharZero R] [Archimedean R]
-
-
-
+variable {W : Type} [Field W] [LinearOrder W] [IsStrictOrderedRing W]
+         [CharZero W] [Archimedean W]
 
 
 -- TODO(naming): Mathlib states order lemmas in the `≤` / `<` direction and derives the `≥`
@@ -24,7 +21,8 @@ section Definition
 
 --def UnitI := {α : ℚ // 0 ≤ α ∧ α ≤ 1}
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist R Ω) (X Y : FinRV Ω R) (α : R) (q v : R)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {V : Type} [LinearOrder V]
+variable (P : Findist W Ω) (X Y : FinRV Ω V) (α : W) (q v : V)
 
 /-- Proof the `q` is an `α`-quantile of `X` --/
 def IsQuantile  : Prop := ℙ[X ≤ᵣ q // P ] ≥ α ∧ ℙ[X ≥ᵣ q // P] ≥ 1 - α
@@ -33,10 +31,10 @@ def IsQuantile  : Prop := ℙ[X ≤ᵣ q // P ] ≥ α ∧ ℙ[X ≥ᵣ q // P] 
 def IsQuantileLower : Prop := ℙ[X ≥ᵣ q // P] ≥ 1 - α
 
 /-- Set of quantiles at a level `α`  --/
-def quantile : Set R := {q | IsQuantile P X α q}
+def quantile : Set V := {q | IsQuantile P X α q}
 
 /-- Set of lower bounds on a quantile at `α` -/
-def quantileLower : Set R := {q | IsQuantileLower P X α q}
+def quantileLower : Set V := {q | IsQuantileLower P X α q}
 
 /-- Value `q` is maximum quantile at `α` of `X` and probability `P`  -/
 def IsGreatestQuantile : Prop := IsGreatest (quantile P X α) q
@@ -44,9 +42,35 @@ def IsGreatestQuantile : Prop := IsGreatest (quantile P X α) q
 /-- Value `q` is minimum quantile at `α` of `X` and probability `P`  -/
 def IsLeastQuantile : Prop := IsLeast (quantile P X α) q
 
+
+@[to_dual (dont_translate := W)]
+def aboveQuantileSet (P : Findist W Ω) (X : FinRV Ω V) (α : Set.Ico (0:W) 1) : Finset V :=
+  let 𝓧 := X.quarks
+  𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
+
+@[to_dual (dont_translate := W)]
+theorem aboveQuantileSet_nonempty (P : Findist W Ω) (X : FinRV Ω V) (α : Set.Ico (0:W) 1) : 
+    (aboveQuantileSet (Ω := Ω) P X α).Nonempty := by
+    apply Finset.filter_nonempty_iff.mpr
+    use X.minQuark
+    constructor
+    · exact minQuark_mem_quarks
+    · have h : ℙ[X <ᵣ X.minQuark // P] = 0 := probability_lt_minQuark
+      rewrite [h]
+      exact α.2.1 
+      
+/-- Computes the maximum quantile value -/
+def maxQuantile (P : Findist W Ω) (X : FinRV Ω V) (α : Set.Ico (0:W) 1) : V :=
+   let 𝓧 := X.quarks
+   let 𝓢 := 𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
+   have h : 𝓢.Nonempty := aboveQuantileSet_nonempty P X α
+   𝓢.max' h
+
+
 end Definition
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y : FinRV Ω R} {α : R} {q v : R}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {V : Type} [LinearOrder V]
+variable {P : Findist W Ω} {X Y : FinRV Ω V} {α : W} {q v : V}
 
 theorem le_probability_leq_of_mem_quantile : q ∈ quantile P X α → ℙ[X ≤ᵣ q // P ] ≥ α := by simp_all [quantile, IsQuantile]
 
@@ -66,28 +90,25 @@ theorem mem_quantileLower_iff_probability_lt : q ∈ quantileLower P X α ↔ �
          suffices  ℙ[X≥ᵣq // P] ≥ 1-α from this
          linarith
 
-theorem probability_lt_of_mem_quantile : q ∈ quantile P X α → ℙ[ X <ᵣ q // P] ≤ α :=
-  by intro h
-     have := probability_geq_of_mem_quantile h
-     rewrite [probability_geq_eq_one_sub] at this
+theorem probability_lt_of_mem_quantile (h : q ∈ quantile P X α) : ℙ[ X <ᵣ q // P] ≤ α :=
+  by have h1 := probability_geq_of_mem_quantile h
+     rewrite [probability_ge_eq_one_sub] at h1
      linarith
 
 -- TODO(mathlib): this is `mem_quantile_iff.mpr`; consider dropping it.
-theorem mem_quantile_of_probability_geq : ℙ[ X ≤ᵣ q // P ] ≥ α ∧ ℙ[ X ≥ᵣ q // P] ≥ 1 - α → q ∈ quantile P X α :=
-    by intro h; simp_all [quantile, IsQuantile]
+theorem mem_quantile_of_probability_geq (h1 : ℙ[X ≤ᵣ q // P] ≥ α) (h2 : ℙ[X ≥ᵣ q // P] ≥ 1 - α) : q ∈ quantile P X α :=
+    by simp_all [quantile, IsQuantile]
 
-theorem mem_quantile_of_probability_lt : ℙ[X ≤ᵣ q // P] ≥ α ∧ ℙ[ X <ᵣ q // P] ≤ α → q ∈ quantile P X α :=
-    by intro h1
-       have h2 : ℙ[ X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_geq_eq_one_sub]; linarith
-       exact mem_quantile_of_probability_geq ⟨h1.1, h2⟩
+theorem mem_quantile_of_probability_lt (h1 : ℙ[X ≤ᵣ q // P] ≥ α) (h2 : ℙ[X <ᵣ q // P] ≤ α) : q ∈ quantile P X α :=
+    by have h3 : ℙ[ X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_ge_eq_one_sub]; linarith
+       exact mem_quantile_of_probability_geq h1 h3
 
 -- TODO(mathlib): this is `mem_quantileLower_iff.mpr`; consider dropping it.
-theorem mem_quantileLower_of_probability_geq : ℙ[ X ≥ᵣ q // P] ≥ 1 - α → q ∈ quantileLower P X α :=
-    by intro h; simp_all [quantileLower, IsQuantileLower]
+theorem mem_quantileLower_of_probability_geq (h : ℙ[ X ≥ᵣ q // P] ≥ 1 - α) : q ∈ quantileLower P X α :=
+    by simp_all [quantileLower, IsQuantileLower]
 
-theorem mem_quantileLower_of_probability_lt : ℙ[ X <ᵣ q // P] ≤ α → q ∈ quantileLower P X α :=
-    by intro h1
-       have h2 : ℙ[X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_geq_eq_one_sub]; linarith
+theorem mem_quantileLower_of_probability_lt (h1 : ℙ[ X <ᵣ q // P] ≤ α) : q ∈ quantileLower P X α :=
+    by have h2 : ℙ[X ≥ᵣ q // P] ≥ 1 - α := by rw [probability_ge_eq_one_sub]; linarith
        exact mem_quantileLower_of_probability_geq  h2
 
 theorem IsQuantile.isQuantileLower : IsQuantile P X α v → IsQuantileLower P X α v :=
@@ -95,12 +116,15 @@ theorem IsQuantile.isQuantileLower : IsQuantile P X α v → IsQuantileLower P X
 
 theorem quantile_subset_quantileLower : quantile P X α ⊆ quantileLower P X α := fun _ => IsQuantile.isQuantileLower
 
-theorem isCofinalFor_quantileLower_of_le : X ≤ Y → IsCofinalFor (quantileLower P X α) (IsQuantileLower P Y α) := by
-  intro hle q₁ hvar₁
+theorem isCofinalFor_quantileLower_of_le (hle : X ≤ Y) : IsCofinalFor (quantileLower P X α) (IsQuantileLower P Y α) := by
+  intro q₁ hvar₁
   have hq₁ := le_refl q₁
-  exact ⟨q₁, ⟨le_trans hvar₁ (probability_geq_anti hle hq₁), hq₁⟩⟩
+  exact ⟨q₁, hvar₁.trans (probability_ge_anti hle hq₁), hq₁⟩
 
 section Negation 
+
+-- negates the values, so they are in `W`
+variable {X : FinRV Ω W} {q : W}
 
 theorem isQuantile_neg_iff : (IsQuantile P X α q) ↔ (IsQuantile P (-X) (1-α) (-q)) := by 
   rw [IsQuantile, IsQuantile, probability_geq_eq_neg_leq_neg,probability_leq_eq_neg_geq_neg]
@@ -128,20 +152,20 @@ end UpperLowerBounds
 
 section Transformations
 
-variable {f : R → R}
+variable {f : V → V}
 
 -- the reverse implications of the following results do not hold
 theorem mem_quantile_comp_of_monotone (hm : Monotone f) : q ∈ quantile P X α → (f q) ∈ quantile P (f ∘ X) α := by
-    intro h; grw [mem_quantile_iff, hm.probability_leq_le, hm.probability_geq_le] at h; exact h
+    intro h; grw [mem_quantile_iff, hm.probability_le, hm.probability_geq] at h; exact h
 
 theorem mem_quantile_comp_iff_of_strictMono (hm : StrictMono f) : q ∈ quantile P X α ↔ (f q) ∈ quantile P (f ∘ X) α := by 
-    rw [mem_quantile_iff, mem_quantile_iff, hm.probability_leq_eq, hm.probability_geq_eq]
+    rw [mem_quantile_iff, mem_quantile_iff, hm.probability_le, hm.probability_ge]
 
 theorem mem_quantileLower_comp_of_monotone (hm : Monotone f) : q ∈ quantileLower P X α → (f q) ∈ quantileLower P (f ∘ X) α := by
-    intro h; grw [mem_quantileLower_iff, hm.probability_geq_le] at h; exact h
+    intro h; grw [mem_quantileLower_iff, hm.probability_geq] at h; exact h
 
 theorem mem_quantileLower_comp_iff_of_strictMono (hm : StrictMono f) : q ∈ quantileLower P X α ↔ (f q) ∈ quantileLower P (f ∘ X) α := by 
-    rw [mem_quantileLower_iff, mem_quantileLower_iff, hm.probability_geq_eq]
+    rw [mem_quantileLower_iff, mem_quantileLower_iff, hm.probability_ge]
 
 -- set transformations
 theorem image_quantile_subset_quantile_comp_of_monotone (hm : Monotone f) : f '' quantile P X α ⊆  quantile P (f∘X) α := by
@@ -171,7 +195,9 @@ theorem isCoinitialFor_quantile_comp_image_of_monotone (hm : Monotone f) : IsCoi
 
 end Transformations
 
-variable {c : R}
+-- adds a constant to the values, so they are in `W`
+variable {c : W} {X : FinRV Ω W} {q : W}
+
 
 theorem mem_quantileLower_add_const_iff : q ∈ quantileLower P X α ↔ (q+c) ∈ quantileLower P (X+c•1) α := by
   constructor

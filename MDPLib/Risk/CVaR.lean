@@ -9,7 +9,7 @@ the top of `MDPLib/Probability/Defs.lean` for why measure theory is not usable h
 
 * There is **no discrete Markov inequality in Mathlib**. `mul_meas_ge_le_lintegral`
   (`MeasureTheory/Integral/Lebesgue/Markov.lean:52`) is `ℝ≥0∞`/measure-valued and noncomputable.
-  A `Finset` version over `R` must be hand-rolled; the ingredients are
+  A `Finset` version over `W` must be hand-rolled; the ingredients are
   `Finset.sum_le_sum_of_subset_of_nonneg` and `Finset.card_nsmul_le_sum`
   (`Mathlib/Algebra/Order/BigOperators/Group/Finset.lean:169,291`) applied over a
   `Finset.filter`.

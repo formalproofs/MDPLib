@@ -18,8 +18,8 @@ import MDPLib.Probability.Basic
 
 set_option linter.unusedSectionVars false
 
-variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
-         [CharZero R] [Archimedean R]
+variable {W : Type} [Field W] [LinearOrder W] [IsStrictOrderedRing W]
+         [CharZero W] [Archimedean W]
 
 
 
@@ -28,7 +28,7 @@ section Definitions
 open Findist
 
 /-- Markov decision process -/
-structure MDP (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] : Type where
+structure MDP (W : Type) [Field W] [LinearOrder W] [IsStrictOrderedRing W] : Type where
   /-- states -/
   S : ℕ
   S_pos : 0 < S
@@ -36,11 +36,11 @@ structure MDP (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] : Typ
   A : ℕ
   A_pos : 0 < A
   /-- transition probability s, a, s' -/
-  P : Fin S → Fin A → Δ R (Fin S)
+  P : Fin S → Fin A → Δ W (Fin S)
   /-- reward function s, a, s' -/
-  r : Fin S → Fin A → Fin S → R
+  r : Fin S → Fin A → Fin S → W
 
-variable (M : MDP R)
+variable (M : MDP W)
 
 def MDP.maxS : Fin M.S := ⟨M.S-1, by simp [M.S_pos]⟩
 def MDP.maxA : Fin M.A := ⟨M.A-1, by simp [M.A_pos]⟩
@@ -67,14 +67,14 @@ theorem MDP.numStateActions_pos : 0 < M.numStateActions := Nat.mul_pos M.S_pos M
 
 end Definitions
 
-variable {M : MDP R}
+variable {M : MDP W}
 
 section Histories
 
 /-- Represents a history. The state is type ℕ and action is type ℕ. -/
 -- NOTE(mathlib): `Hist M` is INFINITE -- histories have unbounded length, and there is no
 -- `Fintype`/`FinEnum` instance for it (only `MDP.HistOfLength M t`, the length-`t` slice, has one;
--- see the `Fintype (M.HistOfLength t)` instance below). Consequently `Δ R (Hist M)` is currently
+-- see the `Fintype (M.HistOfLength t)` instance below). Consequently `Δ W (Hist M)` is currently
 -- inexpressible: `Findist` requires `[FinEnum Ω]`.
 --
 -- That matters for the roadmap. Randomized history-dependent policies `Π_HR` and the
@@ -92,7 +92,7 @@ section Histories
 --   (b) Mathlib's `Finsupp`, accepting noncomputability for history distributions only.
 --   (c) keep indexing by `MDP.HistOfLength M t`, which is finite for each `t`, and never form a
 --       distribution over all of `Hist M`.
-inductive Hist (M : MDP R)  : Type where
+inductive Hist (M : MDP W)  : Type where
   | init : Fin M.S → Hist M
   | foll : Hist M → Fin M.A → Fin M.S → Hist M
 
@@ -105,12 +105,12 @@ def Hist.length : Hist M → ℕ
   | init _ => 0
   | Hist.foll h _ _ => 1 + length h
 
-def MDP.HistOfLength (M : MDP R) (t : ℕ) := {h : Hist M // h.length = t}
+def MDP.HistOfLength (M : MDP W) (t : ℕ) := {h : Hist M // h.length = t}
 
 -- TODO: We should prove that HistOfLength is a Fintype in order to be able to perform operations on it
 
 /-- Nonempty histories -/
-abbrev HistNonempty (M : MDP R) := {m : Hist M // m.length ≥ 1}
+abbrev HistNonempty (M : MDP W) := {m : Hist M // m.length ≥ 1}
 
 /-- Returns the last state of the history -/
 def Hist.last : Hist M → Fin M.S
@@ -119,7 +119,7 @@ def Hist.last : Hist M → Fin M.S
 
 /-- Number of histories of length t. -/
 @[simp]
-def MDP.numHist (M : MDP R) (t : ℕ) : ℕ := M.S * M.numStateActions^t
+def MDP.numHist (M : MDP W) (t : ℕ) : ℕ := M.S * M.numStateActions^t
 
 theorem numHist_zero : M.numHist 0 = M.S := by simp [MDP.numHist]
 
@@ -127,7 +127,7 @@ theorem numHist_zero : M.numHist 0 = M.S := by simp [MDP.numHist]
 section ExplicitHistIndex
 
 /-- Construct i-th history of length t -/
-def MDP.idxToHist (M : MDP R) (t : ℕ) (i : Fin (M.numHist t)) : M.HistOfLength t := 
+def MDP.idxToHist (M : MDP W) (t : ℕ) (i : Fin (M.numHist t)) : M.HistOfLength t := 
   match t with
   | Nat.zero => 
       let ii : Fin M.S := ⟨i.1, by have h := i.2; simp_all [MDP.numHist] ⟩
@@ -164,7 +164,7 @@ lemma MDPLib.Nat.sub_one_mul_add_self (n : ℕ) {m : ℕ} (h : 0 < m) : (m-1) * 
      exact Nat.le_mul_of_pos_left n h 
 
 /-- Compute the index of a history  -/
-def MDP.histToIdx (M : MDP R) (h : Hist M) : Fin (M.numHist h.length) := 
+def MDP.histToIdx (M : MDP W) (h : Hist M) : Fin (M.numHist h.length) := 
     match h with 
     | Hist.init s => ⟨s, by simp only [numHist, Hist.length, pow_zero, mul_one, Fin.is_lt]⟩
     | Hist.foll h' a s => 
@@ -211,23 +211,23 @@ open Function
 
 
 /-- A more convenient definition for constructing inverses  -/
-def MDP.histToIdx' (M : MDP R) (t : ℕ) (h : HistOfLength M t) : Fin (M.numHist t) := 
+def MDP.histToIdx' (M : MDP W) (t : ℕ) (h : HistOfLength M t) : Fin (M.numHist t) := 
     h.property ▸ M.histToIdx h.val
 
 /-- A more convenient definition for constructing inverses  -/
-def MDP.idxToHist' (M : MDP R) (t : ℕ) (i : Fin (M.numHist t)) : HistOfLength M t := 
+def MDP.idxToHist' (M : MDP W) (t : ℕ) (i : Fin (M.numHist t)) : HistOfLength M t := 
     M.idxToHist t i
 
-def MDP.histIdxValid (M : MDP R) := {ti : ℕ × ℕ | ti.2 < M.numHist ti.1}
+def MDP.histIdxValid (M : MDP W) := {ti : ℕ × ℕ | ti.2 < M.numHist ti.1}
 
-variable (M : MDP R) (t : ℕ) 
+variable (M : MDP W) (t : ℕ) 
 
 
 theorem exists_init_of_length_eq_zero (h : M.HistOfLength 0) : ∃s, h.val = Hist.init s := sorry 
 
 theorem exists_foll_of_length_eq_succ (h : M.HistOfLength t.succ) : ∃h',∃a,∃s, h.val = Hist.foll h' a s := sorry 
 
-theorem leftInverse_idxToHist_histToIdx (M : MDP R) : LeftInverse (M.idxToHist' t) (M.histToIdx' t)  := by
+theorem leftInverse_idxToHist_histToIdx (M : MDP W) : LeftInverse (M.idxToHist' t) (M.histToIdx' t)  := by
   intro h
   unfold MDP.idxToHist' MDP.histToIdx'
   --simp only
@@ -321,7 +321,7 @@ def MDP.histToTuple : HistNonempty M → Hist M × (Fin M.A) × (Fin M.S)
 
 open Function 
 
-variable {M : MDP R}
+variable {M : MDP W}
 
 -- mapping between tuples and histories are injective
 lemma leftInverse_histToTuple_tupleToHist : LeftInverse M.histToTuple M.tupleToHist := fun _ ↦ rfl
@@ -332,8 +332,8 @@ def tupleToHistNEEmbedding : Hist M × (Fin M.A) × (Fin M.S) ↪ HistNonempty M
 def tupleToHistEmbedding : Hist M × (Fin M.A) × (Fin M.S) ↪ Hist M  := ⟨λ x ↦  M.tupleToHist x, val_comp_tupleToHist_injective⟩
 
 --- state
-def MDP.stateToHist (M : MDP R) (s : Fin M.S) : Hist M := Hist.init s
-def MDP.histToState (M : MDP R) : Hist M → (Fin M.S) 
+def MDP.stateToHist (M : MDP W) (s : Fin M.S) : Hist M := Hist.init s
+def MDP.histToState (M : MDP W) : Hist M → (Fin M.S) 
     | Hist.init s => s 
     | Hist.foll _ _ s => s
     
@@ -372,7 +372,7 @@ theorem length_foll (h : Hist M) (a : M.Action) (s : M.State) : (h.foll a s).len
     by rewrite [Hist.length.eq_def]; exact Nat.add_comm 1 h.length
 
 /-- All histories of a given length  -/
-def MDP.historiesHorizon (M : MDP R) (t : ℕ) : Finset (Hist M) := 
+def MDP.historiesHorizon (M : MDP W) (t : ℕ) : Finset (Hist M) := 
   match t with
   | Nat.zero => M.setS.map stateToHistEmbedding 
   | Nat.succ t => ((M.historiesHorizon t) ×ˢ M.setA ×ˢ M.setS).map tupleToHistEmbedding
@@ -416,7 +416,7 @@ theorem length_eq_of_mem_historiesHorizon (t : ℕ) (h : Hist M) (hh : h ∈ M.h
     rw [ih h' hasi.1]
     exact Nat.add_comm 1 t'
 
-def MDP.historiesHorizonT (M : MDP R) (t : ℕ) : Finset (M.HistOfLength t) := 
+def MDP.historiesHorizonT (M : MDP W) (t : ℕ) : Finset (M.HistOfLength t) := 
     let H := M.historiesHorizon t 
     let f : {h : Hist M // h ∈ H} → M.HistOfLength t := fun hh => ⟨hh.1, length_eq_of_mem_historiesHorizon t hh.1 hh.2⟩
     have finj : Injective f := by unfold Injective f;  intro h₁ h₂ steq; grind only 
@@ -430,7 +430,7 @@ theorem mem_historiesHorizonT (t : ℕ) (h : M.HistOfLength t) : h ∈ M.histori
     use ⟨h.1, mem_historiesHorizon t h⟩
     exact ⟨Finset.mem_attach _ _, rfl⟩
     
-instance (M : MDP R) (t : ℕ) : Fintype (M.HistOfLength t) where 
+instance (M : MDP W) (t : ℕ) : Fintype (M.HistOfLength t) where 
     elems := M.historiesHorizonT t  
     complete := fun h => mem_historiesHorizonT t h 
 

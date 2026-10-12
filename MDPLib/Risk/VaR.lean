@@ -4,29 +4,31 @@ import Mathlib.Data.Set.Operations
 
 set_option linter.unusedSectionVars false
 
-variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
-         [CharZero R] [Archimedean R]
+variable {W : Type} [Field W] [LinearOrder W] [IsStrictOrderedRing W]
+         [CharZero W] [Archimedean W]
 
 
 namespace Risk
 
 open Findist FinRV Statistic
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω]
-variable {P : Findist R Ω} {X Y : FinRV Ω R} {t t₁ t₂ : R}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {V : Type} [LinearOrder V]
+variable {P : Findist W Ω} {X Y : FinRV Ω V} {t t₁ t₂ : V}
 
-def IsRiskLevel (α : R) : Prop := 0 ≤ α ∧ α < 1
+def IsRiskLevel (α : W) : Prop := 0 ≤ α ∧ α < 1
 
-def RiskLevel (R : Type) [Field R] [LinearOrder R] [IsStrictOrderedRing R] := { α : R // IsRiskLevel α}
+def RiskLevel (W : Type) [Field W] [LinearOrder W] [IsStrictOrderedRing W] := { α : W // IsRiskLevel α}
 
 --instance instCoeRiskUnit : Coe RiskLevel UnitI where
 --  coe := fun ⟨v,c⟩ => ⟨v, ⟨c.1, le_of_lt c.2⟩ ⟩
 
-def finVaRSet (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R) : Finset R :=
+-- possibly duplicated in a quantile definition
+def finVaRSet (P : Findist W Ω) (X : FinRV Ω V) (α : RiskLevel W) : Finset V :=
   let 𝓧 := X.quarks
   𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
 
-theorem finVaRSet_nonempty (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R) : (finVaRSet (Ω := Ω) P X α).Nonempty := by
+-- possibly duplicated in a quantile definition
+theorem finVaRSet_nonempty (P : Findist W Ω) (X : FinRV Ω V) (α : RiskLevel W) : (finVaRSet (Ω := Ω) P X α).Nonempty := by
     apply Finset.filter_nonempty_iff.mpr
     use X.minQuark
     constructor
@@ -37,13 +39,13 @@ theorem finVaRSet_nonempty (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R
 
 /-- Value-at-Risk of X at level α: VaR_α(X) = min { t ∈ X(Ω) | P[X ≤ t] ≥ α }.
     If we assume 0 ≤ α < 1, then the "else 0" branch is never used. -/
-def finVaR (P : Findist R Ω) (X : FinRV Ω R) (α : RiskLevel R) : R :=
+def finVaR (P : Findist W Ω) (X : FinRV Ω V) (α : RiskLevel W) : V :=
    let 𝓧 := X.quarks
    let 𝓢 := 𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
    have h : 𝓢.Nonempty := finVaRSet_nonempty P X α
    𝓢.max' h
 
-variable {α : RiskLevel R}
+variable {α : RiskLevel W}
 
 
 theorem finVaR_spec : ℙ[X <ᵣ (finVaR P X α) // P] ≤ α.val ∧ α.val < ℙ[X ≤ᵣ (finVaR P X α) // P]  := by
@@ -64,7 +66,8 @@ theorem finVaR_spec : ℙ[X <ᵣ (finVaR P X α) // P] ≤ α.val ∧ α.val < �
 
 notation "VaR[" X "//" P ", " α "]" => finVaR P X α
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist R Ω) (X Y : FinRV Ω R) (α : RiskLevel R) (q v : R)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {V : Type} [LinearOrder V]
+variable (P : Findist W Ω) (X Y : FinRV Ω V) (α : RiskLevel W) (q v : V)
 
 /-- Value `v` is the Value at Risk at `α` of `X` and probability `P`  -/
 def IsVaRQuantile : Prop := IsGreatest (quantile P X α.val) v
@@ -72,7 +75,8 @@ def IsVaRQuantile : Prop := IsGreatest (quantile P X α.val) v
 /-- A simpler, equivalent definition of Value at Risk  -/
 def IsVaR : Prop := IsGreatest (quantileLower P X α.val) v
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y : FinRV Ω R} {α : RiskLevel R} {q v q₁ q₂ : R}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {V : Type} [LinearOrder V]
+variable {P : Findist W Ω} {X Y : FinRV Ω V} {α : RiskLevel W} {q v q₁ q₂ : V}
 
 theorem isVaR_iff : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α.val < ℙ[X ≤ᵣ v // P]) :=
   by constructor
@@ -82,12 +86,13 @@ theorem isVaR_iff : IsVaR P X α v ↔ (ℙ[X <ᵣ v // P] ≤ α.val ∧ α.val
             simp_all [IsVaR,IsGreatest,quantileLower,IsQuantileLower,probability_ge_eq_one_sub]
          linarith
        · by_contra! hc
-         obtain ⟨q,hq⟩ := exists_probability_leq_eq_probability_lt P X v
+         have hlt : v < X.maxQuark := lt_maxQuark_of_probability_leq_lt_one (lt_of_le_of_lt hc (Set.Ico.coe_lt_one α))
+         obtain ⟨q, hqv, hqp, -⟩ := exists_probability_leq_eq_probability_lt_of_lt_maxQuark P X v hlt
          have h3 : q ∈ quantileLower P X α.val := by
-            rw [hq.2,probability_lt_eq_one_sub] at hc
+            rw [hqp,probability_lt_eq_one_sub] at hc
             suffices ℙ[X≥ᵣq//P] ≥ 1 - α.val from this 
             linarith
-         exact not_lt_of_ge (h.2 h3) hq.1
+         exact not_lt_of_ge (h.2 h3) hqv
      · intro h
        constructor
        · exact mem_quantileLower_of_probability_lt h.1
@@ -151,24 +156,11 @@ theorem isVaRQuantile_iff : IsVaRQuantile P X α v ↔ (ℙ[X <ᵣ v // P] ≤ �
 
 section VaR_properties
 
-variable {P : Findist R Ω} {X Y : FinRV Ω R} {q q₁ v₁ v₂ c : R} {α : RiskLevel R} {f : R → R}
+variable {P : Findist W Ω} {X Y : FinRV Ω V} {q q₁ v₁ v₂ : V} {α : RiskLevel W} {f : V → V}
+
 
 theorem IsVaR.le_of_le : X ≤ Y → IsVaR P X α v₁ → IsVaR P Y α v₂ → v₁ ≤ v₂ :=
   fun hle hv1 hv2 => upperBounds_mono_of_isCofinalFor (isCofinalFor_quantileLower_of_le hle) hv2.2 hv1.1
-
--- TODO(mathlib): literal alias of `add_left_strictMono` -- use the Mathlib name at call sites.
-theorem const_monotone_univ : StrictMono (fun x ↦ x + c)  := add_left_strictMono
-
-theorem IsVaR.add_const : IsVaR P X α v → IsVaR P (X+c•1) α (v+c) := by
-    intro h
-    rw [IsVaR,quantileLower_add_const_eq_image]
-    exact MonotoneOn.map_isGreatest (Monotone.monotoneOn add_left_mono
-                                    (quantileLower P X α.val)) h
-
-theorem finVaR_add_const : VaR[X + c•1 // P, α] = VaR[X // P, α] + c := by
-  have h1 : IsVaR P (X + c•1) α (VaR[X + c•1 // P, α]) := isVaR_finVaR
-  have h2 : IsVaR P (X + c•1) α (VaR[X // P, α] + c) := IsVaR.add_const isVaR_finVaR
-  exact le_antisymm (h2.2 h1.1) (h1.2 h2.1)
 
 /-- If `f` is strictly monotone then `f(VaR[X])` is the VaR of `f∘X`. -/
 theorem IsVaR.comp_of_strictMono (hm : StrictMono f) (hv : IsVaR P X α v) : IsVaR P (f ∘ X) α (f v) := by
@@ -184,13 +176,35 @@ theorem finVaR_comp_of_strictMono (hm : StrictMono f) : VaR[f ∘ X // P, α] = 
   have h2 : IsVaR P (f ∘ X) α (f (VaR[X // P, α])) := IsVaR.comp_of_strictMono hm isVaR_finVaR
   exact le_antisymm (h2.2 h1.1) (h1.2 h2.1)
 
+section CashInvariance
+
+-- adds or multiplies constants to the values, so they are in `W`
+variable {X : FinRV Ω W} {v c : W}
+
+-- TODO(mathlib): literal alias of `add_left_strictMono` -- use the Mathlib name at call sites.
+theorem const_monotone_univ : StrictMono (fun x ↦ x + c)  := add_left_strictMono
+
+theorem IsVaR.add_const : IsVaR P X α v → IsVaR P (X+c•1) α (v+c) := by
+    intro h
+    rw [IsVaR,quantileLower_add_const_eq_image]
+    exact MonotoneOn.map_isGreatest (Monotone.monotoneOn add_left_mono
+                                    (quantileLower P X α.val)) h
+
+theorem finVaR_add_const : VaR[X + c•1 // P, α] = VaR[X // P, α] + c := by
+  have h1 : IsVaR P (X + c•1) α (VaR[X + c•1 // P, α]) := isVaR_finVaR
+  have h2 : IsVaR P (X + c•1) α (VaR[X // P, α] + c) := IsVaR.add_const isVaR_finVaR
+  exact le_antisymm (h2.2 h1.1) (h1.2 h2.1)
+
 -- TODO(naming): the statement writes `finVaR P (fun ω => c * X ω)` where the surrounding
 -- lemmas use the `c • X` / notation form; `finVaR_const_mul` should be stated the same way
 -- as its siblings so the names line up with the statements.
 theorem finVaR_const_mul (hc : c > 0) : finVaR P (fun ω => c * X ω) α = c * finVaR P X α :=
   finVaR_comp_of_strictMono (fun _ _ hab => mul_lt_mul_of_pos_left hab hc)
 
+end CashInvariance
+
 end VaR_properties
+
 
 end Risk
 

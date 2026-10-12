@@ -4,8 +4,8 @@ import Mathlib.Data.Fin.VecNotation
 
 set_option linter.unusedSectionVars false
 
-variable {R : Type} [Field R] [LinearOrder R] [IsStrictOrderedRing R]
-         [CharZero R] [Archimedean R]
+variable {W : Type} [Field W] [LinearOrder W] [IsStrictOrderedRing W]
+         [CharZero W] [Archimedean W]
 
 
 -- TODO(naming): Mathlib states order lemmas in the `≤` / `<` direction and derives the `≥`
@@ -21,7 +21,8 @@ section Definition
 
 --def UnitI := {α : ℚ // 0 ≤ α ∧ α ≤ 1}
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] (P : Findist R Ω) (X Y : FinRV Ω R) (α : R) (q v : R)
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {V : Type} [LinearOrder V]
+variable (P : Findist W Ω) (X Y : FinRV Ω V) (α : W) (q v : V)
 
 /-- Proof the `q` is an `α`-quantile of `X` --/
 def IsQuantile  : Prop := ℙ[X ≤ᵣ q // P ] ≥ α ∧ ℙ[X ≥ᵣ q // P] ≥ 1 - α
@@ -30,10 +31,10 @@ def IsQuantile  : Prop := ℙ[X ≤ᵣ q // P ] ≥ α ∧ ℙ[X ≥ᵣ q // P] 
 def IsQuantileLower : Prop := ℙ[X ≥ᵣ q // P] ≥ 1 - α
 
 /-- Set of quantiles at a level `α`  --/
-def quantile : Set R := {q | IsQuantile P X α q}
+def quantile : Set V := {q | IsQuantile P X α q}
 
 /-- Set of lower bounds on a quantile at `α` -/
-def quantileLower : Set R := {q | IsQuantileLower P X α q}
+def quantileLower : Set V := {q | IsQuantileLower P X α q}
 
 /-- Value `q` is maximum quantile at `α` of `X` and probability `P`  -/
 def IsGreatestQuantile : Prop := IsGreatest (quantile P X α) q
@@ -41,9 +42,35 @@ def IsGreatestQuantile : Prop := IsGreatest (quantile P X α) q
 /-- Value `q` is minimum quantile at `α` of `X` and probability `P`  -/
 def IsLeastQuantile : Prop := IsLeast (quantile P X α) q
 
+
+@[to_dual (dont_translate := W)]
+def aboveQuantileSet (P : Findist W Ω) (X : FinRV Ω V) (α : Set.Ico (0:W) 1) : Finset V :=
+  let 𝓧 := X.quarks
+  𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
+
+@[to_dual (dont_translate := W)]
+theorem aboveQuantileSet_nonempty (P : Findist W Ω) (X : FinRV Ω V) (α : Set.Ico (0:W) 1) : 
+    (aboveQuantileSet (Ω := Ω) P X α).Nonempty := by
+    apply Finset.filter_nonempty_iff.mpr
+    use X.minQuark
+    constructor
+    · exact minQuark_mem_quarks
+    · have h : ℙ[X <ᵣ X.minQuark // P] = 0 := probability_lt_minQuark
+      rewrite [h]
+      exact α.2.1 
+      
+/-- Computes the maximum quantile value -/
+def maxQuantile (P : Findist W Ω) (X : FinRV Ω V) (α : Set.Ico (0:W) 1) : V :=
+   let 𝓧 := X.quarks
+   let 𝓢 := 𝓧.filter (fun t ↦ ℙ[X <ᵣ t // P] ≤ α.val)
+   have h : 𝓢.Nonempty := aboveQuantileSet_nonempty P X α
+   𝓢.max' h
+
+
 end Definition
 
-variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {P : Findist R Ω} {X Y : FinRV Ω R} {α : R} {q v : R}
+variable {Ω : Type} [FinEnum Ω] [Nonempty Ω] {V : Type} [LinearOrder V]
+variable {P : Findist W Ω} {X Y : FinRV Ω V} {α : W} {q v : V}
 
 theorem le_probability_leq_of_mem_quantile : q ∈ quantile P X α → ℙ[X ≤ᵣ q // P ] ≥ α := by simp_all [quantile, IsQuantile]
 
@@ -96,6 +123,9 @@ theorem isCofinalFor_quantileLower_of_le (hle : X ≤ Y) : IsCofinalFor (quantil
 
 section Negation 
 
+-- negates the values, so they are in `W`
+variable {X : FinRV Ω W} {q : W}
+
 theorem isQuantile_neg_iff : (IsQuantile P X α q) ↔ (IsQuantile P (-X) (1-α) (-q)) := by 
   rw [IsQuantile, IsQuantile, probability_geq_eq_neg_leq_neg,probability_leq_eq_neg_geq_neg]
   have hα : 1-(1-α) = α := by ring 
@@ -122,7 +152,7 @@ end UpperLowerBounds
 
 section Transformations
 
-variable {f : R → R}
+variable {f : V → V}
 
 -- the reverse implications of the following results do not hold
 theorem mem_quantile_comp_of_monotone (hm : Monotone f) : q ∈ quantile P X α → (f q) ∈ quantile P (f ∘ X) α := by
@@ -165,7 +195,9 @@ theorem isCoinitialFor_quantile_comp_image_of_monotone (hm : Monotone f) : IsCoi
 
 end Transformations
 
-variable {c : R}
+-- adds a constant to the values, so they are in `W`
+variable {c : W} {X : FinRV Ω W} {q : W}
+
 
 theorem mem_quantileLower_add_const_iff : q ∈ quantileLower P X α ↔ (q+c) ∈ quantileLower P (X+c•1) α := by
   constructor
